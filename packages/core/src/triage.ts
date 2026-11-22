@@ -24,6 +24,8 @@ export interface TriageInput {
   symptoms?: SymptomEntry[];
   /** Only confirmed red flags should be passed in. */
   redFlags?: Partial<Record<RedFlag, boolean>>;
+  /** Red flags the patient said are not happening now: never an emergency, but seen today. */
+  declinedRedFlags?: RedFlag[];
 }
 
 export interface Reason {
@@ -78,12 +80,14 @@ function emergencyReasons(input: TriageInput, hr: number | null): Reason[] {
   for (const [flag, on] of Object.entries(input.redFlags ?? {}) as [RedFlag, boolean][]) {
     if (on) reasons.push({ code: `red_flag:${flag}`, ...RED_FLAG_TEXT[flag] });
   }
+  const declined = new Set<string>(input.declinedRedFlags ?? []);
   for (const code of rules.emergencySymptoms) {
+    if (declined.has(code)) continue;
     if (has(code) && !reasons.some((r) => r.code === `red_flag:${code}`)) {
       reasons.push(symptomReason(code, 'red_flag'));
     }
   }
-  if (has('breathlessness') && symptoms.find((s) => s.code === 'breathlessness')?.severity === 'severe') {
+  if (!declined.has('breathlessness') && has('breathlessness') && symptoms.find((s) => s.code === 'breathlessness')?.severity === 'severe') {
     if (!reasons.some((r) => r.code === 'red_flag:breathlessness')) {
       reasons.push({ code: 'red_flag:breathlessness', ...RED_FLAG_TEXT.breathlessness });
     }
@@ -94,10 +98,10 @@ function emergencyReasons(input: TriageInput, hr: number | null): Reason[] {
   if (hr !== null && hr < rules.heartRate.emergencyBelow) {
     reasons.push({ code: 'hr_very_low', hi: `धड़कन बहुत धीमी (${Math.round(hr)}/मिनट)`, en: `Very low heart rate (${Math.round(hr)} bpm)` });
   }
-  if (input.age < rules.childAgeUnder && has('lethargy') && !input.redFlags?.child_lethargic) {
+  if (input.age < rules.childAgeUnder && has('lethargy') && !input.redFlags?.child_lethargic && !declined.has('child_lethargic')) {
     reasons.push({ code: 'red_flag:child_lethargic', ...RED_FLAG_TEXT.child_lethargic });
   }
-  if (input.pregnant && has('vaginal_bleeding') && !input.redFlags?.pregnancy_bleeding) {
+  if (input.pregnant && has('vaginal_bleeding') && !input.redFlags?.pregnancy_bleeding && !declined.has('pregnancy_bleeding')) {
     reasons.push({ code: 'red_flag:pregnancy_bleeding', ...RED_FLAG_TEXT.pregnancy_bleeding });
   }
   return reasons;
@@ -132,6 +136,9 @@ function todayReasons(input: TriageInput, hr: number | null): Reason[] {
       const base = symptomReason(s.code);
       reasons.push({ ...base, code: `severe:${s.code}`, hi: `तेज़ ${base.hi}`, en: `Severe ${base.en.toLowerCase()}` });
     }
+  }
+  for (const flag of input.declinedRedFlags ?? []) {
+    reasons.push({ code: `declined:${flag}`, hi: `${RED_FLAG_TEXT[flag].hi} (अभी नहीं)`, en: `${RED_FLAG_TEXT[flag].en} (not right now)` });
   }
   if (input.age >= rules.elderlyAgeFrom && has('breathlessness')) {
     reasons.push({ code: 'elderly_breathless', hi: 'बुज़ुर्ग + साँस फूलना', en: 'Elderly with breathlessness' });

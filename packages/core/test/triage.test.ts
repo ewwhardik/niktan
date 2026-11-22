@@ -225,3 +225,22 @@ describe('vision referral', () => {
     expect(visionNeedsReferral(null)).toBe(false);
   });
 });
+
+describe('declined red flags', () => {
+  it('chest pain the patient says is not happening now is see-today, not emergency', () => {
+    const r = triage({ ...adult, symptoms: [sym('chest_pain')], declinedRedFlags: ['chest_pain'] });
+    expect(r.priority).toBe('today');
+    expect(r.reasons.map((x) => x.code)).toContain('declined:chest_pain');
+  });
+
+  it('declining one flag does not hide another', () => {
+    const r = triage({ ...adult, symptoms: [sym('chest_pain'), sym('seizure')], declinedRedFlags: ['chest_pain'] });
+    expect(r.priority).toBe('emergency');
+  });
+
+  it('declined pregnancy bleeding is see-today in gynaecology', () => {
+    const r = triage({ ...adult, pregnant: true, symptoms: [sym('vaginal_bleeding')], declinedRedFlags: ['pregnancy_bleeding'] });
+    expect(r.priority).toBe('today');
+    expect(r.department).toBe('gynaecology');
+  });
+});

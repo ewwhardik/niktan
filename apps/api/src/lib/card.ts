@@ -56,6 +56,7 @@ export async function loadCard(env: Env, sessionId: string): Promise<CardData | 
     symptoms: symptoms?.symptoms ?? [],
     // Red flags count only once the user has confirmed what we understood.
     redFlags: symptoms?.confirmed ? symptoms.redFlags : {},
+    declinedRedFlags: symptoms?.declined ?? [],
   };
   return {
     session: {

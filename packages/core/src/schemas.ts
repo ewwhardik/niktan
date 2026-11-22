@@ -72,6 +72,8 @@ export const Symptoms = z.object({
   summaryHi: z.string().max(500).default(''),
   /** Red flags are acted on only after the user confirms them once. */
   confirmed: z.boolean().default(false),
+  /** Red flags the user said are not happening right now; they become see-today reasons. */
+  declined: z.array(z.enum(RED_FLAGS)).default([]),
 });
 export type Symptoms = z.infer<typeof Symptoms>;
 
