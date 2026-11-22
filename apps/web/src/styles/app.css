@@ -1,0 +1,286 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@custom-variant hi (&:where(:lang(hi), :lang(hne)));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-press: var(--accent-press);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-ink: var(--accent-soft-ink);
+  --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--text-on-accent);
+  --color-emergency: var(--emergency);
+  --color-emergency-on: var(--emergency-on);
+  --color-emergency-tint: var(--emergency-tint);
+  --color-emergency-ink: var(--emergency-ink);
+  --color-seetoday: var(--seetoday);
+  --color-seetoday-on: var(--seetoday-on);
+  --color-seetoday-tint: var(--seetoday-tint);
+  --color-seetoday-ink: var(--seetoday-ink);
+  --color-seetoday-edge: var(--seetoday-edge);
+  --color-routine: var(--routine);
+  --color-routine-on: var(--routine-on);
+  --color-routine-tint: var(--routine-tint);
+  --color-routine-ink: var(--routine-ink);
+  --color-sim: var(--sim);
+  --color-sim-tint: var(--sim-tint);
+}
+
+@theme {
+  --font-sans: "Inter Variable", "Noto Sans Devanagari Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "Inter Variable", system-ui, sans-serif;
+
+  --text-hero-num: clamp(3.5rem, 16vw, 4.5rem);
+  --text-hero-num--line-height: 1;
+  --text-display: clamp(2rem, 8.5vw, 2.375rem);
+  --text-display--line-height: 1.1;
+  --text-title-1: 1.625rem;
+  --text-title-1--line-height: 1.2;
+  --text-title-2: 1.3125rem;
+  --text-title-2--line-height: 1.25;
+  --text-title-3: 1.125rem;
+  --text-title-3--line-height: 1.3;
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.5;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.35;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.35;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-1: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 0 0 1px rgb(var(--shadow-color) / 0.04);
+  --shadow-2: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 4px 12px -2px rgb(var(--shadow-color) / 0.08);
+  --shadow-3: 0 2px 6px rgb(var(--shadow-color) / 0.06), 0 16px 40px -8px rgb(var(--shadow-color) / 0.18);
+  --shadow-4: 0 4px 12px rgb(var(--shadow-color) / 0.08), 0 32px 72px -12px rgb(var(--shadow-color) / 0.28);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+    font-size: var(--text-body-lg);
+  }
+  :lang(hi),
+  :lang(hne) {
+    line-height: 1.65;
+    letter-spacing: 0 !important;
+    font-weight: 450;
+  }
+  :lang(hi) h1,
+  :lang(hi) h2,
+  :lang(hne) h1,
+  :lang(hne) h2 {
+    line-height: 1.35;
+    font-weight: 600;
+  }
+  :lang(hi) strong,
+  :lang(hi) b {
+    font-weight: 600;
+  }
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .tnum {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+  .screen {
+    min-height: 100dvh;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  .cta-dock {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom) + var(--kb-inset, 0px));
+  }
+  .glass {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+  }
+  :root[data-perf="lite"] .glass {
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background: var(--bg);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  .verdict-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .verdict-glow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: -1;
+    box-shadow: 0 18px 50px -12px color-mix(in oklab, var(--verdict, var(--accent)) 60%, transparent);
+    opacity: var(--glow, 0);
+    transition: opacity 700ms var(--ease-out-soft);
+  }
+  :root[data-perf="lite"] .verdict-glow::after {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+  }
+}
+
+/* Scan ring around the camera oval: CSS on the compositor so it stays smooth while MediaPipe
+   uses the main thread. Once a heart rate is known, the ring beats at the user's own rate. */
+.scan-ring {
+  --ring: rgb(255 255 255 / 0.7);
+}
+.scan-ring[data-state="locked"] {
+  --ring: #a898ff;
+}
+.scan-ring[data-state="issue"] {
+  --ring: rgb(255 255 255 / 0.9);
+}
+.scan-ring .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid var(--ring);
+  transition: border-color 320ms var(--ease-out-soft);
+  will-change: transform, opacity;
+}
+.ring--breathe {
+  animation: ring-breathe 2.4s var(--ease-in-out-soft) infinite;
+}
+.ring--echo {
+  animation: ring-echo 2.4s var(--ease-out-soft) infinite;
+  opacity: 0;
+}
+.ring--echo-2 {
+  animation-delay: 1.2s;
+}
+.scan-ring[data-state="issue"] .ring--breathe {
+  border-style: dashed;
+  animation-play-state: paused;
+}
+.scan-ring[data-state="issue"] .ring--echo,
+.scan-ring[data-state="searching"] .ring--echo {
+  display: none;
+}
+@keyframes ring-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.035);
+    opacity: 1;
+  }
+}
+@keyframes ring-echo {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.14);
+    opacity: 0;
+  }
+}
+:root[data-perf="lite"] .ring--echo {
+  display: none;
+}
+
+/* Emergency CTA: three slow glow breaths, then still. */
+.cta-emergency {
+  position: relative;
+}
+.cta-emergency::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--emergency) 35%, transparent);
+  opacity: 0;
+  animation: glow-breathe 2s var(--ease-in-out-soft) 0.9s 3;
+}
+@keyframes glow-breathe {
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Skeleton: slow opacity shimmer, no moving gradient. */
+.skeleton {
+  background: var(--surface-sunken);
+  animation: skeleton 1.6s ease-in-out infinite;
+}
+@keyframes skeleton {
+  50% {
+    opacity: 0.6;
+  }
+}

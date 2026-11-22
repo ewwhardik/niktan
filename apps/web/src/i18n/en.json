@@ -21,12 +21,13 @@
     "offline": "You are offline. The checks still work; results will sync later.",
     "error": "Something went wrong. Please try again.",
     "minutes": "{{n}} min",
-    "language": "Language"
+    "language": "Language",
+    "min": "min"
   },
   "landing": {
     "greeting": "How are you feeling?",
     "cta": "Start 3-minute check",
-    "screened": "{{count}} people screened",
+    "screened": "people screened",
     "steps": "Face · Eyes · Vision · Hearing · Symptoms",
     "privacy": "Your face and eye images never leave your phone.",
     "hospital": "Hospital staff login",
@@ -87,7 +88,8 @@
     "jaundice": "Yellow eyes (possible jaundice)",
     "cataract": "White pupil (possible cataract)",
     "normal": "Looks normal",
-    "check": "Get checked"
+    "check": "Get checked",
+    "openCamera": "Turn on camera"
   },
   "vision": {
     "title": "Vision test",
@@ -112,7 +114,10 @@
     "noEarphones": "No earphones? Skip this step.",
     "pass": "Hearing looks fine",
     "refer": "Get your hearing checked by ENT",
-    "progress": "{{n}} of {{total}}"
+    "progress": "{{n}} of {{total}}",
+    "missing": "Hearing-test audio is not installed on this server yet. Please skip this step.",
+    "left": "Left",
+    "right": "Right"
   },
   "symptoms": {
     "title": "What is troubling you?",
@@ -166,7 +171,9 @@
     "called": "You are being called!",
     "done": "Visit complete",
     "leave": "Leave queue",
-    "priorityNote": "Patients who need care sooner are seen first."
+    "priorityNote": "Patients who need care sooner are seen first.",
+    "aheadLabel": "people ahead of you",
+    "etaLabel": "estimated wait"
   },
   "thali": {
     "title": "Scan your meal",

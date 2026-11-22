@@ -109,7 +109,7 @@ export function featuresFromPixels(px: number[][]): Features | null {
 export function predict(features: Features): { probability: number; logit: number; flag: boolean } {
   let logit = model.intercept;
   model.features.forEach((name, i) => {
-    const z = (features[name as keyof Features] - model.standardization.mean[i]!) / model.standardization.std[i]!;
+    const z = ((features[name as keyof Features] ?? 0) - model.standardization.mean[i]!) / model.standardization.std[i]!;
     logit += model.coefficients[i]! * z;
   });
   const probability = 1 / (1 + Math.exp(-logit));

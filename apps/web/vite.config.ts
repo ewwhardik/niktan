@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
@@ -13,8 +15,8 @@ export default defineConfig({
         short_name: 'NikTan',
         description: 'A 3-minute phone health check that gets you triaged before you reach the OPD.',
         lang: 'hi',
-        theme_color: '#0B0F0E',
-        background_color: '#FAFAF7',
+        theme_color: '#5B3FD6',
+        background_color: '#FBFAF7',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
