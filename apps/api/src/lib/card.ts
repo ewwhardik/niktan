@@ -86,3 +86,9 @@ export async function saveTriage(env: Env, sessionId: string, result: TriageResu
     .bind(sessionId, result.priority, result.department, JSON.stringify(result.reasons), result.rulesVersion, Date.now())
     .run();
 }
+
+/** Staff and QR recipients can view a card without receiving its owner's editing handle. */
+export function shareableCard(card: CardData) {
+  const { id: _owner, ...session } = card.session;
+  return { ...card, session };
+}

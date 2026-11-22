@@ -72,6 +72,29 @@ describe('POS heart rate', () => {
     expect(estimate(synthetic(72, 3)).heartRate).toBeNull();
   });
 
+  it('does not interpolate across multiple missing stretches', () => {
+    const samples = synthetic(72, 30).filter(({ t }) => t % 8 < 7);
+    expect(estimate(samples).heartRate).toBeNull();
+  });
+
+  it('rejects a recording when clean windows disagree on pulse rate', () => {
+    const samples = [
+      ...synthetic(60, 15),
+      ...synthetic(110, 15).map((sample) => ({ ...sample, t: sample.t + 15 })),
+    ];
+    expect(estimate(samples).heartRate).toBeNull();
+  });
+
+  it('tolerates occasional rejected frames but withholds an estimate with sustained low quality', () => {
+    const samples = synthetic(72, 20);
+    const estimateWithRejections = (interval: number) => estimate(
+      samples.filter((_, i) => i % interval !== 0),
+      { rejectedTimes: samples.filter((_, i) => i % interval === 0).map(({ t }) => t) },
+    );
+    expect(estimateWithRejections(9).heartRate).toBeCloseTo(72, 0);
+    expect(estimateWithRejections(3).heartRate).toBeNull();
+  });
+
   it('motion lowers quality', () => {
     const still = estimate(synthetic(72, 20));
     const moving = estimate(synthetic(72, 20), { motion: 0.6 });

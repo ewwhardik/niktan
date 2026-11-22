@@ -48,6 +48,7 @@ export const EyeFlags = z.object({
 export type EyeFlags = z.infer<typeof EyeFlags>;
 
 export const Vision = z.object({
+  distanceMm: z.union([z.literal(400), z.literal(2000)]).optional(),
   leftLogMar: z.number().min(-0.3).max(1.3).nullable(),
   rightLogMar: z.number().min(-0.3).max(1.3).nullable(),
 });

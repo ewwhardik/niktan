@@ -14,6 +14,10 @@ describe('vision optotype size', () => {
   it('logMAR 1.0 is ten times larger', () => {
     expect(optotypeMm(1, 400) / optotypeMm(0, 400)).toBeCloseTo(10, 1);
   });
+  it('uses the 6/12 angle at both viewing distances', () => {
+    expect(optotypeMm(0.3, 2000)).toBeCloseTo(5.804, 3);
+    expect(optotypeMm(0.3, 400)).toBeCloseTo(1.161, 3);
+  });
   it('maps logMAR to Snellen', () => {
     expect(snellen6(0)).toBe('6/6');
     expect(snellen6(0.48)).toBe('6/18');
@@ -78,6 +82,14 @@ describe('digits in noise', () => {
     const r = dinResult(s)!;
     expect(r.srtDb).toBeGreaterThan(-6);
     expect(r.result).toBe('refer');
+  });
+
+  it.each([[-9.56, 'pass'], [-9.55, 'pass'], [-9.54, 'refer']] as const)('classifies %f dB SNR as %s', (snr, result) => {
+    const state = startDin();
+    const history = Array.from({ length: DIN.triplets }, (_, index) => ({
+      digits: state.current, response: state.current, correct: true, snr: index < DIN.discard ? 0 : snr,
+    }));
+    expect(dinResult({ ...state, done: true, history })).toEqual({ srtDb: snr, result });
   });
 
   it('speech gain sets the requested SNR', () => {

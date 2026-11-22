@@ -2,7 +2,7 @@
   "app": {
     "name": "NikTan",
     "tagline": "Your phone is the first checkup.",
-    "sub": "A 3-minute health check that gets you seen faster at the OPD.",
+    "sub": "Check your symptoms, prepare a health card and join the outpatient queue from your phone.",
     "notDiagnosis": "This is a screening, not a doctor's diagnosis."
   },
   "common": {
@@ -31,18 +31,20 @@
     "steps": "Face · Eyes · Vision · Hearing · Symptoms",
     "privacy": "Your face and eye images never leave your phone.",
     "hospital": "Hospital staff login",
-    "thali": "Scan your meal"
+    "thali": "Scan your meal",
+    "resume": "Open my health card"
   },
   "consent": {
     "title": "Before we begin",
     "onDevice": "Processed on your phone only",
     "onDeviceList": "Face video, eye photos, vision and hearing tests",
     "uploaded": "Sent to our server",
-    "uploadedList": "Age, sex, test numbers and flags, symptom text",
-    "notStored": "Never stored",
-    "notStoredList": "Your name, phone number, Aadhaar, face or eye images",
-    "retention": "You can delete your data anytime from the result screen.",
-    "agree": "I agree, start"
+    "uploadedList": "Age, sex, pregnancy status, screening results and confirmed symptoms. Optional voice and meal photos go to speech or image providers. You can type, tap or enter dishes manually.",
+    "notStored": "Leave out identifying details",
+    "notStoredList": "Use symptoms only. Leave names, phone numbers and Aadhaar out of recordings, text and feedback.",
+    "retention": "Server records are cleared after 30 days by a daily cleanup. Use Delete my data on your card to erase your session earlier and clear the local copy.",
+    "agree": "I agree, start",
+    "purpose": "We use this information to prepare your screening card and show it to the hospital you choose when you join its queue."
   },
   "info": {
     "title": "A little about you",
@@ -64,6 +66,16 @@
     "symptoms": "Symptoms",
     "of": "Step {{n}} of {{total}}"
   },
+  "voiceGuide": {
+    "listen": "Listen to instructions",
+    "stop": "Stop instructions",
+    "unavailable": "Audio instructions are unavailable.",
+    "face": "Hold the phone at arm’s length in even light. Keep your face inside the oval. Look straight ahead and stay still for thirty seconds.",
+    "eye": "In even light, look straight at the camera and take the first photo. For the second photo, gently pull down your lower eyelid, look up, and fit the red inner lid inside the box.",
+    "vision": "Place a card face down on the screen and match the guide to the short edge. Choose your testing distance, then cover one eye at a time. Tap the arrow that shows which way the E opens.",
+    "hearing": "Wear earphones in a quiet place. Check the left and right sounds first. You will hear three digits with noise. Enter the digits in the order you hear them.",
+    "symptoms": "Press and hold the microphone while you describe how you feel, then release it. You can also type or select symptoms. Check the list before you continue."
+  },
   "face": {
     "title": "Heart rate from your face",
     "instruction": "Hold the phone at arm's length. Keep your face inside the circle and stay still.",
@@ -71,6 +83,9 @@
     "start": "Start 30-second scan",
     "scanning": "Scanning… stay still",
     "noFace": "Face not found. Move into the circle.",
+    "manyFaces": "Keep only your face in the frame.",
+    "framing": "Move closer so your face fills the guide.",
+    "lighting": "Use even light across your forehead and cheeks.",
     "tooDark": "Too dark. Move into better light.",
     "moving": "Please hold still",
     "result": "Your heart rate",
@@ -82,42 +97,61 @@
   "eye": {
     "title": "Eye check",
     "instruction": "Gently pull your lower eyelid down and look up. Keep the inner red part of the eyelid in the box.",
+    "align": "Place one lower eyelid in the centre of the box. Keep your whole face visible.",
     "torch": "Turn on good light. Avoid coloured light.",
     "capture": "Take photo",
     "pallor": "Pale eyelid (possible anaemia)",
-    "jaundice": "Yellow eyes (possible jaundice)",
-    "cataract": "White pupil (possible cataract)",
-    "normal": "Looks normal",
+    "jaundice": "Yellow eyes (experimental)",
+    "cataract": "White pupil (experimental)",
+    "normal": "No flag in this image",
     "check": "Get checked",
     "openCamera": "Turn on camera"
   },
   "vision": {
     "title": "Vision test",
-    "calibrate": "Place any bank or Aadhaar card on the screen and match the box to its width.",
-    "distance": "Hold the phone 40 cm away (about one forearm).",
-    "coverLeft": "Cover your LEFT eye",
-    "coverRight": "Cover your RIGHT eye",
+    "calibrate": "Place a bank or Aadhaar card face down on the screen. Match the guide to the short edge.",
+    "distance": "Hold the phone 40 cm from your eyes. Wear your usual reading glasses if you use them.",
+    "coverLeft": "Cover your left eye without pressing",
+    "coverRight": "Cover your right eye without pressing",
     "instruction": "Which way are the arms of the E pointing? Swipe or tap the arrow.",
     "unsure": "Can't see",
     "result": "Vision",
     "left": "Left eye",
     "right": "Right eye",
     "tooClose": "Move the phone a little further",
-    "tooFar": "Bring the phone a little closer"
+    "tooFar": "Bring the phone a little closer",
+    "mode": "Viewing distance",
+    "far": "Distance vision (2 m)",
+    "near": "Near vision (40 cm)",
+    "helper": "Measure 2 m from your eyes to the phone. Wear your usual distance glasses if you use them. Ask a helper to hold the phone and enter the direction you point.",
+    "resolution": "This screen cannot display the test clearly at 40 cm. Try the 2 m test.",
+    "pass": "Passed this vision screening",
+    "nearRefer": "Arrange a near-vision check",
+    "up": "Up",
+    "down": "Down",
+    "leftArrow": "Left",
+    "rightArrow": "Right"
   },
   "hearing": {
     "title": "Hearing test",
-    "earphones": "Put on earphones. This test needs them.",
+    "earphones": "Put on earphones and set the volume to a comfortable level. This test uses spoken Hindi digits.",
     "leftRight": "Do you hear the sound in the correct ear?",
     "volume": "Set a comfortable volume",
     "instruction": "You will hear 3 numbers with noise. Type the numbers you hear.",
     "noEarphones": "No earphones? Skip this step.",
-    "pass": "Hearing looks fine",
-    "refer": "Get your hearing checked by ENT",
+    "pass": "Passed this experimental screen",
+    "refer": "Arrange a hearing check",
     "progress": "{{n}} of {{total}}",
-    "missing": "Hearing-test audio is not installed on this server yet. Please skip this step.",
+    "missing": "The hearing audio stopped or could not load. You can skip this step.",
     "left": "Left",
-    "right": "Right"
+    "right": "Right",
+    "experimental": "Experimental Hindi hearing screening. The cutoff is provisional.",
+    "adults": "This experimental hearing screening is for adults.",
+    "practice": "Play practice digits",
+    "start": "Start hearing test",
+    "unable": "I couldn’t hear all three digits",
+    "delete": "Delete last digit",
+    "confirmEars": "I heard each tone in the matching ear"
   },
   "symptoms": {
     "title": "What is troubling you?",
@@ -133,7 +167,10 @@
     "nothing": "No problems, just a check-up",
     "duration": "{{n}} days",
     "severe": "Severe",
-    "mild": "Mild"
+    "mild": "Mild",
+    "micIssue": "Speech could not be transcribed. You can type or select symptoms below.",
+    "voiceNotice": "Holding to speak sends a short audio clip for transcription. You can type or select symptoms below.",
+    "browserFallback": "If available, holding the microphone again uses your browser’s speech recognition service."
   },
   "card": {
     "title": "Your health card",
@@ -159,7 +196,14 @@
     "normal": "Normal",
     "checkFlag": "Check",
     "refer": "Refer",
-    "whatToDo": "What to do"
+    "whatToDo": "What to do",
+    "shareUnavailable": "This card link is unavailable or has expired.",
+    "syncError": "Could not reach the server. Your card is still on this device. Please try again.",
+    "shareHint": "Anyone with this link can read your health card. Share it only with someone you choose.",
+    "incomplete": "No checks completed",
+    "noFlag": "No flag",
+    "recorded": "Recorded",
+    "speechUnavailable": "Voice playback is unavailable in this browser. The summary is shown above."
   },
   "queue": {
     "title": "OPD queue",
@@ -177,7 +221,7 @@
   },
   "thali": {
     "title": "Scan your meal",
-    "instruction": "Take a photo of your plate from the top.",
+    "instruction": "Photograph only the food. Choosing a photo sends it for dish recognition. You can also add dishes by hand.",
     "take": "Take photo",
     "choose": "Choose photo",
     "recognising": "Looking at your plate…",
@@ -195,7 +239,9 @@
     "carbs": "Carbs",
     "fat": "Fat",
     "calcium": "Calcium",
-    "vitaminC": "Vitamin C"
+    "vitaminC": "Vitamin C",
+    "targetHint": "Estimated portions. The bars compare this meal with one third of a reference day.",
+    "defaultTarget": "Without a screening profile, the comparison uses one third of a moderately active adult reference day."
   },
   "feedback": {
     "title": "How was it?",
@@ -204,7 +250,9 @@
     "lastWait": "Last time at an OPD, how long did you wait? (minutes)",
     "comment": "Anything else?",
     "send": "Send",
-    "thanks": "Thank you!"
+    "thanks": "Thank you!",
+    "failed": "Your feedback has not reached us. Reconnect and try again.",
+    "invalidWait": "Enter a wait between 0 and 1,440 minutes."
   },
   "hospital": {
     "login": "Staff login",
@@ -231,5 +279,16 @@
     "logout": "Sign out",
     "empty": "No patients waiting",
     "live": "Live"
+  },
+  "service": {
+    "title": "Service status",
+    "ready": "The service can reach the queue database.",
+    "dbDown": "The queue database is unavailable.",
+    "configured": "Configured",
+    "off": "Off",
+    "fallback": "You can type symptoms and add dishes by hand when a provider is unavailable.",
+    "usage": "Successful provider calls in the past 24 hours: {{ok}} of {{total}}",
+    "down": "Unable to reach the service. Check your connection and refresh.",
+    "refresh": "Refresh status"
   }
 }

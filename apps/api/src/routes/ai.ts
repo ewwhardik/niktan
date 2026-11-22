@@ -6,6 +6,7 @@ import type { AppEnv } from '../env';
 import { AllProvidersFailed, runChain } from '../ai/adapter';
 import { SYMPTOM_SYSTEM, THALI_SYSTEM } from '../ai/prompts';
 import { asrProviders, llmProviders, visionProviders } from '../ai/providers';
+import { requireOwnerHandle } from '../lib/auth';
 import { rateLimit } from '../lib/rateLimit';
 import { newId, now, parseBody } from '../lib/util';
 
@@ -138,6 +139,7 @@ ai.post('/thali/compute', async (c) => {
   const body = await parseBody(c, ComputeBody);
   const result = analyseThali(body.items, body.person);
   if (body.sessionId) {
+    requireOwnerHandle(body.sessionId);
     await c.env.DB.prepare('INSERT INTO thali_scans (id, session_id, items_json, totals_json, flags_json, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(newId('th'), body.sessionId, JSON.stringify(body.items), JSON.stringify(result.totals), JSON.stringify(result.flags), now())
       .run()

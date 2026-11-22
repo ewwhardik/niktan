@@ -21,6 +21,7 @@ export function Consent() {
         <motion.h1 variants={riseChild} className="mt-4 text-title-1 font-semibold">
           {t('consent.title')}
         </motion.h1>
+        <p className="mt-3 text-body-lg text-text-2">{t('consent.purpose')}</p>
         <ul className="mt-6 flex flex-col gap-3">
           {rows.map(({ icon: Icon, title, body, tone }) => (
             <motion.li key={title} variants={riseChild} className="flex gap-4 rounded-lg bg-surface p-4 shadow-1">
@@ -39,7 +40,7 @@ export function Consent() {
         </motion.p>
       </motion.div>
       <Dock>
-        <Button onClick={() => navigate('/info')}>{t('consent.agree')}</Button>
+        <Button onClick={() => navigate('/info', { state: { consented: true } })}>{t('consent.agree')}</Button>
       </Dock>
     </Screen>
   );

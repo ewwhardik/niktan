@@ -1,85 +1,114 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type CameraError = 'denied' | 'unavailable' | 'insecure' | 'unknown';
+export type CameraError = 'denied' | 'unavailable' | 'insecure' | 'interrupted' | 'model' | 'unknown';
 
-/** Opens the camera only on an explicit start() from a tap (iOS requirement); keeps the screen awake. */
-export function useCamera(facingMode: 'user' | 'environment' = 'user') {
+/** Own the stream, wake lock and model work for one user-initiated camera session. */
+export function useCamera(facingMode: 'user' | 'environment' = 'user', { idealWidth = 640, requestTorch = false } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const wakeRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const session = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<'idle' | 'starting' | 'live' | 'error'>('idle');
   const [error, setError] = useState<CameraError | null>(null);
-  const [torch, setTorch] = useState<boolean | null>(null);
+  const [torch, setTorch] = useState(false);
 
   const stop = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    void wakeRef.current?.release().catch(() => undefined);
-    wakeRef.current = null;
+    session.current?.abort();
+    session.current = null;
+    setTorch(false);
+    setError(null);
     setStatus('idle');
   }, []);
 
-  const start = useCallback(async () => {
+  const fail = useCallback((reason: CameraError) => {
+    stop();
+    setError(reason);
+    setStatus('error');
+  }, [stop]);
+
+  const start = useCallback(async (): Promise<AbortSignal | null> => {
+    stop();
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      setError('insecure');
-      setStatus('error');
-      return false;
+      fail(window.isSecureContext ? 'unavailable' : 'insecure');
+      return null;
     }
+    const controller = new AbortController();
+    session.current = controller;
+    const { signal } = controller;
     setStatus('starting');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
+        video: { facingMode: { ideal: facingMode }, width: { ideal: idealWidth }, height: { ideal: idealWidth * 0.75 }, frameRate: { ideal: 30, max: 30 } },
       });
-      streamRef.current = stream;
       const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        await video.play().catch(() => undefined);
+      const release = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (video && video.srcObject === stream) video.srcObject = null;
+      };
+      if (signal.aborted) {
+        release();
+        return null;
       }
+      signal.addEventListener('abort', release, { once: true });
       const track = stream.getVideoTracks()[0];
-      const caps = (track?.getCapabilities?.() ?? {}) as { torch?: boolean };
-      setTorch(caps.torch ? false : null);
-      try {
-        const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
-        wakeRef.current = (await nav.wakeLock?.request('screen')) ?? null;
-      } catch {
-        // Wake lock is optional.
+      if (!video || !track || track.readyState === 'ended') throw new Error('No live video track');
+      const interrupt = () => fail('interrupted');
+      track.addEventListener('ended', interrupt, { signal });
+      track.addEventListener('mute', interrupt, { signal });
+      video.srcObject = stream;
+      await video.play();
+      if (signal.aborted) return null;
+      const capabilities = track.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
+      if (requestTorch && capabilities?.torch) {
+        try {
+          await track.applyConstraints({ advanced: [{ torch: true } as MediaTrackConstraintSet] });
+          if (signal.aborted) return null;
+          setTorch((track.getSettings() as MediaTrackSettings & { torch?: boolean }).torch === true);
+        } catch {
+          // Eye capture can proceed in ambient light. The pupil check needs a confirmed torch.
+        }
       }
-      setError(null);
+      if (signal.aborted) return null;
       setStatus('live');
-      return true;
+      void navigator.wakeLock?.request('screen').then((lock) => {
+        const releaseLock = () => { void lock.release().catch(() => undefined); };
+        if (signal.aborted) releaseLock();
+        else signal.addEventListener('abort', releaseLock, { once: true });
+      }).catch(() => undefined);
+      return signal;
     } catch (e) {
-      const name = (e as DOMException).name;
-      setError(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : name === 'NotFoundError' || name === 'OverconstrainedError' ? 'unavailable' : 'unknown');
-      setStatus('error');
-      return false;
+      if (!signal.aborted) {
+        const name = (e as DOMException).name;
+        fail(name === 'NotAllowedError' || name === 'SecurityError' ? 'denied' : name === 'NotFoundError' || name === 'OverconstrainedError' ? 'unavailable' : 'unknown');
+      }
+      return null;
     }
-  }, [facingMode]);
+  }, [fail, facingMode, idealWidth, requestTorch, stop]);
 
-  const setTorchOn = useCallback(async (on: boolean) => {
-    const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-    try {
-      await track.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
-      setTorch(on);
-    } catch {
-      setTorch(null);
-    }
-  }, []);
-
-  useEffect(() => stop, [stop]);
-  return { videoRef, status, error, start, stop, torch, setTorchOn };
+  useEffect(() => {
+    const interrupt = () => {
+      if (session.current && document.visibilityState === 'hidden') fail('interrupted');
+    };
+    document.addEventListener('visibilitychange', interrupt);
+    return () => {
+      document.removeEventListener('visibilitychange', interrupt);
+      session.current?.abort();
+      session.current = null;
+    };
+  }, [fail]);
+  return { videoRef, session, status, error, start, stop, fail, torch };
 }
 
-/** Grabs the current video frame into a canvas at most `maxWidth` wide. */
+/** Read only a decoded video frame. Reuse canvas allocation across frames of the same size. */
 export function grabFrame(video: HTMLVideoElement, maxWidth = 640, canvas?: HTMLCanvasElement): HTMLCanvasElement {
+  if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) throw new Error('No decoded video frame');
   const c = canvas ?? document.createElement('canvas');
-  const scale = Math.min(1, maxWidth / (video.videoWidth || maxWidth));
-  c.width = Math.round((video.videoWidth || 640) * scale);
-  c.height = Math.round((video.videoHeight || 480) * scale);
-  c.getContext('2d', { willReadFrequently: true })!.drawImage(video, 0, 0, c.width, c.height);
+  const scale = Math.min(1, maxWidth / video.videoWidth);
+  const w = Math.round(video.videoWidth * scale);
+  const h = Math.round(video.videoHeight * scale);
+  if (c.width !== w || c.height !== h) {
+    c.width = w;
+    c.height = h;
+  }
+  c.getContext('2d', { willReadFrequently: true })!.drawImage(video, 0, 0, w, h);
   return c;
 }

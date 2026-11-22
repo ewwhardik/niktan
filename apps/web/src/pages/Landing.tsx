@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useScan } from '../state/scan';
 import { Button } from '../ui/Button';
 import { Dock, LangToggle, Screen } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
@@ -34,6 +35,7 @@ function Mark() {
 export function Landing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { profile } = useScan();
   const [stats, setStats] = useState<{ screened: number } | null>(null);
   useEffect(() => {
     api.get<{ screened: number }>('/api/stats/public').then(setStats).catch(() => undefined);
@@ -90,6 +92,7 @@ export function Landing() {
         <Button onClick={() => navigate('/start')} trailingIcon={ArrowRight}>
           {t('landing.cta')}
         </Button>
+        {profile && <Button variant="secondary" onClick={() => navigate('/card')}>{t('landing.resume')}</Button>}
         <div className="flex justify-between">
           <button onClick={() => navigate('/thali')} className="inline-flex min-h-12 items-center gap-2 text-body text-text-2 hover:text-text">
             <Soup size={18} strokeWidth={1.75} aria-hidden /> {t('landing.thali')}
@@ -98,6 +101,7 @@ export function Landing() {
             <Hospital size={18} strokeWidth={1.75} aria-hidden /> {t('landing.hospital')}
           </button>
         </div>
+        <button onClick={() => navigate('/status')} className="mx-auto min-h-10 text-caption text-text-2 underline">{t('service.title')}</button>
       </Dock>
     </Screen>
   );

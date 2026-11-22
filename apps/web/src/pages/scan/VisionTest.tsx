@@ -1,21 +1,20 @@
 import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CreditCard, EyeOff, Glasses } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { visionNeedsReferral } from '@niktan/core';
 import { load, save } from '../../lib/storage';
 import { haptic } from '../../lib/perf';
-import { answer, CARD_WIDTH_MM, optotypePx, resultLogMar, snellen6, startStaircase, type Direction, type StaircaseState } from '../../tests/vision';
+import { answer, CARD_SHORT_EDGE_MM, screenOptotype, resultLogMar, snellen6, startStaircase, type Direction, type StaircaseState } from '../../tests/vision';
 import { useScan } from '../../state/scan';
 import { Button, LinkButton } from '../../ui/Button';
 import { Dock } from '../../ui/Layout';
 import { spring } from '../../ui/motion';
 import type { StepProps } from './ScanStep';
 
-const DISTANCE_MM = 400;
+
 const ROTATION: Record<Direction, number> = { right: 0, down: 90, left: 180, up: 270 };
-/** Smallest E we can draw sharply: 5 device pixels tall (one per stroke row). */
-const MIN_DEVICE_PX = 5;
+
 
 function TumblingE({ size, dir }: { size: number; dir: Direction }) {
   return (
@@ -30,17 +29,23 @@ function TumblingE({ size, dir }: { size: number; dir: Direction }) {
 
 type Phase = 'calibrate' | 'right' | 'left' | 'result';
 
-export default function VisionTest({ next }: StepProps) {
+export default function VisionTest({ next, guide }: StepProps) {
   const { t } = useTranslation();
   const { record, skip } = useScan();
-  const [cardPx, setCardPx] = useState(() => load<number>('niktan.cardPx', 324));
+  const dpr = window.devicePixelRatio || 1;
+  const calibrationKey = `niktan.cardShort.${screen.width}x${screen.height}.${dpr}`;
+  const maxCardPx = Math.min(420, window.innerWidth - 56);
+  const [cardPx, setCardPx] = useState(() => Math.max(100, Math.min(maxCardPx, load<number>(calibrationKey, 204) || 204)));
+  const [distanceMm, setDistanceMm] = useState<400 | 2000>(2000);
   const [phase, setPhase] = useState<Phase>('calibrate');
   const [stair, setStair] = useState<StaircaseState>(() => startStaircase());
   const [results, setResults] = useState<{ right: number | null; left: number | null }>({ right: null, left: null });
-  const [shake, setShake] = useState(0);
-  const pxPerMm = cardPx / CARD_WIDTH_MM;
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  const size = optotypePx(stair.logMar, DISTANCE_MM, pxPerMm);
+  const pxPerMm = cardPx / CARD_SHORT_EDGE_MM;
+  const optotype = screenOptotype(stair.logMar, distanceMm, pxPerMm, dpr);
+  const skipStep = () => {
+    skip('vision');
+    next();
+  };
 
   const finishEye = (eye: 'right' | 'left', s: StaircaseState) => {
     const value = resultLogMar(s);
@@ -52,18 +57,21 @@ export default function VisionTest({ next }: StepProps) {
       setPhase('left');
     } else {
       setPhase('result');
-      record('vision', { rightLogMar: nextResults.right, leftLogMar: nextResults.left });
+      record('vision', { distanceMm, rightLogMar: nextResults.right, leftLogMar: nextResults.left });
     }
   };
 
   const respond = (d: Direction | 'unsure') => {
     if (phase !== 'right' && phase !== 'left') return;
-    const correct = d === stair.current;
-    haptic(correct ? 10 : [10, 30, 10]);
-    if (!correct) setShake((n) => n + 1);
+    haptic(10);
     let s = answer(stair, d);
-    // Stop once the next level would be too small for this screen to draw sharply.
-    if (!s.done && optotypePx(s.logMar, DISTANCE_MM, pxPerMm) * dpr < MIN_DEVICE_PX) s = { ...s, done: true };
+    if (!s.done && s.logMar !== stair.logMar) {
+      // A coarse screen can impose a floor. Only score lines that were actually visible.
+      while (!screenOptotype(s.logMar, distanceMm, pxPerMm, dpr).readable && s.ascending && s.logMar < 1) {
+        s = { ...s, logMar: Math.round((s.logMar + 0.1) * 10) / 10 };
+      }
+      if (!screenOptotype(s.logMar, distanceMm, pxPerMm, dpr).readable) s = { ...s, done: true };
+    }
     if (s.done) finishEye(phase, s);
     else setStair(s);
   };
@@ -74,45 +82,52 @@ export default function VisionTest({ next }: StepProps) {
     respond(Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up');
   };
 
-  const refer = useMemo(() => visionNeedsReferral({ rightLogMar: results.right, leftLogMar: results.left }), [results]);
+  const refer = visionNeedsReferral({ distanceMm, rightLogMar: results.right, leftLogMar: results.left });
 
   if (phase === 'calibrate') {
     return (
       <div className="flex flex-1 flex-col pt-6">
+        <div className="mb-3">{guide}</div>
         <div className="flex items-center gap-3">
           <CreditCard className="text-accent-text" size={24} strokeWidth={1.75} aria-hidden />
           <h2 className="text-title-2 font-semibold">{t('vision.title')}</h2>
         </div>
         <p className="mt-3 text-body-lg text-text-2">{t('vision.calibrate')}</p>
-        <div className="mt-8 flex justify-center">
-          <motion.div layout className="rounded-[3.18mm] border-2 border-dashed border-accent bg-accent-soft" style={{ width: cardPx, height: cardPx * (53.98 / 85.6) }} transition={spring.layout} />
+        <div className="mt-5 flex justify-center">
+          <div className="h-9 shrink-0 rounded-sm border-x-2 border-b-2 border-dashed border-accent bg-accent-soft" style={{ width: cardPx }} />
         </div>
         <input
           type="range"
-          min={200}
-          max={Math.min(480, window.innerWidth - 24)}
+          min={100}
+          max={maxCardPx}
           step={1}
           value={cardPx}
           onChange={(e) => setCardPx(Number(e.target.value))}
           className="mt-8 w-full accent-[var(--accent)]"
           aria-label={t('vision.calibrate')}
         />
-        <p className="mt-6 text-body text-text-3">{t('vision.distance')}</p>
+        <fieldset className="mt-5 flex gap-4">
+          <legend className="mb-2 text-label">{t('vision.mode')}</legend>
+          {([2000, 400] as const).map((mm) => (
+            <label key={mm} className="flex min-h-11 items-center gap-2">
+              <input type="radio" name="distance" checked={distanceMm === mm} onChange={() => setDistanceMm(mm)} />
+              {t(mm === 2000 ? 'vision.far' : 'vision.near')}
+            </label>
+          ))}
+        </fieldset>
+        <p className="mt-3 text-body text-text-2">{t(distanceMm === 2000 ? 'vision.helper' : 'vision.distance')}</p>
+        {!optotype.readable && <p className="mt-2 text-body">{t('vision.resolution')}</p>}
         <Dock>
           <Button
+            disabled={!optotype.readable}
             onClick={() => {
-              save('niktan.cardPx', cardPx);
+              save(calibrationKey, cardPx);
               setPhase('right');
             }}
           >
             {t('common.continue')}
           </Button>
-          <LinkButton
-            onClick={() => {
-              skip('vision');
-              next();
-            }}
-          >
+          <LinkButton onClick={skipStep}>
             {t('common.skip')}
           </LinkButton>
         </Dock>
@@ -130,10 +145,11 @@ export default function VisionTest({ next }: StepProps) {
     return (
       <div className="flex flex-1 flex-col gap-3 pt-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-col gap-3">
+          <h2 className="text-title-2 font-semibold">{t(distanceMm === 2000 ? 'vision.far' : 'vision.near')}</h2>
           {row(t('vision.right'), results.right)}
           {row(t('vision.left'), results.left)}
           <p className={`mt-2 rounded-md px-4 py-3 text-body ${refer ? 'bg-seetoday-tint text-seetoday-ink' : 'bg-routine-tint text-routine-ink'}`}>
-            {refer ? t('card.refer') + ' · ' + t('steps.vision') : t('eye.normal')}
+            {refer ? (distanceMm === 400 ? t('vision.nearRefer') : t('card.refer')) : t('vision.pass')}
           </p>
           <p className="text-caption text-text-3">{t('app.notDiagnosis')}</p>
         </motion.div>
@@ -159,15 +175,13 @@ export default function VisionTest({ next }: StepProps) {
         </motion.div>
       </AnimatePresence>
       <motion.div className="relative mt-4 flex h-[34vh] min-h-48 items-center justify-center rounded-xl bg-white text-black shadow-1" drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} dragElastic={0.15} onDragEnd={onSwipe} style={{ touchAction: 'none' }}>
-        <motion.div key={`${stair.logMar}-${stair.shown}-${shake}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1, x: shake && stair.shown ? [0, -4, 4, 0] : 0 }} transition={{ duration: 0.18 }}>
-          <TumblingE size={size} dir={stair.current} />
-        </motion.div>
+        <TumblingE size={optotype.size} dir={stair.current} />
         <span className="tnum absolute right-3 bottom-2 text-caption text-black/40">{snellen6(stair.logMar)}</span>
       </motion.div>
       <p className="mt-3 text-center text-body text-text-2">{t('vision.instruction')}</p>
       <div className="mx-auto mt-3 grid grid-cols-3 grid-rows-3 gap-2">
         {arrows.map(({ d, icon: Icon, cls }) => (
-          <motion.button key={d} whileTap={{ scale: 0.9 }} transition={spring.tap} onClick={() => respond(d)} aria-label={d} className={`flex size-[72px] items-center justify-center rounded-lg bg-surface shadow-2 ${cls}`}>
+          <motion.button key={d} whileTap={{ scale: 0.9 }} transition={spring.tap} onClick={() => respond(d)} aria-label={t(d === 'left' || d === 'right' ? `vision.${d}Arrow` : `vision.${d}`)} className={`flex size-[72px] items-center justify-center rounded-lg bg-surface shadow-2 ${cls}`}>
             <Icon size={30} strokeWidth={1.75} />
           </motion.button>
         ))}
@@ -176,6 +190,7 @@ export default function VisionTest({ next }: StepProps) {
           <span className="mt-0.5 leading-tight">{t('vision.unsure')}</span>
         </motion.button>
       </div>
+      <LinkButton onClick={skipStep}>{t('common.skip')}</LinkButton>
     </div>
   );
 }

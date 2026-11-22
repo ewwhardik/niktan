@@ -49,19 +49,25 @@ export default function Queue() {
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const joinRequest = useRef<string | null>(null);
   const lastAhead = useRef<number | null>(null);
 
   const poll = useCallback(async (id: string) => {
     try {
       const r = await api.get<TokenInfo>(`/api/queue/${id}`);
       setInfo(r);
+      setError(null);
       const near = r.token.status === 'called' || (r.token.status === 'waiting' && r.ahead <= 2);
       if (near && lastAhead.current !== r.ahead) haptic([60, 80, 60]);
       lastAhead.current = r.ahead;
-    } catch {
-      // keep the last known state while offline
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        scan.setToken(null);
+        setInfo(null);
+      }
+      setError(t('common.offline'));
     }
-  }, []);
+  }, [t, scan.setToken]);
 
   useEffect(() => {
     if (scan.tokenId) {
@@ -78,9 +84,9 @@ export default function Queue() {
     setJoining(hospitalId);
     setError(null);
     try {
-      await scan.sync();
-      if (!scan.sessionId) throw new ApiError(0, 'offline');
-      const r = await api.post<TokenInfo>('/api/queue/join', { sessionId: scan.sessionId, hospitalId, idempotencyKey: `${scan.sessionId}:${hospitalId}` });
+      const sessionId = await scan.sync();
+      if (!sessionId) throw new ApiError(0, 'offline');
+      const r = await api.post<TokenInfo>('/api/queue/join', { sessionId, hospitalId, idempotencyKey: joinRequest.current ??= crypto.randomUUID() });
       scan.setToken(r.token.id);
       setInfo(r);
       haptic([30, 50, 30]);
@@ -174,7 +180,8 @@ export default function Queue() {
 
       <p className="mt-5 text-center text-caption text-text-3">{t('queue.priorityNote')}</p>
 
-      {!done && (
+      {error && <p className="mt-3 text-emergency-text" role="alert">{error}</p>}
+      {(token.status === 'waiting' || token.status === 'called') && (
         <div className="mt-auto pb-[max(16px,env(safe-area-inset-bottom))] pt-6">
           <Button variant="ghost" icon={LogOut} className="w-full" onClick={() => setLeaving(true)}>
             {t('queue.leave')}
@@ -189,9 +196,14 @@ export default function Queue() {
           </Button>
           <Button
             onClick={async () => {
-              await api.post(`/api/queue/${token.id}/leave`).catch(() => undefined);
-              scan.setToken(null);
-              setInfo(null);
+              try {
+                await api.post(`/api/queue/${token.id}/leave`);
+                joinRequest.current = null;
+                scan.setToken(null);
+                setInfo(null);
+              } catch {
+                setError(t('common.error'));
+              }
               setLeaving(false);
             }}
           >

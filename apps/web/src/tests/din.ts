@@ -1,5 +1,5 @@
 /**
- * Digits-in-noise hearing screen (as used by WHO hearWHO): digit triplets in speech-shaped noise,
+ * Experimental Hindi diotic digits-in-noise screen: digit triplets in speech-shaped noise,
  * one-up one-down adaptive SNR. Speech reception threshold (SRT) = mean SNR of the later triplets.
  */
 
@@ -9,10 +9,10 @@ export const DIN = {
   step: 2,
   minSnr: -20,
   maxSnr: 10,
-  /** SRT averages the SNRs presented from triplet 5 onward (and the SNR the 24th would get). */
+  /** SRT averages the 19 presented SNRs from triplet 5 onward. */
   discard: 4,
   /** Screening cut-off in dB SNR; above it = refer. Calibrate on local data before trusting. */
-  referAbove: -9.5,
+  referAbove: -9.55,
 } as const;
 
 export interface DinState {
@@ -24,14 +24,11 @@ export interface DinState {
 }
 
 export function randomTriplet(rand: () => number = Math.random, avoid?: string): string {
-  for (;;) {
-    // No repeated digit in a triplet, and never the same triplet twice in a row.
-    const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const digits: number[] = [];
-    while (digits.length < 3) digits.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]!);
-    const t = digits.join('');
-    if (t !== avoid) return t;
-  }
+  const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const digits: number[] = [];
+  while (digits.length < 3) digits.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]!);
+  if (digits.join('') === avoid) digits[2] = pool[Math.floor(rand() * pool.length)]!;
+  return digits.join('');
 }
 
 export function startDin(rand: () => number = Math.random): DinState {
@@ -49,14 +46,14 @@ export function respond(state: DinState, response: string, rand: () => number = 
 
 export function srt(state: DinState): number | null {
   if (!state.done) return null;
-  const snrs = [...state.history.slice(DIN.discard).map((h) => h.snr), state.snr];
-  return Math.round((snrs.reduce((a, b) => a + b, 0) / snrs.length) * 10) / 10;
+  const samples = state.history.slice(DIN.discard);
+  return samples.reduce((sum, trial) => sum + trial.snr, 0) / samples.length;
 }
 
 export function dinResult(state: DinState): { srtDb: number; result: 'pass' | 'refer' } | null {
   const value = srt(state);
   if (value === null) return null;
-  return { srtDb: value, result: value > DIN.referAbove ? 'refer' : 'pass' };
+  return { srtDb: Number(value.toFixed(2)), result: value > DIN.referAbove ? 'refer' : 'pass' };
 }
 
 /** Gain (linear) to apply to the speech so that speech/noise RMS ratio equals `snrDb`. */

@@ -13,13 +13,15 @@ import { spring } from '../ui/motion';
 export default function Feedback() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { sessionId } = useScan();
+  const { profile, sync } = useScan();
   const [rating, setRating] = useState(0);
   const [wouldUse, setWouldUse] = useState<boolean | null>(null);
   const [wait, setWait] = useState('');
   const [comment, setComment] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const [error, setError] = useState(false);
 
   if (sent) {
     return (
@@ -86,17 +88,25 @@ export default function Feedback() {
       </label>
 
       <Dock>
+        {error && <p role="alert" className="text-emergency-text">{t('feedback.failed')}</p>}
+        {Number(wait) > 1440 && <p role="alert">{t('feedback.invalidWait')}</p>}
         <Button
-          disabled={!rating || wouldUse === null}
+          disabled={!rating || wouldUse === null || Number(wait) > 1440}
           loading={busy}
           onClick={async () => {
             setBusy(true);
-            await api
-              .post('/api/feedback', { sessionId: sessionId ?? 'anonymous', rating, wouldUse, lastOpdWaitMin: wait ? Number(wait) : null, comment })
-              .catch(() => undefined);
-            setBusy(false);
-            setSent(true);
-            haptic([20, 40, 20]);
+            setError(false);
+            try {
+              const sessionId = profile ? await sync() : 'anonymous';
+              if (!sessionId) throw new Error('Sync failed');
+              await api.post('/api/feedback', { sessionId, rating, wouldUse, lastOpdWaitMin: wait ? Number(wait) : null, comment });
+              setSent(true);
+              haptic([20, 40, 20]);
+            } catch {
+              setError(true);
+            } finally {
+              setBusy(false);
+            }
           }}
         >
           {t('feedback.send')}

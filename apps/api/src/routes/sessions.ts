@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { Measurement, SessionInput } from '@niktan/core';
 import type { AppEnv } from '../env';
-import { loadCard, saveTriage } from '../lib/card';
+import { requireOwnerHandle } from '../lib/auth';
+import { loadCard, shareableCard, saveTriage } from '../lib/card';
 import { rateLimit } from '../lib/rateLimit';
 import { newId, now, parseBody } from '../lib/util';
 
@@ -10,11 +11,39 @@ export const sessions = new Hono<AppEnv>();
 
 sessions.post('/', rateLimit('session', 30, 3600), async (c) => {
   const body = await parseBody(c, SessionInput);
-  const id = newId('s');
+  const id = newId('p');
   await c.env.DB.prepare('INSERT INTO sessions (id, created_at, age, sex, pregnant, lang) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(id, now(), body.age, body.sex, body.pregnant && body.sex === 'female' ? 1 : 0, body.lang)
     .run();
   return c.json({ id }, 201);
+});
+
+sessions.use('/:id/*', async (c, next) => {
+  requireOwnerHandle(c.req.param('id')!);
+  await next();
+});
+
+sessions.delete('/:id/measurements/:module', async (c) => {
+  const module = c.req.param('module');
+  if (!['vitals', 'eye', 'vision', 'hearing', 'symptoms'].includes(module)) throw new HTTPException(404);
+  await c.env.DB.prepare('DELETE FROM measurements WHERE session_id = ? AND module = ?')
+    .bind(c.req.param('id'), module).run();
+  return c.json({ ok: true });
+});
+
+sessions.post('/:id/share', async (c) => {
+  const row = await c.env.DB.prepare('UPDATE sessions SET share_id = COALESCE(share_id, ?) WHERE id = ? RETURNING share_id')
+    .bind(newId('r'), c.req.param('id')).first<{ share_id: string }>();
+  if (!row) throw new HTTPException(404, { message: 'Session not found' });
+  return c.json({ shareId: row.share_id });
+});
+
+export const shared = new Hono<AppEnv>();
+shared.get('/:id/card', async (c) => {
+  const row = await c.env.DB.prepare('SELECT id FROM sessions WHERE share_id = ?').bind(c.req.param('id')).first<{ id: string }>();
+  const card = row && await loadCard(c.env, row.id);
+  if (!card) throw new HTTPException(404, { message: 'Shared card unavailable' });
+  return c.json(shareableCard(card));
 });
 
 sessions.post('/:id/measurements', rateLimit('measure', 120, 3600), async (c) => {
@@ -50,13 +79,9 @@ sessions.get('/:id/card', async (c) => {
 /** "Delete my data": removes the session and everything linked to it. */
 sessions.delete('/:id', async (c) => {
   const id = c.req.param('id');
+  requireOwnerHandle(id);
   const db = c.env.DB;
   await db.batch([
-    db.prepare('DELETE FROM doctor_notes WHERE token_id IN (SELECT id FROM tokens WHERE session_id = ?)').bind(id),
-    db.prepare('DELETE FROM tokens WHERE session_id = ?').bind(id),
-    db.prepare('DELETE FROM measurements WHERE session_id = ?').bind(id),
-    db.prepare('DELETE FROM triage WHERE session_id = ?').bind(id),
-    db.prepare('DELETE FROM thali_scans WHERE session_id = ?').bind(id),
     db.prepare('DELETE FROM feedback WHERE session_id = ?').bind(id),
     db.prepare('DELETE FROM sessions WHERE id = ?').bind(id),
   ]);

@@ -1,6 +1,6 @@
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { featuresFromPixels, predict, rgbToLab, selectPixels } from './anemia';
-import { IRIS } from './face';
+import { IRIS, LOWER_LID } from './face';
 
 /**
  * Eye flags. Pallor uses the trained model; jaundice and cataract are uncalibrated heuristics
@@ -25,6 +25,32 @@ export function cropImage(img: ImageData, x: number, y: number, w: number, h: nu
     out.set(img.data.subarray(src, src + cw * 4), row * cw * 4);
   }
   return { data: out, width: cw, height: ch };
+}
+
+interface Box { x: number; y: number; w: number; h: number }
+
+/** Locate the lower lid within the user-aligned guide. All coordinates refer to the unmirrored still. */
+export function locateLowerLid(lm: NormalizedLandmark[], width: number, height: number, guide: Box): Box | null {
+  let closest: Box | null = null;
+  let nearest = Infinity;
+  for (const contour of Object.values(LOWER_LID)) {
+    const lid = contour.map((id) => lm[id]!);
+    const first = lid[0]!;
+    const last = lid[lid.length - 1]!;
+    const eyeWidth = Math.hypot((last.x - first.x) * width, (last.y - first.y) * height);
+    const cx = (first.x + last.x) * width / 2;
+    const y = Math.max(...lid.map((p) => p.y)) * height;
+    const box = { x: cx - 0.6 * eyeWidth, y, w: 1.2 * eyeWidth, h: 0.6 * eyeWidth };
+    const cy = y + box.h / 2;
+    if (eyeWidth < 25 || box.x < 0 || box.x + box.w > width || y < 0 || y + box.h > height) continue;
+    if (cx < guide.x || cx > guide.x + guide.w || cy < guide.y || cy > guide.y + guide.h) continue;
+    const distance = Math.hypot(cx - guide.x - guide.w / 2, cy - guide.y - guide.h / 2);
+    if (distance < nearest) {
+      nearest = distance;
+      closest = box;
+    }
+  }
+  return closest;
 }
 
 export interface PallorResult {
@@ -56,8 +82,8 @@ interface IrisGeom {
 }
 
 function irisGeom(lm: NormalizedLandmark[], side: 'left' | 'right', w: number, h: number): IrisGeom {
-  const [c, a, top, b, bottom] = IRIS[side].map((i) => lm[i]!);
-  const r = (Math.hypot((a!.x - b!.x) * w, (a!.y - b!.y) * h) + Math.hypot((top!.x - bottom!.x) * w, (top!.y - bottom!.y) * h)) / 4;
+  const [c, ...ring] = IRIS[side].map((i) => lm[i]!);
+  const r = ring.reduce((sum, p) => sum + Math.hypot((p.x - c!.x) * w, (p.y - c!.y) * h), 0) / ring.length;
   return { cx: c!.x * w, cy: c!.y * h, r };
 }
 

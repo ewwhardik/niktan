@@ -65,16 +65,17 @@ export function spectralPeak(x: Float64Array, fs: number, band: [number, number]
   for (let i = lo; i <= hi; i++) if (power[i]! > power[k]!) k = i;
   if (power[k]! <= 0) return null;
 
-  const a = power[k - 1] ?? power[k]!;
-  const c = power[k + 1] ?? power[k]!;
-  const denom = a - 2 * power[k]! + c;
+  const logPower = (i: number) => Math.log(Math.max(power[i]!, Number.MIN_VALUE));
+  const a = logPower(k - 1);
+  const c = logPower(k + 1);
+  const denom = a - 2 * logPower(k) + c;
   const offset = denom !== 0 ? (0.5 * (a - c)) / denom : 0;
   const freq = (k + Math.max(-0.5, Math.min(0.5, offset))) * df;
 
   const near = (f: number, target: number) => Math.abs(f - target) <= 0.1;
   let signal = 0;
   let noise = 0;
-  const bandHi = Math.min(power.length - 1, Math.floor(Math.max(band[1], 2 * freq + 0.2) / df));
+  const bandHi = Math.min(power.length - 1, Math.floor(band[1] / df));
   for (let i = lo; i <= bandHi; i++) {
     const f = i * df;
     if (near(f, freq) || near(f, 2 * freq)) signal += power[i]!;
@@ -92,35 +93,64 @@ export interface RppgResult {
   pulse: Float64Array; // filtered pulse waveform for display
 }
 
-/** Maps SNR (dB) to a 0..1 quality score. Below ~-3 dB the peak is not trustworthy. */
+/** Maps SNR (dB) to a 0..1 quality score. Zero dB is the acceptance threshold. */
 export function qualityFromSnr(snrDb: number): number {
   return Math.max(0, Math.min(1, (snrDb + 6) / 12));
 }
 
-export function estimate(samples: RgbSample[], opts: { motion?: number } = {}): RppgResult {
+function quantile(values: number[], fraction: number): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = fraction * (sorted.length - 1);
+  const lower = Math.floor(index);
+  return sorted[lower]! + (sorted[Math.ceil(index)]! - sorted[lower]!) * (index - lower);
+}
+
+const WINDOW_SECONDS = 10;
+const MAX_GAP = 0.25;
+
+export function estimate(
+  samples: RgbSample[],
+  { motion = 0, rejectedTimes = [] }: { motion?: number; rejectedTimes?: number[] } = {},
+): RppgResult {
   const empty: RppgResult = { heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0) };
-  if (samples.length < FS * 5) return empty;
-  const t = samples.map((s) => s.t);
-  const r = resample(t, samples.map((s) => s.r), FS);
-  const g = resample(t, samples.map((s) => s.g), FS);
-  const b = resample(t, samples.map((s) => s.b), FS);
-  const raw = pos(r, g, b, FS);
-  const pulse = bandpass(detrend(raw, FS), FS, HR_BAND[0], HR_BAND[1]);
-  const peak = spectralPeak(pulse, FS, HR_BAND);
-  if (!peak) return { ...empty, pulse };
+  const unique = samples.filter((sample, i) => i === 0 || sample.t > samples[i - 1]!.t);
+  const start = Math.min(unique[0]?.t ?? Infinity, rejectedTimes[0] ?? Infinity);
+  const end = Math.max(unique.at(-1)?.t ?? -Infinity, rejectedTimes.at(-1) ?? -Infinity);
+  if (end - start < WINDOW_SECONDS) return empty;
 
-  // Breathing modulates the green-channel baseline; experimental and shown as such.
-  const resp = bandpass(detrend(g, FS * 10), FS, RR_BAND[0], RR_BAND[1]);
-  const rPeak = samples.length / FS >= 20 ? spectralPeak(resp, FS, RR_BAND) : null;
+  const rates: number[] = [];
+  const snrs: number[] = [];
+  let total = 0;
+  let pulse: RppgResult['pulse'] = empty.pulse;
+  for (let windowEnd = end; windowEnd - WINDOW_SECONDS >= start; windowEnd--) {
+    total++;
+    const windowStart = windowEnd - WINDOW_SECONDS;
+    const trace = unique.filter(({ t }) => t >= windowStart && t <= windowEnd);
+    const rejected = rejectedTimes.filter((t) => t >= windowStart && t <= windowEnd).length;
+    if (trace.length < 12 * WINDOW_SECONDS || rejected > (trace.length + rejected) / 5) continue;
+    if (trace[0]!.t - windowStart > MAX_GAP || windowEnd - trace.at(-1)!.t > MAX_GAP) continue;
+    if (trace.some(({ t }, i) => i > 0 && t - trace[i - 1]!.t > MAX_GAP)) continue;
 
-  // Large head motion corrupts the skin signal; scale quality down rather than hiding the number.
-  const motionPenalty = opts.motion ? Math.max(0, 1 - opts.motion) : 1;
-  const quality = qualityFromSnr(peak.snrDb) * motionPenalty;
+    const times = trace.map(({ t }) => t);
+    const r = resample(times, trace.map(({ r }) => r), FS);
+    const g = resample(times, trace.map(({ g }) => g), FS);
+    const b = resample(times, trace.map(({ b }) => b), FS);
+    const windowPulse = bandpass(detrend(pos(r, g, b, FS), FS), FS, HR_BAND[0], HR_BAND[1]);
+    const peak = spectralPeak(windowPulse, FS, HR_BAND);
+    if (!pulse.length) pulse = windowPulse;
+    if (!peak || peak.snrDb < 0) continue;
+    rates.push(peak.freq * 60);
+    snrs.push(peak.snrDb);
+  }
+  if (!rates.length) return { ...empty, pulse };
+  const snrDb = quantile(snrs, 0.5);
+  const quality = qualityFromSnr(snrDb) * Math.max(0, 1 - motion);
+  const consistent = rates.length >= total / 2 && quantile(rates, 0.75) - quantile(rates, 0.25) <= 6;
   return {
-    heartRate: peak.freq * 60,
-    breathingRate: rPeak && rPeak.snrDb > 0 ? rPeak.freq * 60 : null,
-    snrDb: peak.snrDb,
-    quality,
+    heartRate: consistent && quality >= 0.5 ? quantile(rates, 0.5) : null,
+    breathingRate: null,
+    snrDb,
+    quality: consistent ? quality : 0,
     pulse,
   };
 }

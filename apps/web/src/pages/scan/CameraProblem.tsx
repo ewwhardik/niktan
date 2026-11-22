@@ -11,6 +11,8 @@ const COPY: Record<CameraError, { hi: string; en: string }> = {
     hi: 'कैमरे की अनुमति नहीं मिली। ब्राउज़र के पता-बार में 🔒 पर टैप करें → कैमरा → अनुमति दें, फिर दोबारा कोशिश करें।',
     en: 'Camera permission was blocked. Tap the 🔒 in the address bar → Camera → Allow, then try again.',
   },
+  model: { hi: 'चेहरे की पहचान शुरू नहीं हो पाई। इंटरनेट कनेक्शन जाँचें या नया ब्राउज़र इस्तेमाल करें।', en: 'Face tracking could not start. Check your connection or try a newer browser.' },
+  interrupted: { hi: 'कैमरा रुक गया। जाँच फिर से शुरू करें।', en: 'The camera was interrupted. Restart this scan.' },
   unavailable: { hi: 'इस फ़ोन पर कैमरा नहीं मिला। यह स्टेप छोड़ दें।', en: 'No camera found on this device. Skip this step.' },
   insecure: { hi: 'कैमरा सिर्फ़ सुरक्षित (https) लिंक पर चलता है।', en: 'The camera only works on a secure (https) link.' },
   unknown: { hi: 'कैमरा शुरू नहीं हो पाया। दूसरे ऐप बंद करके फिर कोशिश करें।', en: 'The camera could not start. Close other apps using it and try again.' },

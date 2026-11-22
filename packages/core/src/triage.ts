@@ -59,8 +59,9 @@ function symptomReason(code: string, prefix = 'symptom'): Reason {
 }
 
 /** Vitals below the quality gate are ignored so a noisy reading can never escalate or calm a case. */
-function trustedHeartRate(vitals?: Vitals | null): number | null {
-  if (!vitals || vitals.quality < rules.qualityMin) return null;
+function trustedHeartRate(age: number, vitals?: Vitals | null): number | null {
+  // The prototype pulse thresholds were selected for adults. Paediatric pulse varies with age.
+  if (age < 18 || !vitals || vitals.quality < rules.qualityMin) return null;
   return vitals.heartRate;
 }
 
@@ -68,7 +69,7 @@ export function visionNeedsReferral(vision?: Vision | null): boolean {
   if (!vision) return false;
   const eyes = [vision.leftLogMar, vision.rightLogMar].filter((v): v is number => v !== null);
   if (eyes.some((v) => v > rules.visionReferLogMar)) return true;
-  if (eyes.length === 2 && Math.abs(eyes[0]! - eyes[1]!) >= rules.visionAsymmetryLogMar) return true;
+  if (eyes.length === 2 && Math.abs(eyes[0]! - eyes[1]!) + Number.EPSILON >= rules.visionAsymmetryLogMar) return true;
   return false;
 }
 
@@ -150,8 +151,10 @@ function routineReasons(input: TriageInput): Reason[] {
   const reasons: Reason[] = [];
   if (input.eye?.pallor) reasons.push({ code: 'pallor_flag', hi: 'खून की कमी की जाँच करवाएँ (Hb)', en: 'Pallor seen: get an Hb blood test' });
   if (input.eye?.cataract) reasons.push({ code: 'cataract_flag', hi: 'मोतियाबिंद की जाँच करवाएँ', en: 'Possible cataract: see an eye doctor' });
-  if (visionNeedsReferral(input.vision)) reasons.push({ code: 'vision_refer', hi: 'नज़र कमज़ोर: आँख के डॉक्टर को दिखाएँ', en: 'Reduced vision: see an eye doctor' });
-  if (input.hearing?.result === 'refer') reasons.push({ code: 'hearing_refer', hi: 'कम सुनाई: ENT को दिखाएँ', en: 'Hearing screen not passed: see ENT' });
+  if (visionNeedsReferral(input.vision)) reasons.push(input.vision?.distanceMm === 400
+    ? { code: 'vision_refer', hi: 'पास की नज़र की जाँच करवाएँ', en: 'Arrange a near-vision check' }
+    : { code: 'vision_refer', hi: 'नज़र कमज़ोर: आँख के डॉक्टर को दिखाएँ', en: 'Reduced vision: see an eye doctor' });
+  if (input.hearing?.result === 'refer') reasons.push({ code: 'hearing_refer', hi: 'प्रायोगिक श्रवण जाँच: ENT से पुष्टि करवाएँ', en: 'Experimental hearing screen: arrange a hearing check' });
   for (const s of input.symptoms ?? []) reasons.push(symptomReason(s.code));
   return reasons;
 }
@@ -185,7 +188,7 @@ export function routeDepartment(input: TriageInput, priority: Priority): Departm
 }
 
 export function triage(input: TriageInput): TriageResult {
-  const hr = trustedHeartRate(input.vitals);
+  const hr = trustedHeartRate(input.age, input.vitals);
 
   const emergency = emergencyReasons(input, hr);
   if (emergency.length > 0) {

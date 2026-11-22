@@ -22,7 +22,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(0, 'offline');
   }
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok && res.status !== 503) throw new ApiError(res.status, data.error ?? res.statusText);
+  if (!res.ok) throw new ApiError(res.status, data.error ?? res.statusText);
   return data;
 }
 

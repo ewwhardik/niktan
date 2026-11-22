@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { z } from 'zod';
 
-export const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+export const newId = (prefix: string) => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 export const now = () => Date.now();
 
 /** Calendar day in India (UTC+5:30); token numbers reset at local midnight. */

@@ -7,8 +7,8 @@ import { speechGainForSnr } from '../tests/din';
  * so speech and masker always match whatever voice recorded the digits.
  */
 
-export const DIGIT_URL = (lang: string, d: number) => `/audio/din/${lang}/${d}.mp3`;
-const NOISE_RMS = 0.08;
+export const DIGIT_URL = (lang: string, d: number) => `/audio/din/${lang}/${d}.wav`;
+const NOISE_RMS = 0.035;
 
 function rms(buf: Float32Array): number {
   let s = 0;
@@ -63,7 +63,8 @@ function speechShapedNoise(ctx: AudioContext, digits: AudioBuffer[], seconds = 3
 export class DinPlayer {
   private ctx: AudioContext;
   private digits: AudioBuffer[] = [];
-  private speechRms = 0.1;
+  private speechRms: number[] = [];
+  private readonly abort = new AbortController();
   private noise: AudioBuffer | null = null;
 
   constructor() {
@@ -82,7 +83,7 @@ export class DinPlayer {
     try {
       this.digits = await Promise.all(
         Array.from({ length: 10 }, async (_, d) => {
-          const res = await fetch(DIGIT_URL(lang, d));
+          const res = await fetch(DIGIT_URL(lang, d), { signal: this.abort.signal });
           if (!res.ok) throw new Error('missing');
           return this.ctx.decodeAudioData(await res.arrayBuffer());
         }),
@@ -90,7 +91,9 @@ export class DinPlayer {
     } catch {
       return false;
     }
-    this.speechRms = this.digits.reduce((s, b) => s + rms(b.getChannelData(0)), 0) / this.digits.length || 0.1;
+    if (this.abort.signal.aborted) return false;
+    this.speechRms = this.digits.map((buf) => rms(buf.getChannelData(0)));
+    if (this.speechRms.some((level) => level === 0)) return false;
     this.noise = speechShapedNoise(this.ctx, this.digits);
     return true;
   }
@@ -114,37 +117,50 @@ export class DinPlayer {
 
   /** Plays a triplet at the given SNR. Resolves when playback ends. */
   playTriplet(triplet: string, snrDb: number): Promise<void> {
+    const noise = this.noise;
+    if (!noise) throw new Error('Digit audio is unavailable');
+    // Keep the louder signal at the reference level, including at positive SNR.
+    const speechSnr = Math.min(0, snrDb);
+    const noiseGain = 10 ** (-Math.max(0, snrDb) / 20);
     const t0 = this.ctx.currentTime + 0.05;
-    const gain = speechGainForSnr(snrDb, this.speechRms, NOISE_RMS);
     let t = t0 + 0.5;
     for (const ch of triplet) {
       const buf = this.digits[Number(ch)]!;
       const src = this.ctx.createBufferSource();
       const g = this.ctx.createGain();
       src.buffer = buf;
-      g.gain.value = Math.min(4, gain);
+      g.gain.value = speechGainForSnr(speechSnr, this.speechRms[Number(ch)]!, NOISE_RMS);
       src.connect(g).connect(this.ctx.destination);
       src.start(t);
       t += buf.duration + 0.3;
     }
     const end = t + 0.3;
-    if (this.noise) {
+    {
       const n = this.ctx.createBufferSource();
       const g = this.ctx.createGain();
-      n.buffer = this.noise;
+      n.buffer = noise;
       n.loop = true;
       g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(1, t0 + 0.1);
-      g.gain.setValueAtTime(1, end - 0.1);
+      g.gain.linearRampToValueAtTime(noiseGain, t0 + 0.1);
+      g.gain.setValueAtTime(noiseGain, end - 0.1);
       g.gain.linearRampToValueAtTime(0, end);
       n.connect(g).connect(this.ctx.destination);
-      n.start(t0);
+      n.start(t0, Math.random() * noise.duration);
+      const finished = new Promise<void>((resolve) => {
+        const done = () => {
+          this.abort.signal.removeEventListener('abort', done);
+          resolve();
+        };
+        n.onended = done;
+        this.abort.signal.addEventListener('abort', done, { once: true });
+      });
       n.stop(end + 0.05);
+      return finished;
     }
-    return new Promise((resolve) => setTimeout(resolve, (end - this.ctx.currentTime) * 1000 + 50));
   }
 
   close() {
+    this.abort.abort();
     void this.ctx.close().catch(() => undefined);
   }
 }

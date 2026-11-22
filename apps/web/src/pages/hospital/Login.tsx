@@ -20,11 +20,15 @@ export default function Login() {
   const [hospitals, setHospitals] = useState<HospitalRow[]>([]);
   const [hid, setHid] = useState<string | null>(null);
   const [pin, setPin] = useState('');
+  const [privateStaff, setPrivateStaff] = useState(false);
+  const [demoMode, setDemoMode] = useState<boolean | null>(null);
+  const length = !demoMode || privateStaff ? 8 : 4;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
 
   useEffect(() => {
+    api.get<{ demoMode: boolean }>('/api/status').then((status) => setDemoMode(status.demoMode)).catch(() => setDemoMode(false));
     api.get<HospitalRow[]>('/api/queue/hospitals').then((h) => {
       setHospitals(h);
       setHid((x) => x ?? h[0]?.id ?? null);
@@ -51,11 +55,11 @@ export default function Login() {
   };
 
   const press = (k: string) => {
-    if (busy) return;
+    if (busy || !hid || demoMode === null) return;
     if (k === 'del') return setPin((p) => p.slice(0, -1));
-    const v = (pin + k).slice(0, 4);
+    const v = (pin + k).slice(0, length);
     setPin(v);
-    if (v.length === 4) void submit(v);
+    if (v.length === length) void submit(v);
   };
 
   return (
@@ -63,13 +67,13 @@ export default function Login() {
       <TopBar onBack={() => navigate('/')} title={t('hospital.login')} />
       <div className="mt-4 flex flex-col gap-2">
         {hospitals.map((h) => (
-          <button key={h.id} onClick={() => setHid(h.id)} className={`flex min-h-14 items-center gap-3 rounded-md border px-4 text-left text-body-lg ${hid === h.id ? 'border-transparent bg-accent-soft text-accent-soft-ink' : 'border-border bg-surface'}`}>
+          <button key={h.id} disabled={busy} onClick={() => { setHid(h.id); setPin(''); setError(null); }} className={`flex min-h-14 items-center gap-3 rounded-md border px-4 text-left text-body-lg ${hid === h.id ? 'border-transparent bg-accent-soft text-accent-soft-ink' : 'border-border bg-surface'}`}>
             <Hospital size={20} aria-hidden /> {i18n.language === 'en' ? h.name_en : h.name_hi}
           </button>
         ))}
       </div>
-      <motion.div key={shake} animate={shake ? { x: [0, -10, 10, -6, 6, 0] } : {}} transition={{ duration: 0.35 }} className="mt-8 flex justify-center gap-4" aria-label={t('hospital.pin')}>
-        {[0, 1, 2, 3].map((i) => (
+      <motion.div key={shake} animate={shake ? { x: [0, -10, 10, -6, 6, 0] } : {}} transition={{ duration: 0.35 }} className="mt-8 flex justify-center gap-2.5" aria-label={t('hospital.pin')}>
+        {Array.from({ length }, (_, i) => i).map((i) => (
           <motion.span key={i} animate={{ scale: pin.length > i ? 1 : 0.7, opacity: pin.length > i ? 1 : 0.35 }} transition={spring.chip} className="size-4 rounded-full bg-text" />
         ))}
       </motion.div>
@@ -79,13 +83,19 @@ export default function Login() {
           k === '' ? (
             <span key={i} />
           ) : (
-            <motion.button key={k} whileTap={{ scale: 0.9 }} transition={spring.tap} onClick={() => press(k)} aria-label={k === 'del' ? 'delete' : k} className="tnum flex h-16 items-center justify-center rounded-full bg-surface text-title-1 shadow-1">
+            <motion.button key={k} whileTap={{ scale: 0.9 }} transition={spring.tap} disabled={busy || !hid || demoMode === null} onClick={() => press(k)} aria-label={k === 'del' ? 'delete' : k} className="tnum flex h-16 items-center justify-center rounded-full bg-surface text-title-1 shadow-1">
               {k === 'del' ? <Delete size={22} /> : k}
             </motion.button>
           ),
         )}
       </div>
-      <p className="mt-6 text-center text-caption text-text-3">Demo PINs: nurse 2468 · doctor 1357 · admin 9090</p>
+      {demoMode && <label className="mt-5 flex min-h-11 items-center justify-center gap-2 text-body">
+        <input type="checkbox" checked={privateStaff} disabled={busy} onChange={(e) => { setPrivateStaff(e.target.checked); setPin(''); setError(null); }} />
+        {i18n.language === 'en' ? 'Private staff access (8 digits)' : 'निजी स्टाफ प्रवेश (8 अंक)'}
+      </label>}
+      {demoMode && !privateStaff && <p className="mt-2 text-center text-caption text-text-3">{i18n.language === 'en'
+        ? 'Simulated patients only · Nurse 2468 · Doctor 1357 · Admin 9090'
+        : 'केवल काल्पनिक मरीज़ · नर्स 2468 · डॉक्टर 1357 · एडमिन 9090'}</p>}
     </Screen>
   );
 }

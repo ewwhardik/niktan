@@ -1,10 +1,9 @@
 import { Hono } from 'hono';
-import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import type { AppEnv, StaffClaims } from '../env';
-import { requireStaff, STAFF_COOKIE, staffSecret } from '../lib/auth';
-import { loadCard } from '../lib/card';
+import { requireStaff, staffSecret } from '../lib/auth';
+import { loadCard, shareableCard } from '../lib/card';
 import { compareTokens, tickSimulation, type TokenRow } from '../lib/queue';
 import { rateLimit } from '../lib/rateLimit';
 import { mulberry32, simulatePatient } from '../lib/simulate';
@@ -12,28 +11,34 @@ import { istDay, newId, now, parseBody, sha256Hex, signToken } from '../lib/util
 
 export const hospital = new Hono<AppEnv>();
 
-const Login = z.object({ hospitalId: z.string().min(1).max(64), pin: z.string().regex(/^\d{4,8}$/) });
+const Login = z.object({ hospitalId: z.string().min(1).max(64), pin: z.string().regex(/^(?:\d{4}|\d{8})$/) });
 const SESSION_HOURS = 12;
 
 hospital.post('/login', rateLimit('login', 10, 600), async (c) => {
   const body = await parseBody(c, Login);
-  const hash = await sha256Hex(`niktan:${body.hospitalId}:${body.pin}`);
-  const staff = await c.env.DB.prepare('SELECT id, hospital_id, role FROM staff WHERE hospital_id = ? AND pin_hash = ?')
+  let hash: string;
+  if (body.pin.length === 8) {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(body.pin), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: encoder.encode(`niktan:${body.hospitalId}`), iterations: 100000, hash: 'SHA-256' }, key, 256);
+    hash = 'v2:' + [...new Uint8Array(bits)].map((n) => n.toString(16).padStart(2, '0')).join('');
+  } else {
+    hash = await sha256Hex(`niktan:${body.hospitalId}:${body.pin}`);
+  }
+  const staff = await c.env.DB.prepare('SELECT id, hospital_id, role, demo_only FROM staff WHERE hospital_id = ? AND pin_hash = ?')
     .bind(body.hospitalId, hash)
-    .first<{ id: string; hospital_id: string; role: StaffClaims['role'] }>();
-  if (!staff) throw new HTTPException(401, { message: 'Wrong PIN' });
-  const claims: StaffClaims = { sid: staff.id, hid: staff.hospital_id, role: staff.role, exp: now() + SESSION_HOURS * 3600_000 };
+    .first<{ id: string; hospital_id: string; role: StaffClaims['role']; demo_only: number }>();
+  if (!staff || (!staff.demo_only && body.pin.length !== 8) || (staff.demo_only && c.env.DEMO_MODE !== 'true')) throw new HTTPException(401, { message: 'Wrong PIN' });
+  const claims: StaffClaims = { sid: staff.id, hid: staff.hospital_id, role: staff.role, demoOnly: !!staff.demo_only, exp: now() + SESSION_HOURS * 3600_000 };
   const token = await signToken(claims, staffSecret(c.env));
-  setCookie(c, STAFF_COOKIE, token, { httpOnly: true, secure: true, sameSite: 'None', path: '/', maxAge: SESSION_HOURS * 3600 });
   return c.json({ role: staff.role, hospitalId: staff.hospital_id, token });
 });
 
 hospital.post('/logout', (c) => {
-  deleteCookie(c, STAFF_COOKIE, { path: '/', secure: true, sameSite: 'None' });
   return c.json({ ok: true });
 });
 
-hospital.get('/me', requireStaff(), (c) => c.json(c.get('staff')));
+hospital.get('/me', requireStaff(), (c) => c.json({ ...c.get('staff'), demoMode: c.env.DEMO_MODE === 'true' }));
 
 interface BoardRow extends TokenRow {
   code: string;
@@ -55,9 +60,9 @@ hospital.get('/:hid/board', requireStaff(), async (c) => {
      JOIN departments d ON d.id = t.department_id
      JOIN sessions s ON s.id = t.session_id
      LEFT JOIN triage tr ON tr.session_id = t.session_id
-     WHERE d.hospital_id = ? AND t.day = ? AND t.status IN ('waiting', 'called', 'in_consult')`,
+     WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) AND t.status IN ('waiting', 'called', 'in_consult')`,
   )
-    .bind(hid, istDay())
+    .bind(hid, istDay(), Number(c.get('staff')!.demoOnly))
     .all<BoardRow>();
 
   const columns: Record<string, unknown[]> = {};
@@ -93,10 +98,11 @@ hospital.get('/tokens/:id', requireStaff(), async (c) => {
   )
     .bind(c.req.param('id'))
     .first<TokenRow & { hospital_id: string; code: string }>();
-  if (!token || token.hospital_id !== staff.hid) throw new HTTPException(404, { message: 'Token not found' });
+  if (!token || token.hospital_id !== staff.hid || (staff.demoOnly && !token.simulated)) throw new HTTPException(404, { message: 'Token not found' });
   const card = await loadCard(c.env, token.session_id);
   const note = await c.env.DB.prepare('SELECT note, history_prefilled_useful FROM doctor_notes WHERE token_id = ?').bind(token.id).first();
-  return c.json({ token, card, note });
+  const { id, number, status, priority, created_at, consult_start, simulated, code } = token;
+  return c.json({ token: { id, number, status, priority, created_at, consult_start, simulated, code }, card: card && shareableCard(card), note });
 });
 
 const Transition = z.enum(['call', 'start', 'end', 'left', 'requeue']);
@@ -113,12 +119,12 @@ hospital.post('/tokens/:id/:action', requireStaff(), async (c) => {
   if (!action.success) throw new HTTPException(404, { message: 'Unknown action' });
   const staff = c.get('staff')!;
   const t = TRANSITIONS[action.data];
-  const placeholders = t.from.map((_, i) => `?${i + 4}`).join(', ');
+  const placeholders = t.from.map((_, i) => `?${i + 5}`).join(', ');
   const res = await c.env.DB.prepare(
-    `UPDATE tokens SET ${t.sql} WHERE id = ?1 AND status IN (${placeholders})
+    `UPDATE tokens SET ${t.sql} WHERE id = ?1 AND (?4 = 0 OR simulated = 1) AND status IN (${placeholders})
        AND department_id IN (SELECT id FROM departments WHERE hospital_id = ?3)`,
   )
-    .bind(c.req.param('id'), now(), staff.hid, ...t.from)
+    .bind(c.req.param('id'), now(), staff.hid, Number(staff.demoOnly), ...t.from)
     .run();
   if (!res.meta.changes) throw new HTTPException(409, { message: 'Token is not in a state that allows this' });
   return c.json({ ok: true });
@@ -129,12 +135,16 @@ const Note = z.object({ note: z.string().max(4000), historyPrefilledUseful: z.bo
 hospital.put('/tokens/:id/note', requireStaff(['doctor', 'admin']), async (c) => {
   const body = await parseBody(c, Note);
   const useful = body.historyPrefilledUseful === null ? null : body.historyPrefilledUseful ? 1 : 0;
-  await c.env.DB.prepare(
-    `INSERT INTO doctor_notes (token_id, note, history_prefilled_useful) VALUES (?1, ?2, ?3)
+  const staff = c.get('staff')!;
+  const result = await c.env.DB.prepare(
+    `INSERT INTO doctor_notes (token_id, note, history_prefilled_useful)
+     SELECT t.id, ?2, ?3 FROM tokens t JOIN departments d ON d.id = t.department_id
+     WHERE t.id = ?1 AND d.hospital_id = ?4 AND (?5 = 0 OR t.simulated = 1)
      ON CONFLICT(token_id) DO UPDATE SET note = ?2, history_prefilled_useful = ?3`,
   )
-    .bind(c.req.param('id'), body.note, useful)
+    .bind(c.req.param('id'), body.note, useful, staff.hid, Number(staff.demoOnly))
     .run();
+  if (!result.meta.changes) throw new HTTPException(404, { message: 'Token not found' });
   return c.json({ ok: true });
 });
 
@@ -144,7 +154,7 @@ const Simulate = z.object({
   seed: z.number().int().optional(),
 });
 
-hospital.post('/:hid/simulate', requireStaff(['admin', 'nurse']), async (c) => {
+hospital.post('/:hid/simulate', requireStaff(['admin']), rateLimit('simulate', 10, 3600), async (c) => {
   if (c.env.DEMO_MODE !== 'true') throw new HTTPException(403, { message: 'Simulator is off' });
   const hid = c.req.param('hid');
   const body = await parseBody(c, Simulate);
@@ -174,7 +184,7 @@ hospital.post('/:hid/simulate', requireStaff(['admin', 'nurse']), async (c) => {
         .bind(sid, p.result.priority, p.result.department, JSON.stringify(p.result.reasons), p.result.rulesVersion, created),
       db.prepare(
         `INSERT INTO tokens (id, session_id, department_id, number, day, priority, status, created_at, simulated)
-         SELECT ?1, ?2, ?3, COALESCE(MAX(number), 0) + 1, ?4, ?5, 'waiting', ?6, 1 FROM tokens WHERE department_id = ?3 AND day = ?4`,
+         SELECT ?1, ?2, ?3, COALESCE(MAX(number), 0) + 1, ?4, ?5, 'waiting', ?6, 1 FROM tokens WHERE department_id = ?3 AND day = ?4 AND simulated = 1`,
       ).bind(newId('t'), sid, deptId, day, p.result.priority, created),
     );
   }
@@ -183,54 +193,55 @@ hospital.post('/:hid/simulate', requireStaff(['admin', 'nurse']), async (c) => {
 });
 
 hospital.post('/:hid/simulate/clear', requireStaff(['admin']), async (c) => {
+  if (c.env.DEMO_MODE !== 'true') throw new HTTPException(403, { message: 'Simulator is off' });
   const hid = c.req.param('hid');
   const db = c.env.DB;
   const sub = 'SELECT id FROM sessions WHERE simulated = 1 AND hospital_id = ?';
   await db.batch([
-    db.prepare(`DELETE FROM tokens WHERE session_id IN (${sub})`).bind(hid),
-    db.prepare(`DELETE FROM measurements WHERE session_id IN (${sub})`).bind(hid),
-    db.prepare(`DELETE FROM triage WHERE session_id IN (${sub})`).bind(hid),
+    db.prepare(`DELETE FROM feedback WHERE session_id IN (${sub})`).bind(hid),
     db.prepare('DELETE FROM sessions WHERE simulated = 1 AND hospital_id = ?').bind(hid),
   ]);
   return c.json({ ok: true });
 });
 
-hospital.get('/:hid/stats', requireStaff(), async (c) => {
+hospital.get('/:hid/stats', requireStaff(['admin']), async (c) => {
   const hid = c.req.param('hid');
   const day = istDay();
   const db = c.env.DB;
-  const since = now() - 24 * 3600_000;
+  const since = Date.parse(day + 'T00:00:00+05:30');
+  const demoOnly = Number(c.get('staff')!.demoOnly);
   const [priorities, departments, waits, flags, scans, feedback, consults] = await db.batch([
     db.prepare(
       `SELECT t.priority, t.simulated, COUNT(*) AS n FROM tokens t JOIN departments d ON d.id = t.department_id
-       WHERE d.hospital_id = ? AND t.day = ? GROUP BY t.priority, t.simulated`,
-    ).bind(hid, day),
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) GROUP BY t.priority, t.simulated`,
+    ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT d.code, SUM(t.status = 'waiting') AS waiting, SUM(t.status = 'done') AS done, COUNT(*) AS total
-       FROM tokens t JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.day = ? GROUP BY d.code`,
-    ).bind(hid, day),
+       FROM tokens t JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) GROUP BY d.code`,
+    ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT t.priority, AVG((COALESCE(t.called_at, t.consult_start) - t.created_at) / 60000.0) AS avg_wait_min, COUNT(*) AS n
        FROM tokens t JOIN departments d ON d.id = t.department_id
-       WHERE d.hospital_id = ? AND t.day = ? AND COALESCE(t.called_at, t.consult_start) IS NOT NULL GROUP BY t.priority`,
-    ).bind(hid, day),
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) AND COALESCE(t.called_at, t.consult_start) IS NOT NULL GROUP BY t.priority`,
+    ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT SUM(json_extract(data_json, '$.pallor') = 1) AS pallor, SUM(json_extract(data_json, '$.jaundice') = 1) AS jaundice,
               SUM(json_extract(data_json, '$.cataract') = 1) AS cataract, COUNT(*) AS n
        FROM measurements m JOIN sessions s ON s.id = m.session_id
-       WHERE m.module = 'eye' AND s.created_at > ? AND (s.hospital_id = ? OR s.hospital_id IS NULL)`,
-    ).bind(since, hid),
+       WHERE m.module = 'eye' AND s.created_at > ? AND s.hospital_id = ? AND (? = 0 OR s.simulated = 1)`,
+    ).bind(since, hid, demoOnly),
     db.prepare(
       `SELECT CAST(((created_at / 3600000) * 3600000) AS INTEGER) AS hour, SUM(simulated = 0) AS real, SUM(simulated = 1) AS sim
-       FROM sessions WHERE created_at > ? GROUP BY hour ORDER BY hour`,
-    ).bind(since),
+       FROM sessions WHERE created_at > ? AND hospital_id = ? AND (? = 0 OR simulated = 1) GROUP BY hour ORDER BY hour`,
+    ).bind(since, hid, demoOnly),
     db.prepare(
-      `SELECT AVG(rating) AS avg_rating, AVG(would_use) AS would_use, AVG(last_opd_wait_min) AS last_wait, COUNT(*) AS n FROM feedback`,
-    ),
+      `SELECT AVG(rating) AS avg_rating, AVG(would_use) AS would_use, AVG(last_opd_wait_min) AS last_wait, COUNT(*) AS n FROM feedback f JOIN sessions s ON s.id = f.session_id
+       WHERE s.hospital_id = ? AND f.created_at >= ? AND (? = 0 OR s.simulated = 1)`,
+    ).bind(hid, since, demoOnly),
     db.prepare(
       `SELECT AVG((consult_end - consult_start) / 60000.0) AS avg_consult_min, COUNT(*) AS n FROM tokens t
-       JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.simulated = 0 AND consult_end IS NOT NULL`,
-    ).bind(hid),
+       JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.simulated = 0 AND ? = 0 AND t.day = ? AND consult_end IS NOT NULL`,
+    ).bind(hid, demoOnly, day),
   ]);
   return c.json({
     day,

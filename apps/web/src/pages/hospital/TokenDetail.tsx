@@ -45,10 +45,11 @@ export default function TokenDetail() {
   const [d, setD] = useState<Detail | null>(null);
   const [note, setNote] = useState('');
   const [useful, setUseful] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    const r = await api.get<Detail>(`/api/hospital/tokens/${id}`).catch(() => null);
+    const r = await api.get<Detail>(`/api/hospital/tokens/${id}`).catch(() => { setFailed(true); return null; });
     if (r) {
       setD(r);
       setNote((n) => n || r.note?.note || '');
@@ -59,6 +60,7 @@ export default function TokenDetail() {
     if (staff) void load();
   }, [staff, load]);
 
+  if (!d?.card && failed) return <button className="m-5 min-h-11" onClick={() => { setFailed(false); void load(); }}>{t('common.error')} · {t('common.retry')}</button>;
   if (!d?.card) return <div className="mx-auto max-w-3xl p-5"><div className="skeleton h-64 rounded-xl" /></div>;
   const { token, card } = d;
   const meta = PRIORITY_META[card.triage.priority];
@@ -66,11 +68,15 @@ export default function TokenDetail() {
   const canNote = staff?.role === 'doctor' || staff?.role === 'admin';
 
   const transition = async (a: 'start' | 'end') => {
-    await api.post(`/api/hospital/tokens/${token.id}/${a}`).catch(() => undefined);
-    if (a === 'end') {
-      if (canNote) await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful }).catch(() => undefined);
-      navigate('/hospital/board');
-    } else void load();
+    try {
+      if (a === 'end' && canNote) await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful });
+      await api.post(`/api/hospital/tokens/${token.id}/${a}`);
+      setFailed(false);
+      if (a === 'end') navigate('/hospital/board');
+      else void load();
+    } catch {
+      setFailed(true);
+    }
   };
 
   const kv = (label: string, value: React.ReactNode) => (
@@ -149,10 +155,11 @@ export default function TokenDetail() {
           {kv(t('card.pallor'), card.eye ? <>{flag(card.eye.pallor)}{card.eye.pallorScore != null && <span className="ml-1.5 text-caption text-text-3">p {card.eye.pallorScore.toFixed(2)}</span>}</> : '—')}
           {kv(t('card.jaundice'), flag(card.eye?.jaundice))}
           {kv(t('card.cataract'), flag(card.eye?.cataract))}
-          {kv(t('card.visionRow'), card.vision ? `R ${card.vision.rightLogMar != null ? snellen6(card.vision.rightLogMar) : '—'} · L ${card.vision.leftLogMar != null ? snellen6(card.vision.leftLogMar) : '—'}` : '—')}
-          {kv(t('card.hearingRow'), card.hearing ? `${card.hearing.result === 'pass' ? t('card.normal') : t('card.refer')} (${card.hearing.srtDb} dB)` : '—')}
+          {kv(t('card.visionRow'), card.vision ? `${t(card.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · R ${card.vision.rightLogMar != null ? snellen6(card.vision.rightLogMar) : '—'} · L ${card.vision.leftLogMar != null ? snellen6(card.vision.leftLogMar) : '—'}` : '—')}
+          {kv(t('card.hearingRow'), card.hearing ? `${t('hearing.experimental')} · ${t('hearing.' + card.hearing.result)} (${card.hearing.srtDb} dB SNR)` : '—')}
         </motion.section>
 
+        {failed && <p className="text-emergency-text" role="alert">{t('common.error')}</p>}
         {canNote && (
           <motion.section variants={riseChild} className="rounded-lg bg-surface p-5 shadow-1 md:col-span-2">
             <label className="text-label font-semibold text-text-2" htmlFor="note">
@@ -169,8 +176,11 @@ export default function TokenDetail() {
             </div>
             <button
               onClick={async () => {
-                await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful }).catch(() => undefined);
-                setSaved(true);
+                try {
+                  await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful });
+                  setSaved(true);
+                  setFailed(false);
+                } catch { setFailed(true); }
               }}
               className="mt-3 inline-flex min-h-11 items-center gap-2 text-label text-accent-text"
             >
@@ -179,7 +189,7 @@ export default function TokenDetail() {
           </motion.section>
         )}
 
-        {!token.simulated && (
+        {(
           <motion.div variants={riseChild} className="md:col-span-2">
             {token.status === 'in_consult' ? (
               <Button icon={Square} onClick={() => transition('end')}>

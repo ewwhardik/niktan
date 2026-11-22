@@ -1,10 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { Camera, CircleCheck, Eye, ScanEye, TriangleAlert } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { EyeFlags } from '@niktan/core';
+import type { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { grabFrame, useCamera } from '../../cv/camera';
-import { cropImage, eyeHeuristics, pallorFromCrop, type EyeHeuristics, type PallorResult } from '../../cv/eye';
+import { cropImage, eyeHeuristics, locateLowerLid, pallorFromCrop, type EyeHeuristics, type PallorResult } from '../../cv/eye';
 import { loadFaceLandmarker } from '../../cv/face';
 import { haptic } from '../../lib/perf';
 import { useScan } from '../../state/scan';
@@ -14,7 +14,7 @@ import { riseChild, spring, staggerParent } from '../../ui/motion';
 import { CameraProblem } from './CameraProblem';
 import type { StepProps } from './ScanStep';
 
-type Phase = 'straight' | 'lid' | 'analysing' | 'result';
+type Phase = 'straight' | 'lid' | 'result';
 
 /** Guide box for the pulled-down eyelid, as fractions of the camera stage. Centred horizontally so mirroring doesn't move it. */
 const LID_BOX = { x: 0.2, y: 0.4, w: 0.6, h: 0.2 };
@@ -34,80 +34,97 @@ function stageBoxToVideo(video: HTMLVideoElement, frameW: number, frameH: number
   };
 }
 
-export default function EyeScan({ next }: StepProps) {
+export default function EyeScan({ next, guide }: StepProps) {
   const { t } = useTranslation();
   const { record, skip } = useScan();
-  const cam = useCamera('user');
+  const cam = useCamera('user', { idealWidth: 1280, requestTorch: true });
+  const model = useRef<FaceLandmarker | null>(null);
   const [phase, setPhase] = useState<Phase>('straight');
-  const [flash, setFlash] = useState(false);
+  const [hint, setHint] = useState('');
   const [heur, setHeur] = useState<EyeHeuristics | null>(null);
   const [pallor, setPallor] = useState<PallorResult | null>(null);
   const [thumb, setThumb] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /** White screen for a moment acts as a soft front light, then grab the frame. */
-  const flashCapture = useCallback(async () => {
-    setFlash(true);
-    await new Promise((r) => setTimeout(r, 350));
-    const video = cam.videoRef.current!;
-    const canvas = grabFrame(video, 960);
-    setFlash(false);
-    haptic(15);
-    return canvas;
-  }, [cam.videoRef]);
-
-  const captureStraight = useCallback(async () => {
+  async function capture() {
+    setHint('');
     if (cam.status !== 'live') {
-      await cam.start();
+      setBusy(true);
+      const signal = await cam.start();
+      if (signal) {
+        try {
+          model.current = await loadFaceLandmarker(signal);
+        } catch {
+          if (!signal.aborted) cam.fail('model');
+        }
+      }
+      setBusy(false);
       return;
     }
+
+    const video = cam.videoRef.current;
+    if (!video || !model.current) return;
     setBusy(true);
     try {
-      const landmarker = await loadFaceLandmarker();
-      const canvas = await flashCapture();
-      const res = landmarker.detectForVideo(canvas, performance.now());
-      const lm = res.faceLandmarks[0];
+      const canvas = grabFrame(video, 1280);
+      const faces = model.current.detectForVideo(canvas, performance.now()).faceLandmarks;
+      if (faces.length !== 1) {
+        setHint(faces.length ? 'face.manyFaces' : 'face.noFace');
+        return;
+      }
       const img = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
-      setHeur(lm ? eyeHeuristics(img, lm) : { scleraB: null, jaundice: null, pupilL: null, cataract: null });
-      setPhase('lid');
+      if (phase === 'straight') {
+        const result = eyeHeuristics(img, faces[0]!);
+        setHeur({ ...result, cataract: cam.torch ? result.cataract : null });
+        setPhase('lid');
+      } else {
+        const box = locateLowerLid(faces[0]!, img.width, img.height, stageBoxToVideo(video, img.width, img.height));
+        if (!box) {
+          setHint('eye.align');
+          return;
+        }
+        const crop = cropImage(img, box.x, box.y, box.w, box.h);
+        setPallor(pallorFromCrop(crop));
+        const thumbnail = document.createElement('canvas');
+        thumbnail.width = crop.width;
+        thumbnail.height = crop.height;
+        thumbnail.getContext('2d')!.putImageData(new ImageData(crop.data, crop.width, crop.height), 0, 0);
+        setThumb(thumbnail.toDataURL('image/jpeg', 0.8));
+        cam.stop();
+        model.current = null;
+        setPhase('result');
+      }
+      haptic(15);
+    } catch {
+      cam.fail('unknown');
     } finally {
       setBusy(false);
     }
-  }, [cam, flashCapture]);
+  }
 
-  const captureLid = useCallback(async () => {
-    setBusy(true);
-    const canvas = await flashCapture();
-    const video = cam.videoRef.current!;
-    const box = stageBoxToVideo(video, canvas.width, canvas.height);
-    const img = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
-    const crop = cropImage(img, box.x, box.y, box.w, box.h);
-    setPhase('analysing');
-    // Let the analysing state paint before the synchronous colour maths.
-    await new Promise((r) => setTimeout(r, 50));
-    const p = pallorFromCrop(crop);
-    const tc = document.createElement('canvas');
-    tc.width = crop.width;
-    tc.height = crop.height;
-    tc.getContext('2d')!.putImageData(new ImageData(crop.data, crop.width, crop.height), 0, 0);
-    setThumb(tc.toDataURL('image/jpeg', 0.8));
-    setPallor(p);
+  function reset() {
     cam.stop();
-    setBusy(false);
-    setPhase('result');
-    haptic([30, 60, 30]);
-    const flags: EyeFlags = {
-      pallor: p ? p.flag : null,
-      pallorScore: p ? Math.round(p.probability * 1000) / 1000 : null,
+    model.current = null;
+    setPhase('straight');
+    setPallor(null);
+    setHeur(null);
+    setThumb(null);
+    setHint('');
+  }
+
+  function accept() {
+    record('eye', {
+      pallor: pallor?.flag ?? null,
+      pallorScore: pallor ? Math.round(pallor.probability * 1000) / 1000 : null,
       jaundice: heur?.jaundice ?? null,
       cataract: heur?.cataract ?? null,
-      quality: p ? Math.min(1, p.pixels / 1500) : 0,
-    };
-    record('eye', flags);
-  }, [cam, flashCapture, heur, record]);
+      quality: pallor ? Math.min(1, pallor.pixels / 1500) : 0,
+    });
+    next();
+  }
 
   if (cam.status === 'error' && cam.error) {
-    return <CameraProblem error={cam.error} onRetry={() => void cam.start()} onSkip={() => { skip('eye'); next(); }} />;
+    return <CameraProblem error={cam.error} onRetry={reset} onSkip={() => { skip('eye'); next(); }} />;
   }
 
   const rows: { label: string; value: boolean | null }[] = [
@@ -118,10 +135,7 @@ export default function EyeScan({ next }: StepProps) {
 
   return (
     <div className="flex flex-1 flex-col pt-5">
-      <AnimatePresence>
-        {flash && <motion.div className="fixed inset-0 z-50 bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }} />}
-      </AnimatePresence>
-
+      {phase !== 'result' && !busy && cam.status !== 'starting' && <div className="mb-3">{guide}</div>}
       {phase !== 'result' ? (
         <div className="flex flex-col gap-4">
           <div className="relative mx-auto aspect-[3/4] w-full max-w-[360px] overflow-hidden rounded-xl bg-[#111] shadow-3">
@@ -148,14 +162,9 @@ export default function EyeScan({ next }: StepProps) {
                 transition={spring.reveal}
               />
             )}
-            {phase === 'analysing' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <motion.div className="size-10 rounded-full border-2 border-white/30 border-t-white" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }} />
-              </div>
-            )}
           </div>
           <motion.p key={phase} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="min-h-12 text-center text-body-lg text-text-2">
-            {phase === 'straight' ? t('face.instruction') : t('eye.instruction')}
+            {hint ? <span role="status">{t(hint)}</span> : t(phase === 'straight' ? 'face.instruction' : 'eye.instruction')}
             <span className="mt-1 block text-body text-text-3">{t('eye.torch')}</span>
           </motion.p>
         </div>
@@ -195,20 +204,14 @@ export default function EyeScan({ next }: StepProps) {
       <Dock>
         {phase === 'result' ? (
           <>
-            <Button onClick={next}>{t('common.next')}</Button>
-            <LinkButton
-              onClick={() => {
-                setPhase('straight');
-                setPallor(null);
-                setHeur(null);
-              }}
-            >
+            <Button onClick={accept}>{t('common.next')}</Button>
+            <LinkButton onClick={reset}>
               {t('common.retry')}
             </LinkButton>
           </>
         ) : (
           <>
-            <Button icon={cam.status === 'live' ? (phase === 'straight' ? Eye : Camera) : Camera} loading={busy || cam.status === 'starting' || phase === 'analysing'} onClick={phase === 'straight' ? captureStraight : captureLid}>
+            <Button icon={cam.status === 'live' ? (phase === 'straight' ? Eye : Camera) : Camera} loading={busy || cam.status === 'starting'} onClick={capture}>
               {cam.status === 'live' ? t('eye.capture') : t('eye.openCamera')}
             </Button>
             <LinkButton

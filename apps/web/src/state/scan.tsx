@@ -1,9 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   triage,
   type EyeFlags,
   type Hearing,
-  type Measurement,
   type ModuleName,
   type Symptoms,
   type TriageResult,
@@ -44,9 +43,9 @@ interface ScanApi extends ScanState {
   begin: (profile: Profile, lang: string) => Promise<void>;
   record: <M extends ModuleName>(module: M, data: Results[M]) => void;
   skip: (module: ModuleName) => void;
-  sync: () => Promise<boolean>;
+  sync: () => Promise<string | null>;
+  deleteScan: () => Promise<void>;
   setToken: (id: string | null) => void;
-  reset: () => void;
   /** Same engine as the server, so the card shows instantly and works offline. */
   localTriage: TriageResult | null;
 }
@@ -54,56 +53,106 @@ interface ScanApi extends ScanState {
 const Ctx = createContext<ScanApi | null>(null);
 
 export function ScanProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<ScanState>(() => load(KEY, empty));
-  useEffect(() => save(KEY, state), [state]);
-
-  const upload = useCallback(async (sessionId: string, module: ModuleName, data: unknown) => {
-    try {
-      await api.post(`/api/sessions/${sessionId}/measurements`, { module, data } as Measurement);
-      setState((s) => ({ ...s, pending: s.pending.filter((m) => m !== module) }));
-      return true;
-    } catch {
-      return false;
+  const [state, setState] = useState<ScanState>(() => {
+    const saved = load(KEY, empty);
+    if (!saved?.profile) return empty;
+    if (!saved.startedAt || Date.now() - saved.startedAt > 30 * 86400_000) {
+      remove(KEY);
+      return empty;
     }
+    // Legacy share URLs contained the owner ID. Re-sync the local copy under a new owner ID.
+    if (saved.sessionId?.startsWith('s_')) {
+      return { ...saved, sessionId: null, tokenId: null, pending: Object.keys(saved.results) as ModuleName[] };
+    }
+    return saved;
+  });
+  const latest = useRef(state);
+  const inFlight = useRef<Promise<string | null> | null>(null);
+  const generation = useRef(0);
+  const saving = useRef(false);
+
+  const update = useCallback((next: ScanState) => {
+    latest.current = next;
+    if (next.profile) save(KEY, next);
+    else remove(KEY);
+    setState(next);
   }, []);
 
-  const begin = useCallback(async (profile: Profile, lang: string) => {
-    let sessionId: string | null = null;
-    try {
-      sessionId = (await api.post<{ id: string }>('/api/sessions', { ...profile, lang })).id;
-    } catch {
-      // Offline: the scan still runs; the session is created on the next sync.
-    }
-    setState({ ...empty, sessionId, profile, startedAt: Date.now() });
-  }, []);
+  const sync = useCallback((): Promise<string | null> => {
+    if (saving.current || !latest.current.profile || !navigator.onLine) return Promise.resolve(null);
+    if (inFlight.current) return inFlight.current;
+    const version = generation.current;
+    const current = () => version === generation.current;
+    const run = async () => {
+      try {
+        let { sessionId } = latest.current;
+        if (!sessionId) {
+          const lang = load('niktan.lang', 'hi');
+          const res = await api.post<{ id: string }>('/api/sessions', { ...latest.current.profile, lang });
+          if (!current()) return null;
+          sessionId = res.id;
+          update({ ...latest.current, sessionId });
+        }
+        // Serial writes preserve retake order, including a skip while a previous POST is pending.
+        while (current() && latest.current.pending.length) {
+          const module = latest.current.pending[0]!;
+          const data = latest.current.results[module];
+          const path = `/api/sessions/${sessionId}/measurements`;
+          if (data) await api.post(path, { module, data });
+          else await api.del(`${path}/${module}`);
+          if (current() && latest.current.results[module] === data) {
+            update({ ...latest.current, pending: latest.current.pending.filter((m) => m !== module) });
+          }
+        }
+        return current() ? sessionId : null;
+      } catch {
+        return null;
+      }
+    };
+    const task = run().finally(() => {
+      if (inFlight.current === task) inFlight.current = null;
+    });
+    inFlight.current = task;
+    return task;
+  }, [update]);
 
-  const record = useCallback<ScanApi['record']>(
-    (module, data) => {
-      setState((s) => ({ ...s, results: { ...s.results, [module]: data }, pending: [...new Set([...s.pending, module])] }));
-      if (data && state.sessionId) void upload(state.sessionId, module, data);
-    },
-    [state.sessionId, upload],
-  );
+  useEffect(() => {
+    const onReconnect = () => { void sync(); };
+    window.addEventListener('online', onReconnect);
+    return () => window.removeEventListener('online', onReconnect);
+  }, [sync]);
+
+  const begin = useCallback(async (profile: Profile) => {
+    if (inFlight.current) await inFlight.current;
+    generation.current++;
+    update({ ...empty, profile, startedAt: Date.now() });
+  }, [update]);
+
+  const record = useCallback<ScanApi['record']>((module, data) => {
+    const s = latest.current;
+    const pending = [...new Set([...s.pending, module])];
+    update({ ...s, results: { ...s.results, [module]: data }, pending });
+    void sync();
+  }, [sync, update]);
 
   const skip = useCallback((module: ModuleName) => {
-    setState((s) => ({ ...s, results: { ...s.results, [module]: null }, pending: s.pending.filter((m) => m !== module) }));
-  }, []);
+    const s = latest.current;
+    if (s.results[module] || s.pending.includes(module)) record(module, null);
+    else update({ ...s, results: { ...s.results, [module]: null } });
+  }, [record, update]);
 
-  const sync = useCallback(async () => {
-    let { sessionId } = state;
-    if (!state.profile) return false;
-    if (!sessionId) {
-      try {
-        sessionId = (await api.post<{ id: string }>('/api/sessions', { ...state.profile, lang: document.documentElement.lang })).id;
-        setState((s) => ({ ...s, sessionId, pending: Object.keys(s.results).filter((k) => s.results[k as ModuleName]) as ModuleName[] }));
-      } catch {
-        return false;
-      }
+  const deleteScan = useCallback(async () => {
+    saving.current = true;
+    try {
+      if (inFlight.current) await inFlight.current;
+      const id = latest.current.sessionId;
+      if (id) await api.del(`/api/sessions/${id}`);
+      generation.current++;
+      update(empty);
+    } finally {
+      saving.current = false;
     }
-    const modules = (Object.keys(state.results) as ModuleName[]).filter((m) => state.results[m] && (state.pending.includes(m) || !state.sessionId));
-    const ok = await Promise.all(modules.map((m) => upload(sessionId!, m, state.results[m])));
-    return ok.every(Boolean);
-  }, [state, upload]);
+  }, [update]);
 
   const localTriage = useMemo(() => {
     if (!state.profile) return null;
@@ -126,11 +175,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     record,
     skip,
     sync,
-    setToken: (tokenId) => setState((s) => ({ ...s, tokenId })),
-    reset: () => {
-      remove(KEY);
-      setState(empty);
-    },
+    deleteScan,
+    setToken: (tokenId) => update({ ...latest.current, tokenId }),
     localTriage,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

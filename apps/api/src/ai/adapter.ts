@@ -50,7 +50,7 @@ export async function runChain<I, O>(
       await logCall(env, p.name, kind, true, Date.now() - started);
       return { provider: p.name, output };
     } catch (err) {
-      const msg = ctrl.signal.aborted ? 'timeout' : err instanceof Error ? err.message : String(err);
+      const msg = ctrl.signal.aborted ? 'timeout' : 'provider request failed';
       attempts.push({ provider: p.name, error: msg });
       await logCall(env, p.name, kind, false, Date.now() - started, msg);
     } finally {

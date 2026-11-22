@@ -24,7 +24,7 @@ export default defineConfig({
       },
       workbox: {
         // Scan steps must work on a flaky venue network once the app has loaded.
-        globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3}'],
+        globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3,wav}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [

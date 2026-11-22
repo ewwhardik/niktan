@@ -6,7 +6,7 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export const DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left'];
 
-export const CARD_WIDTH_MM = 85.6; // ISO/IEC 7810 ID-1 (ATM, Aadhaar PVC card)
+export const CARD_SHORT_EDGE_MM = 53.98; // ISO/IEC 7810 ID-1 (ATM, Aadhaar PVC card)
 const ARCMIN = Math.PI / (180 * 60);
 
 export function optotypeMm(logMar: number, distanceMm: number): number {
@@ -17,16 +17,26 @@ export function optotypePx(logMar: number, distanceMm: number, pxPerMm: number):
   return optotypeMm(logMar, distanceMm) * pxPerMm;
 }
 
+/** Align each stroke to device pixels and require enough precision to distinguish adjacent 0.1 lines. */
+export function screenOptotype(logMar: number, distanceMm: number, pxPerMm: number, dpr: number) {
+  const target = optotypePx(logMar, distanceMm, pxPerMm) * dpr;
+  const stroke = Math.round(target / 5);
+  const size = (5 * stroke) / dpr;
+  const readable = stroke >= 2 && Math.abs(Math.log10((5 * stroke) / target)) < 0.05;
+  return { size, readable };
+}
+
 /** logMAR → Snellen denominator at 6 m, rounded to the standard chart line. */
 export function snellen6(logMar: number): string {
   const lines = [3, 4, 5, 6, 7.5, 9, 12, 15, 18, 24, 36, 60, 120];
   const exact = 6 * 10 ** logMar;
   const nearest = lines.reduce((a, b) => (Math.abs(b - exact) < Math.abs(a - exact) ? b : a));
-  return `6/${nearest}`;
+  return logMar > 1 && logMar < 1.2 ? '<6/60' : `6/${nearest}`;
 }
 
 export interface StaircaseState {
   logMar: number;
+  ascending: boolean;
   shown: number;
   correct: number;
   lastPassed: number | null;
@@ -34,14 +44,15 @@ export interface StaircaseState {
   current: Direction;
 }
 
-export const START_LOGMAR = 1.0;
+export const START_LOGMAR = 0.3;
+export const MAX_LOGMAR = 1.0;
 export const MIN_LOGMAR = -0.1;
 export const STEP = 0.1;
 export const PER_LEVEL = 5;
-export const PASS_AT = 3;
+export const PASS_AT = 4;
 
 export function startStaircase(rand: () => number = Math.random): StaircaseState {
-  return { logMar: START_LOGMAR, shown: 0, correct: 0, lastPassed: null, done: false, current: pick(rand) };
+  return { logMar: START_LOGMAR, ascending: false, shown: 0, correct: 0, lastPassed: null, done: false, current: pick(rand) };
 }
 
 function pick(rand: () => number, not?: Direction): Direction {
@@ -52,8 +63,8 @@ function pick(rand: () => number, not?: Direction): Direction {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Records one answer. A level passes as soon as 3 of 5 are right and fails as soon as passing is
- * impossible, which keeps the test short. Result = smallest level passed (null = could not read 1.0).
+ * Start at the referral line. A pass explores smaller lines and an initial failure explores
+ * larger ones. Stop when the smallest readable line is bracketed (4 of 5 correct).
  */
 export function answer(state: StaircaseState, dir: Direction | 'unsure', rand: () => number = Math.random): StaircaseState {
   if (state.done) return state;
@@ -62,10 +73,13 @@ export function answer(state: StaircaseState, dir: Direction | 'unsure', rand: (
   const wrong = shown - correct;
   if (correct >= PASS_AT) {
     const next = round1(state.logMar - STEP);
-    if (next < MIN_LOGMAR) return { ...state, shown, correct, lastPassed: state.logMar, done: true };
-    return { logMar: next, shown: 0, correct: 0, lastPassed: state.logMar, done: false, current: pick(rand, state.current) };
+    if (state.ascending || next < MIN_LOGMAR) return { ...state, shown, correct, lastPassed: state.logMar, done: true };
+    return { ...state, logMar: next, shown: 0, correct: 0, lastPassed: state.logMar, done: false, current: pick(rand, state.current) };
   }
-  if (wrong > PER_LEVEL - PASS_AT) return { ...state, shown, correct, done: true };
+  if (wrong > PER_LEVEL - PASS_AT) {
+    if (state.lastPassed !== null || state.logMar >= MAX_LOGMAR) return { ...state, shown, correct, done: true };
+    return { ...state, ascending: true, logMar: round1(state.logMar + STEP), shown: 0, correct: 0, current: pick(rand, state.current) };
+  }
   return { ...state, shown, correct, current: pick(rand, state.current) };
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": "2026.11-v1",
+  "version": "2026.11-v2",
   "qualityMin": 0.5,
   "heartRate": {
     "emergencyAbove": 130,
@@ -11,7 +11,7 @@
   "childAgeUnder": 5,
   "paediatricAgeUnder": 14,
   "elderlyAgeFrom": 65,
-  "visionReferLogMar": 0.48,
+  "visionReferLogMar": 0.3,
   "visionAsymmetryLogMar": 0.2,
   "emergencySymptoms": ["chest_pain", "severe_bleeding", "seizure", "confusion"],
   "todaySymptoms": ["sudden_vision_loss", "blood_in_stool", "yellow_eyes", "numbness", "fainting"]

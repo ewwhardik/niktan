@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useScan } from '../../state/scan';
 import { Screen, Stepper, TopBar } from '../../ui/Layout';
 import { screenVariants } from '../../ui/motion';
+import { VoiceGuide } from './VoiceGuide';
 
 export const STEPS = ['face', 'eye', 'vision', 'hearing', 'symptoms'] as const;
 export type StepId = (typeof STEPS)[number];
@@ -19,6 +20,7 @@ const components = {
 
 export interface StepProps {
   next: () => void;
+  guide: ReactNode;
 }
 
 export default function ScanStep() {
@@ -47,7 +49,7 @@ export default function ScanStep() {
       <AnimatePresence mode="wait" custom={dir} initial={false}>
         <motion.div key={id} custom={dir} variants={screenVariants} initial="enter" animate="center" exit="exit" className="flex flex-1 flex-col">
           <Suspense fallback={<div className="flex-1" />}>
-            <Step next={next} />
+            <Step next={next} guide={<VoiceGuide step={id} />} />
           </Suspense>
         </motion.div>
       </AnimatePresence>

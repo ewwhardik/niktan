@@ -205,16 +205,16 @@ describe('department routing', () => {
 });
 
 describe('vision referral', () => {
-  it('6/18 or better in both eyes passes', () => {
-    expect(visionNeedsReferral({ leftLogMar: 0.4, rightLogMar: 0.3 })).toBe(false);
+  it('6/12 or better in both eyes passes', () => {
+    expect(visionNeedsReferral({ leftLogMar: 0.3, rightLogMar: 0.3 })).toBe(false);
   });
 
-  it('worse than 6/18 in one eye refers', () => {
-    expect(visionNeedsReferral({ leftLogMar: 0.6, rightLogMar: 0.0 })).toBe(true);
+  it('one line worse than 6/12 refers even with similar eyes', () => {
+    expect(visionNeedsReferral({ leftLogMar: 0.4, rightLogMar: 0.3 })).toBe(true);
   });
 
   it('two-line difference between eyes refers', () => {
-    expect(visionNeedsReferral({ leftLogMar: 0.0, rightLogMar: 0.2 })).toBe(true);
+    expect(visionNeedsReferral({ leftLogMar: 0.1, rightLogMar: 0.3 })).toBe(true);
   });
 
   it('one eye untested only checks the tested eye', () => {
@@ -243,4 +243,10 @@ describe('declined red flags', () => {
     expect(r.priority).toBe('today');
     expect(r.department).toBe('gynaecology');
   });
+});
+
+it('keeps adult pulse thresholds out of infant triage while honouring confirmed symptoms', () => {
+  const infant = { age: 0, sex: 'male' as const, pregnant: false, vitals: vitals(150) };
+  expect(triage(infant).reasons.some((reason) => reason.code.startsWith('hr_'))).toBe(false);
+  expect(triage({ ...infant, redFlags: { child_lethargic: true } }).priority).toBe('emergency');
 });

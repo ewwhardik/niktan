@@ -6,6 +6,7 @@ export interface Staff {
   sid: string;
   hid: string;
   role: 'nurse' | 'doctor' | 'admin';
+  demoMode: boolean;
 }
 
 /** Loads the signed-in staff member or sends them to the login screen. */

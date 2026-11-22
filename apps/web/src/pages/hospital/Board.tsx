@@ -66,8 +66,7 @@ function TileCard({ tile, onAction, onOpen }: { tile: Tile; onAction: (a: 'call'
         </div>
         {tile.reasons.length > 0 && <p className="mt-1.5 line-clamp-2 text-caption text-text-3">{tile.reasons.slice(0, 2).map((r) => pickLang(r, i18n.language)).join(' · ')}</p>}
       </button>
-      {!tile.simulated && (
-        <div className="flex border-t border-border">
+      <div className="flex border-t border-border">
           {active ? (
             <span className="flex min-h-11 flex-1 items-center justify-center gap-1.5 text-caption font-medium text-accent-text">
               <Activity size={14} aria-hidden /> {tile.status === 'called' ? t('hospital.called') : t('hospital.inConsult')}
@@ -82,13 +81,7 @@ function TileCard({ tile, onAction, onOpen }: { tile: Tile; onAction: (a: 'call'
               <Play size={14} aria-hidden /> {t('hospital.start')}
             </button>
           )}
-        </div>
-      )}
-      {tile.simulated && active && (
-        <span className="flex min-h-9 items-center justify-center gap-1.5 border-t border-border text-caption text-text-3">
-          <Activity size={13} aria-hidden /> {tile.status === 'called' ? t('hospital.called') : t('hospital.inConsult')}
-        </span>
-      )}
+      </div>
     </motion.li>
   );
 }
@@ -99,6 +92,7 @@ export default function Board() {
   const staff = useStaff();
   const [columns, setColumns] = useState<Record<string, Tile[]>>({});
   const [updated, setUpdated] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -108,7 +102,7 @@ export default function Board() {
       setColumns(r.columns);
       setUpdated(r.updatedAt);
     } catch {
-      // keep last board while offline
+      setFailed(true);
     }
   }, [staff]);
 
@@ -124,7 +118,7 @@ export default function Board() {
   }, [load]);
 
   const act = async (id: string, a: 'call' | 'start') => {
-    await api.post(`/api/hospital/tokens/${id}/${a}`).catch(() => undefined);
+    try { await api.post(`/api/hospital/tokens/${id}/${a}`); } catch { setFailed(true); return; }
     if (a === 'start') navigate(`/hospital/token/${id}`);
     else void load();
   };
@@ -132,7 +126,7 @@ export default function Board() {
   const simulate = async (scenario: 'random' | 'hidden_emergency') => {
     if (!staff) return;
     setBusy(true);
-    await api.post(`/api/hospital/${staff.hid}/simulate`, { count: scenario === 'hidden_emergency' ? 20 : 6, scenario }).catch(() => undefined);
+    await api.post(`/api/hospital/${staff.hid}/simulate`, { count: scenario === 'hidden_emergency' ? 20 : 6, scenario }).catch(() => setFailed(true));
     setBusy(false);
     void load();
   };
@@ -152,7 +146,7 @@ export default function Board() {
             {t('hospital.live')} · <span className="tnum">{total}</span>
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {staff?.role !== 'doctor' && (
+            {staff?.role === 'admin' && staff.demoMode && (
               <>
                 <button disabled={busy} onClick={() => simulate('random')} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-label hover:bg-sunken disabled:opacity-50">
                   <UserPlus size={16} aria-hidden /> {t('hospital.simulate')}
@@ -183,6 +177,7 @@ export default function Board() {
       </header>
 
       <main className="mx-auto max-w-[1600px] px-5 py-5">
+        {failed && <button className="min-h-11 text-emergency-text" onClick={() => { setFailed(false); void load(); }}>{t('common.error')} · {t('common.retry')}</button>}
         {codes.length === 0 ? (
           <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-3 text-text-3">
             <HeartPulse size={40} strokeWidth={1.25} aria-hidden />

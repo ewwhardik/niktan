@@ -3,6 +3,7 @@ import { Mic, OctagonAlert, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseSymptoms, RED_FLAGS, symptoms as VOCAB, type RedFlag, type SymptomEntry } from '@niktan/core';
+import { SymptomCapture } from '../../audio/symptomCapture';
 import { pickLang } from '../../i18n';
 import { api } from '../../lib/api';
 import { haptic } from '../../lib/perf';
@@ -26,7 +27,7 @@ const FLAG_TEXT: Record<RedFlag, { hi: string; en: string }> = {
   child_lethargic: { hi: 'बच्चे में बहुत सुस्ती', en: 'a very drowsy child' },
 };
 
-type SR = { start: () => void; stop: () => void; abort: () => void; lang: string; interimResults: boolean; continuous: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null };
+type SR = { start: () => void; stop: () => void; abort: () => void; lang: string; interimResults: boolean; continuous: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null };
 
 function speechRecognition(): SR | null {
   const w = window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR };
@@ -34,7 +35,7 @@ function speechRecognition(): SR | null {
   return C ? new C() : null;
 }
 
-export default function SymptomsStep({ next }: StepProps) {
+export default function SymptomsStep({ next, guide }: StepProps) {
   const { t, i18n } = useTranslation();
   const { record, profile, results } = useScan();
   const [text, setText] = useState(results.symptoms?.summaryHi ?? '');
@@ -44,32 +45,62 @@ export default function SymptomsStep({ next }: StepProps) {
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState<RedFlag[]>([]);
   const [level, setLevel] = useState(0);
-  const rec = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
+  const capture = useRef<SymptomCapture | null>(null);
   const sr = useRef<SR | null>(null);
-  const srText = useRef('');
-  const stream = useRef<MediaStream | null>(null);
-  const raf = useRef(0);
+  const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mounted = useRef(false);
+  const [micIssue, setMicIssue] = useState(false);
+  const [browserFallback, setBrowserFallback] = useState(false);
+  const [pendingMic, setPendingMic] = useState(false);
+  const parsedText = useRef(text);
+  const parsedCodes = useRef(new Set<string>());
+  const decisions = useRef<{ yes: Partial<Record<RedFlag, boolean>>; no: RedFlag[] }>({ yes: {}, no: [] });
 
-  useEffect(
-    () => () => {
-      cancelAnimationFrame(raf.current);
-      stream.current?.getTracks().forEach((tr) => tr.stop());
-    },
-    [],
-  );
+  useEffect(() => {
+    mounted.current = true;
+    const cancel = () => {
+      capture.current?.cancel();
+      capture.current = null;
+      clearTimeout(timeout.current);
+      if (sr.current) {
+        sr.current.onend = sr.current.onresult = sr.current.onerror = null;
+        try { sr.current.abort(); } catch { /* Already stopped. */ }
+        sr.current = null;
+      }
+    };
+    const onHide = () => {
+      if (!document.hidden) return;
+      cancel();
+      setLevel(0);
+      setListening(false);
+      setPendingMic(false);
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      mounted.current = false;
+      cancel();
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, []);
 
-  const applyParsed = (list: SymptomEntry[], red: Partial<Record<RedFlag, boolean>>) => {
+  const applyParsed = (input: string, list: SymptomEntry[], red: Partial<Record<RedFlag, boolean>>) => {
+    if (!mounted.current) return;
+    const old = parsedCodes.current;
+    parsedCodes.current = new Set(list.map((item) => item.code));
+    parsedText.current = input;
     setSelected((prev) => {
-      const m = new Map(prev);
-      for (const s of list) m.set(s.code, s);
+      const m = new Map([...prev].filter(([code]) => !old.has(code)));
+      for (const item of list) m.set(item.code, item);
       return m;
     });
-    setFlags((f) => ({ ...f, ...red }));
+    setFlags(red);
   };
 
   const structure = async (input: string) => {
-    if (!input.trim()) return;
+    if (!input.trim()) {
+      applyParsed(input, [], {});
+      return;
+    }
     setBusy(true);
     try {
       const r = await api.post<{ symptoms: SymptomEntry[]; redFlags: Partial<Record<RedFlag, boolean>>; summaryHi: string }>('/api/symptoms/structure', {
@@ -77,95 +108,105 @@ export default function SymptomsStep({ next }: StepProps) {
         age: profile?.age,
         pregnant: profile?.pregnant,
       });
-      applyParsed(r.symptoms, r.redFlags);
+      applyParsed(input, r.symptoms, r.redFlags);
     } catch {
       const local = parseSymptoms(input, { age: profile?.age, pregnant: profile?.pregnant });
-      applyParsed(local.symptoms, local.redFlags);
+      applyParsed(input, local.symptoms, local.redFlags);
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const startListening = async () => {
-    haptic(15);
-    srText.current = '';
-    try {
-      stream.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch {
-      return;
-    }
-    setListening(true);
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    ctx.createMediaStreamSource(stream.current).connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const tick = () => {
-      analyser.getByteTimeDomainData(data);
-      let s = 0;
-      for (const v of data) s += ((v - 128) / 128) ** 2;
-      setLevel(Math.min(1, Math.sqrt(s / data.length) * 4));
-      raf.current = requestAnimationFrame(tick);
-    };
-    tick();
-    chunks.current = [];
-    const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-    rec.current = new MediaRecorder(stream.current, { mimeType: mime });
-    rec.current.ondataavailable = (e) => chunks.current.push(e.data);
-    rec.current.onstop = () => void ctx.close();
-    rec.current.start();
-    // On-device recogniser runs alongside: instant text, and the fallback when the server can't transcribe.
-    const r = speechRecognition();
-    if (r) {
-      r.lang = i18n.language === 'en' ? 'en-IN' : 'hi-IN';
-      r.interimResults = true;
-      r.continuous = true;
-      r.onresult = (e) => {
-        srText.current = Array.from(e.results)
-          .map((x) => x[0]?.transcript ?? '')
-          .join(' ');
-        setText(srText.current);
-      };
-      r.onerror = () => undefined;
-      try {
-        r.start();
-        sr.current = r;
-      } catch {
-        sr.current = null;
-      }
+      if (mounted.current) setBusy(false);
     }
   };
 
   const stopListening = async () => {
-    if (!listening) return;
-    setListening(false);
-    cancelAnimationFrame(raf.current);
-    setLevel(0);
-    haptic(10);
-    sr.current?.stop();
-    const recorder = rec.current;
-    if (!recorder) return;
-    const done = new Promise<void>((r) => recorder.addEventListener('stop', () => r(), { once: true }));
-    recorder.stop();
-    await done;
-    stream.current?.getTracks().forEach((tr) => tr.stop());
-    const blob = new Blob(chunks.current, { type: recorder.mimeType });
-    let transcript = srText.current;
-    if (blob.size > 2000) {
-      setBusy(true);
-      try {
-        const form = new FormData();
-        form.append('audio', blob, 'speech');
-        form.append('language', i18n.language === 'en' ? 'en' : 'hi');
-        const r = await api.post<{ text: string | null }>('/api/asr', form);
-        if (r.text) transcript = r.text;
-      } catch {
-        // keep on-device transcript
-      }
-      setBusy(false);
+    clearTimeout(timeout.current);
+    if (sr.current) {
+      try { sr.current.stop(); } catch { /* Already stopped. */ }
     }
-    setText(transcript);
-    await structure(transcript);
+    const active = capture.current;
+    if (!active) return;
+    capture.current = null;
+    setPendingMic(false);
+    setListening(false);
+    setLevel(0);
+    setBusy(true);
+    try {
+      const blob = await active.finish();
+      if (!blob || !mounted.current) return;
+      const form = new FormData();
+      form.append('audio', blob, blob.type.includes('mp4') ? 'speech.mp4' : 'speech.webm');
+      form.append('language', i18n.language === 'en' ? 'en' : 'hi');
+      const response = await api.post<{ text: string | null }>('/api/asr', form);
+      if (!mounted.current) return;
+      if (!response.text?.trim()) throw new Error('No transcript');
+      setText(response.text);
+      await structure(response.text);
+    } catch {
+      if (mounted.current) {
+        setBrowserFallback(true);
+        setMicIssue(true);
+      }
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  const startListening = async () => {
+    if (busy || capture.current || sr.current) return;
+    haptic(15);
+    setMicIssue(false);
+    // Browser recognition may use its vendor's service. Only start it on a new gesture after the fallback notice.
+    if (browserFallback || typeof MediaRecorder === 'undefined') {
+      const recognizer = speechRecognition();
+      if (!browserFallback || !recognizer) {
+        setBrowserFallback(true);
+        setMicIssue(true);
+        return;
+      }
+      sr.current = recognizer;
+      recognizer.lang = i18n.language === 'en' ? 'en-IN' : 'hi-IN';
+      recognizer.interimResults = false;
+      recognizer.continuous = false;
+      recognizer.onresult = (e) => {
+        const words = Array.from(e.results).map((x) => x[0]?.transcript ?? '').join(' ').trim();
+        if (words) {
+          setText(words);
+          void structure(words);
+        }
+      };
+      recognizer.onerror = () => setMicIssue(true);
+      recognizer.onend = () => {
+        clearTimeout(timeout.current);
+        sr.current = null;
+        setListening(false);
+      };
+      try {
+        recognizer.start();
+        setListening(true);
+        timeout.current = setTimeout(() => void stopListening(), 30000);
+      } catch {
+        sr.current = null;
+        setMicIssue(true);
+      }
+      return;
+    }
+    const active = new SymptomCapture();
+    capture.current = active;
+    setPendingMic(true);
+    try {
+      const started = await active.start(setLevel);
+      if (capture.current !== active || !mounted.current) return;
+      setPendingMic(false);
+      if (started) {
+        setListening(true);
+        timeout.current = setTimeout(() => void stopListening(), 30000);
+      }
+    } catch {
+      if (capture.current !== active || !mounted.current) return;
+      capture.current = null;
+      setPendingMic(false);
+      setMicIssue(true);
+      setBrowserFallback(true);
+    }
   };
 
   const toggle = (code: string) =>
@@ -183,6 +224,11 @@ export default function SymptomsStep({ next }: StepProps) {
   };
 
   const onContinue = () => {
+    if (text !== parsedText.current) {
+      void structure(text);
+      return;
+    }
+    decisions.current = { yes: {}, no: [] };
     // Every red flag from speech or chips is asked once before it can make the case an emergency.
     const fromChips: RedFlag[] = [];
     for (const code of selected.keys()) if ((RED_FLAGS as readonly string[]).includes(code)) fromChips.push(code as RedFlag);
@@ -191,12 +237,22 @@ export default function SymptomsStep({ next }: StepProps) {
     else finish({});
   };
 
+  const decide = (confirmed: boolean) => {
+    const [current, ...remaining] = ask;
+    if (!current) return;
+    if (confirmed) decisions.current.yes[current] = true;
+    else decisions.current.no.push(current);
+    setAsk(remaining);
+    if (!remaining.length) finish(decisions.current.yes, decisions.current.no);
+  };
+
   const vocab = new Map(VOCAB.map((s) => [s.code, s]));
   const understood = [...selected.values()];
   const chipCodes = [...new Set([...understood.map((s) => s.code), ...COMMON])];
 
   return (
     <div className="flex flex-1 flex-col pt-5">
+      {!busy && !pendingMic && !listening && !ask.length && <div className="mb-3">{guide}</div>}
       <h2 className="text-title-2 font-semibold">{t('symptoms.title')}</h2>
 
       <div className="mt-6 flex flex-col items-center">
@@ -208,11 +264,36 @@ export default function SymptomsStep({ next }: StepProps) {
           </AnimatePresence>
           <motion.button
             onPointerDown={(e) => {
-              (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+              e.currentTarget.setPointerCapture?.(e.pointerId);
               void startListening();
             }}
             onPointerUp={() => void stopListening()}
-            onPointerCancel={() => void stopListening()}
+            onPointerCancel={() => {
+              capture.current?.cancel();
+              capture.current = null;
+              if (sr.current) {
+                sr.current.onend = sr.current.onresult = sr.current.onerror = null;
+                try { sr.current.abort(); } catch { /* Already stopped. */ }
+                sr.current = null;
+              }
+              clearTimeout(timeout.current);
+              setListening(false);
+              setPendingMic(false);
+              setLevel(0);
+            }}
+            disabled={busy}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (!e.repeat) void startListening();
+              }
+            }}
+            onKeyUp={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                void stopListening();
+              }
+            }}
             onContextMenu={(e) => e.preventDefault()}
             whileTap={{ scale: 0.94 }}
             animate={{ scale: listening ? 1.06 : 1 }}
@@ -220,12 +301,17 @@ export default function SymptomsStep({ next }: StepProps) {
             className="relative flex size-24 select-none items-center justify-center rounded-full bg-accent text-on-accent shadow-3"
             style={{ touchAction: 'none', WebkitUserSelect: 'none' }}
             aria-label={t('symptoms.hold')}
+            aria-describedby="symptom-voice-notice"
           >
             <Mic size={36} strokeWidth={1.75} aria-hidden />
           </motion.button>
         </div>
         <p className="mt-2 text-body text-text-2" aria-live="polite">
-          {listening ? t('symptoms.listening') : busy ? t('common.loading') : t('symptoms.hold')}
+          {listening ? t('symptoms.listening') : busy || pendingMic ? t('common.loading') : t('symptoms.hold')}
+        </p>
+        {micIssue && <p role="status" className="mt-2 text-center text-body text-text-2">{t('symptoms.micIssue')}</p>}
+        <p id="symptom-voice-notice" className="mt-2 text-center text-caption text-text-3">
+          {t(browserFallback ? 'symptoms.browserFallback' : 'symptoms.voiceNotice')}
         </p>
       </div>
 
@@ -236,8 +322,8 @@ export default function SymptomsStep({ next }: StepProps) {
           void structure(text);
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('symptoms.placeholder')} className="h-14 min-w-0 flex-1 bg-transparent outline-none placeholder:text-text-3" aria-label={t('symptoms.typeInstead')} />
-        <motion.button whileTap={{ scale: 0.9 }} type="submit" disabled={!text.trim() || busy} className="flex size-11 items-center justify-center rounded-sm bg-accent text-on-accent disabled:bg-border disabled:text-text-3" aria-label={t('common.next')}>
+        <input disabled={busy || pendingMic || listening} maxLength={500} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('symptoms.placeholder')} className="h-14 min-w-0 flex-1 bg-transparent outline-none placeholder:text-text-3" aria-label={t('symptoms.typeInstead')} />
+        <motion.button whileTap={{ scale: 0.9 }} type="submit" disabled={!text.trim() || busy || pendingMic || listening} className="flex size-11 items-center justify-center rounded-sm bg-accent text-on-accent disabled:bg-border disabled:text-text-3" aria-label={t('common.next')}>
           <Send size={18} aria-hidden />
         </motion.button>
       </form>
@@ -259,14 +345,14 @@ export default function SymptomsStep({ next }: StepProps) {
       </motion.div>
 
       <Dock>
-        <Button onClick={onContinue} disabled={busy || listening}>
-          {selected.size ? t('common.continue') : t('symptoms.nothing')}
+        <Button onClick={onContinue} disabled={busy || listening || pendingMic}>
+          {selected.size || text.trim() ? t('common.continue') : t('symptoms.nothing')}
         </Button>
       </Dock>
 
       <Sheet open={ask.length > 0} onClose={() => setAsk([])} title={t('symptoms.confirm')}>
         <div className="flex flex-col gap-3 pb-2">
-          {ask.map((f) => (
+          {ask.slice(0, 1).map((f) => (
             <div key={f} className="rounded-lg bg-emergency-tint p-4 text-emergency-ink">
               <p className="flex items-center gap-2 text-title-3 font-semibold">
                 <OctagonAlert size={22} aria-hidden /> {t('symptoms.redFlagAsk', { flag: pickLang(FLAG_TEXT[f], i18n.language) })}
@@ -276,22 +362,13 @@ export default function SymptomsStep({ next }: StepProps) {
           <div className="mt-2 grid grid-cols-2 gap-3">
             <Button
               variant="secondary"
-              onClick={() => {
-                // "No": not an emergency now, but still seen today.
-                const declined = ask;
-                setAsk([]);
-                finish({}, declined);
-              }}
+              onClick={() => decide(false)}
             >
               {t('info.no')}
             </Button>
             <Button
               variant="emergency"
-              onClick={() => {
-                const confirmed = Object.fromEntries(ask.map((f) => [f, true])) as Partial<Record<RedFlag, boolean>>;
-                setAsk([]);
-                finish(confirmed);
-              }}
+              onClick={() => decide(true)}
             >
               {t('info.yes')}
             </Button>

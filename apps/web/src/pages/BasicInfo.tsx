@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useScan, type Profile } from '../state/scan';
 import { Button } from '../ui/Button';
 import { Dock, Screen, TopBar } from '../ui/Layout';
@@ -24,11 +24,14 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 export function BasicInfo() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { begin } = useScan();
+  const { begin, profile } = useScan();
+  const location = useLocation();
   const [age, setAge] = useState<string>('');
   const [sex, setSex] = useState<Profile['sex'] | null>(null);
   const [pregnant, setPregnant] = useState<'yes' | 'no' | null>(null);
   const [busy, setBusy] = useState(false);
+
+  if (!location.state?.consented && !profile) return <Navigate to="/start" replace />;
 
   const ageNum = Number(age);
   const ageValid = age !== '' && Number.isInteger(ageNum) && ageNum >= 0 && ageNum <= 120;

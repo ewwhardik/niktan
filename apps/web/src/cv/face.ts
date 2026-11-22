@@ -1,47 +1,49 @@
 import type { FaceLandmarker, NormalizedLandmark } from '@mediapipe/tasks-vision';
 
-export const MEDIAPIPE_VERSION = '0.10.14';
+export const MEDIAPIPE_VERSION = '1.2.3';
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
-let landmarker: Promise<FaceLandmarker> | null = null;
-
-/** Lazily loads MediaPipe FaceLandmarker (WASM + model are cached by the service worker after first use). */
-export function loadFaceLandmarker(): Promise<FaceLandmarker> {
-  landmarker ??= (async () => {
-    const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-    const create = (delegate: 'GPU' | 'CPU') =>
-      FaceLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate },
-        runningMode: 'VIDEO',
-        numFaces: 2,
-        outputFaceBlendshapes: false,
-        outputFacialTransformationMatrixes: false,
-      });
-    try {
-      return await create('GPU');
-    } catch {
-      return create('CPU');
-    }
-  })().catch((e) => {
-    landmarker = null;
-    throw e;
-  });
-  return landmarker;
+/** Match the JS/WASM versions. Each camera session closes its own native model and GPU context. */
+export async function loadFaceLandmarker(signal: AbortSignal, { pose = false } = {}): Promise<FaceLandmarker> {
+  signal.throwIfAborted();
+  const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+  const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+  const create = (delegate: 'GPU' | 'CPU') =>
+    FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: MODEL_URL, delegate },
+      runningMode: 'VIDEO',
+      numFaces: 2, // A second face invalidates the sample.
+      outputFaceBlendshapes: false,
+      outputFacialTransformationMatrixes: pose,
+    });
+  signal.throwIfAborted();
+  let model: FaceLandmarker;
+  try {
+    model = await create('GPU');
+  } catch {
+    signal.throwIfAborted();
+    model = await create('CPU');
+  }
+  if (signal.aborted) {
+    model.close();
+    throw new DOMException('Camera stopped', 'AbortError');
+  }
+  signal.addEventListener('abort', () => model.close(), { once: true });
+  return model;
 }
 
 /** Skin regions for rPPG: forehead and both cheeks, avoiding eyes, brows, nostrils and mouth. */
 export const ROI = {
-  forehead: [109, 10, 338, 297, 336, 9, 107, 67],
-  leftCheek: [116, 117, 118, 101, 205, 187, 123],
-  rightCheek: [345, 346, 347, 330, 425, 411, 352],
+  forehead: [67, 109, 10, 338, 297, 299, 337, 151, 108, 69],
+  rightCheek: [116, 117, 118, 119, 100, 36, 205, 187, 147, 123],
+  leftCheek: [345, 346, 347, 348, 329, 266, 425, 411, 376, 352],
 };
 
 /** Iris landmarks (present in FaceLandmarker's 478-point output). */
-export const IRIS = { left: [468, 469, 470, 471, 472], right: [473, 474, 475, 476, 477] };
+export const IRIS = { right: [468, 469, 470, 471, 472], left: [473, 474, 475, 476, 477] };
 /** Lower eyelid contour points, used to place the conjunctiva crop box. */
-export const LOWER_LID = { left: [33, 7, 163, 144, 145, 153, 154, 155, 133], right: [263, 249, 390, 373, 374, 380, 381, 382, 362] };
+export const LOWER_LID = { right: [33, 7, 163, 144, 145, 153, 154, 155, 133], left: [263, 249, 390, 373, 374, 380, 381, 382, 362] };
 
 type Pt = { x: number; y: number };
 
@@ -71,7 +73,9 @@ export function sampleSkin(image: ImageData, lm: NormalizedLandmark[]): SkinSamp
   let g = 0;
   let b = 0;
   let n = 0;
+  let total = 0;
   for (const poly of polys) {
+    const previous = n;
     const xs = poly.map((p) => p.x);
     const ys = poly.map((p) => p.y);
     const x0 = Math.max(0, Math.floor(Math.min(...xs)));
@@ -81,20 +85,22 @@ export function sampleSkin(image: ImageData, lm: NormalizedLandmark[]): SkinSamp
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         if (!inPolygon(x + 0.5, y + 0.5, poly)) continue;
+        total++;
         const k = (y * w + x) * 4;
         const pr = data[k]!;
         const pg = data[k + 1]!;
         const pb = data[k + 2]!;
         // Skip clipped highlights and deep shadows, which carry no pulse signal.
-        if (pr > 250 || pg > 250 || pr < 20) continue;
+        if (Math.max(pr, pg, pb) >= 250 || Math.min(pr, pg, pb) <= 5) continue;
         r += pr;
         g += pg;
         b += pb;
         n++;
       }
     }
+    if (n - previous < 300 * (w / 640) ** 2) return null;
   }
-  if (n < 30) return null;
+  if (1 - n / total > 0.05) return null;
   r /= n;
   g /= n;
   b /= n;
@@ -114,9 +120,4 @@ export function faceGeometry(lm: NormalizedLandmark[]) {
     if (p.y > y1) y1 = p.y;
   }
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, width: x1 - x0, height: y1 - y0 };
-}
-
-export function irisDiameterPx(lm: NormalizedLandmark[], side: 'left' | 'right', frameW: number): number {
-  const [, a, , b] = IRIS[side].map((i) => lm[i]!);
-  return Math.abs(a!.x - b!.x) * frameW;
 }

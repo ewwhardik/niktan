@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Camera, ImagePlus, Lightbulb, Minus, Plus, Search, Soup, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { analyseThali, dishes, type Nutrient, type ThaliItem, type ThaliResult } from '@niktan/core';
@@ -15,18 +15,18 @@ import { riseChild, spring, staggerParent } from '../ui/motion';
 
 type Phase = 'photo' | 'recognising' | 'confirm' | 'result';
 const dishById = new Map(dishes.map((d) => [d.id, d]));
-const SHOWN: Nutrient[] = ['protein', 'iron', 'fibre', 'vitaminC', 'calcium', 'kcal'];
+const SHOWN: Nutrient[] = ['protein', 'iron', 'fibre', 'vitaminC', 'calcium', 'kcal', 'carbs'];
 
 /** Downscales a photo to at most 1024 px so uploads stay small on 3G. */
 async function shrink(file: File): Promise<Blob> {
-  const bmp = await createImageBitmap(file).catch(() => null);
-  if (!bmp) return file;
+  const bmp = await createImageBitmap(file);
   const scale = Math.min(1, 1024 / Math.max(bmp.width, bmp.height));
   const c = document.createElement('canvas');
   c.width = Math.round(bmp.width * scale);
   c.height = Math.round(bmp.height * scale);
   c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
-  return new Promise((r) => c.toBlob((b) => r(b ?? file), 'image/jpeg', 0.82));
+  bmp.close();
+  return new Promise((resolve, reject) => c.toBlob((b) => b ? resolve(b) : reject(new Error('JPEG encoding failed')), 'image/jpeg', 0.82));
 }
 
 function Bar({ label, share, value, unit }: { label: string; share: number; value: number; unit: string }) {
@@ -64,6 +64,8 @@ export default function Thali() {
   const camInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo); }, [photo]);
+
   const person = { age: scan.profile?.age ?? 30, sex: scan.profile?.sex ?? ('other' as const), pregnant: scan.profile?.pregnant, pallor: !!scan.results.eye?.pallor };
 
   const onFile = async (file: File | undefined) => {
@@ -79,7 +81,9 @@ export default function Thali() {
       const known = r.items.filter((i) => dishById.has(i.dishId));
       if (r.noFood) setNotice(t('thali.noFood'));
       else if (r.fallback || !known.length) setNotice(t('thali.manual'));
-      setItems(known.map((i) => ({ dishId: i.dishId, count: i.count })));
+      const portions = new Map<string, number>();
+      for (const { dishId, count } of known) portions.set(dishId, Math.min(10, (portions.get(dishId) ?? 0) + count));
+      setItems(Array.from(portions, ([dishId, count]) => ({ dishId, count })));
     } catch {
       setNotice(t('thali.manual'));
     }
@@ -182,6 +186,8 @@ export default function Thali() {
                 {SHOWN.map((n) => (
                   <Bar key={n} label={t(`thali.${n}`)} share={result.share[n]} value={result.totals[n]} unit={UNITS[n]} />
                 ))}
+                <p className="flex justify-between text-body-lg"><span>{t('thali.fat')}</span><span>{result.totals.fat} g</span></p>
+                <p className="text-caption text-text-3">{t(scan.profile ? 'thali.targetHint' : 'thali.defaultTarget')}</p>
               </div>
             </motion.div>
             {result.swaps.length > 0 && (

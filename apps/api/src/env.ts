@@ -15,5 +15,6 @@ export interface StaffClaims {
   sid: string;
   hid: string;
   role: 'nurse' | 'doctor' | 'admin';
+  demoOnly: boolean;
   exp: number;
 }

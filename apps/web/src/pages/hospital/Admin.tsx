@@ -93,7 +93,7 @@ export default function Admin() {
             <button onClick={() => navigate('/hospital/board')} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-label">
               <Kanban size={16} aria-hidden /> {t('hospital.board')}
             </button>
-            <button
+            {staff?.demoMode && <button
               onClick={async () => {
                 if (!staff) return;
                 await api.post(`/api/hospital/${staff.hid}/simulate/clear`).catch(() => undefined);
@@ -102,7 +102,7 @@ export default function Admin() {
               className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-label"
             >
               <Trash2 size={16} aria-hidden /> {t('hospital.clear')}
-            </button>
+            </button>}
             <button
               onClick={async () => {
                 await logout();

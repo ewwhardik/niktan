@@ -11,6 +11,7 @@ const ScanStep = lazy(() => import('./pages/scan/ScanStep'));
 const HealthCard = lazy(() => import('./pages/HealthCard'));
 const Queue = lazy(() => import('./pages/Queue'));
 const Thali = lazy(() => import('./pages/Thali'));
+const ServiceStatus = lazy(() => import('./pages/ServiceStatus'));
 const Feedback = lazy(() => import('./pages/Feedback'));
 const HospitalLogin = lazy(() => import('./pages/hospital/Login'));
 const Board = lazy(() => import('./pages/hospital/Board'));
@@ -80,9 +81,10 @@ export function App() {
               <Route path="/start" element={<Consent />} />
               <Route path="/info" element={<BasicInfo />} />
               <Route path="/scan/:step" element={<ScanStep />} />
-              <Route path="/card" element={<HealthCard />} />
+              <Route path="/card" element={<HealthCard key={location.search + location.hash} />} />
               <Route path="/queue" element={<Queue />} />
               <Route path="/thali" element={<Thali />} />
+              <Route path="/status" element={<ServiceStatus />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/hospital" element={<HospitalLogin />} />
               <Route path="/hospital/board" element={<Board />} />

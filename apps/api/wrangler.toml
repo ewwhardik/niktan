@@ -10,14 +10,15 @@ database_name = "niktan"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
-[ai]
-binding = "AI"
-
 [vars]
-ALLOWED_ORIGINS = "http://localhost:5173,https://niktan.pages.dev"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,https://niktan.pages.dev"
 DEMO_MODE = "true"
 
 [triggers]
 crons = ["30 0 * * *"]
 
 # Secrets (set with `wrangler secret put`): STAFF_SECRET, GEMINI_API_KEY, GROQ_API_KEY
+
+# Optional Workers AI binding for a Cloudflare deployment:
+# [ai]
+# binding = "AI"

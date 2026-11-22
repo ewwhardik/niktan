@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Camera, Hand, HeartPulse, RefreshCw, Sun, Users } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCamera } from '../../cv/camera';
+import { grabFrame, useCamera } from '../../cv/camera';
 import { faceGeometry, loadFaceLandmarker, sampleSkin } from '../../cv/face';
 import { estimate, type RgbSample } from '../../cv/rppg';
 import { haptic } from '../../lib/perf';
@@ -20,9 +20,9 @@ const SCAN_SECONDS = 30;
 const WARMUP_SECONDS = 2;
 
 type Phase = 'intro' | 'loading' | 'scanning' | 'result';
-type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving';
+type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving' | 'framing' | 'lighting';
 
-export default function FaceVitals({ next }: StepProps) {
+export default function FaceVitals({ next, guide }: StepProps) {
   const { t } = useTranslation();
   const { record, skip } = useScan();
   const cam = useCamera('user');
@@ -33,121 +33,164 @@ export default function FaceVitals({ next }: StepProps) {
   const [result, setResult] = useState<{ hr: number | null; rr: number | null; quality: number } | null>(null);
   const wave = useRef<number[]>([]);
   const samples = useRef<RgbSample[]>([]);
-  const motionAcc = useRef({ sum: 0, n: 0, last: null as { cx: number; cy: number; w: number } | null });
-  const loop = useRef<number>(0);
-  const canvas = useRef<HTMLCanvasElement>(document.createElement('canvas'));
-
-  const stopLoop = useCallback(() => cancelAnimationFrame(loop.current), []);
-  useEffect(() => stopLoop, [stopLoop]);
-
+  const rejectedTimes = useRef<number[]>([]);
   const finish = useCallback(() => {
-    stopLoop();
-    const usable = samples.current.filter((s) => s.t >= WARMUP_SECONDS);
-    const motion = motionAcc.current.n ? motionAcc.current.sum / motionAcc.current.n : 0;
-    const r = estimate(usable, { motion: Math.min(1, motion * 25) });
-    const res = { hr: r.heartRate ? Math.round(r.heartRate) : null, rr: r.breathingRate ? Math.round(r.breathingRate) : null, quality: Math.round(r.quality * 100) / 100 };
-    setResult(res);
-    setPhase('result');
     cam.stop();
+    const reading = estimate(samples.current, { rejectedTimes: rejectedTimes.current });
+    setResult({
+      hr: reading.heartRate === null ? null : Math.round(reading.heartRate),
+      rr: reading.breathingRate === null ? null : Math.round(reading.breathingRate),
+      quality: Math.round(reading.quality * 100) / 100,
+    });
+    setPhase('result');
     haptic([30, 60, 30]);
-    if (res.hr) record('vitals', { heartRate: res.hr, breathingRate: res.rr, quality: res.quality });
-  }, [cam, record, stopLoop]);
+  }, [cam.stop]);
 
   const begin = useCallback(async () => {
     setPhase('loading');
-    const ok = await cam.start();
-    if (!ok) {
-      setPhase('intro');
-      return;
-    }
-    let landmarker;
+    setHint('ok');
+    const signal = await cam.start();
+    if (!signal) return;
+    let model;
     try {
-      landmarker = await loadFaceLandmarker();
+      model = await loadFaceLandmarker(signal, { pose: true });
     } catch {
-      setPhase('intro');
+      if (!signal.aborted) cam.fail('model');
       return;
     }
+    const video = cam.videoRef.current;
+    if (!video || signal.aborted) return;
+    const canvas = document.createElement('canvas');
     samples.current = [];
+    rejectedTimes.current = [];
     wave.current = [];
-    motionAcc.current = { sum: 0, n: 0, last: null };
     setLiveHr(null);
     setProgress(0);
     setPhase('scanning');
     haptic(20);
 
-    let t0: number | null = null;
+    const start = performance.now();
+    const initialMediaTime = video.currentTime;
+    let previousMediaTime = -1;
+    let brightnessHistory: { t: number; value: number }[] = [];
+    let previousGeometry: ReturnType<typeof faceGeometry> | null = null;
     let lastLive = 0;
-    const tick = () => {
-      const video = cam.videoRef.current;
-      if (!video || video.readyState < 2) {
-        loop.current = requestAnimationFrame(tick);
+    let lastFrameAt = start;
+    let restarting = false;
+    let frame = 0;
+    const hasVideoCallback = typeof video.requestVideoFrameCallback === 'function';
+    const timeout = window.setTimeout(finish, SCAN_SECONDS * 1000);
+    const watchdog = window.setInterval(() => {
+      if (performance.now() - lastFrameAt < 1000) return;
+      if (restarting) {
+        cam.fail('interrupted');
+      } else {
+        restarting = true;
+        void video.play().catch(() => {
+          if (!signal.aborted) cam.fail('interrupted');
+        });
+      }
+    }, 1000);
+    signal.addEventListener('abort', () => {
+      clearTimeout(timeout);
+      clearInterval(watchdog);
+      if (hasVideoCallback) video.cancelVideoFrameCallback(frame);
+      else cancelAnimationFrame(frame);
+    }, { once: true });
+
+    const schedule = () => {
+      frame = hasVideoCallback
+        ? video.requestVideoFrameCallback((now, meta) => tick(now, meta.mediaTime))
+        : requestAnimationFrame((now) => tick(now, video.currentTime));
+    };
+    const tick = (now: number, mediaTime: number) => {
+      if (signal.aborted) return;
+      if (video.readyState < 2 || mediaTime <= previousMediaTime) {
+        schedule();
         return;
       }
-      const now = performance.now();
-      const res = landmarker.detectForVideo(video, now);
-      const faces = res.faceLandmarks;
-      if (faces.length !== 1) {
-        setHint(faces.length > 1 ? 'manyFaces' : 'noFace');
-      } else {
-        const lm = faces[0]!;
-        const c = canvas.current;
-        const w = 192;
-        c.width = w;
-        c.height = Math.round((video.videoHeight / video.videoWidth) * w) || 144;
-        const ctx = c.getContext('2d', { willReadFrequently: true })!;
-        ctx.drawImage(video, 0, 0, c.width, c.height);
-        const skin = sampleSkin(ctx.getImageData(0, 0, c.width, c.height), lm);
-        const geo = faceGeometry(lm);
-        const m = motionAcc.current;
-        let moved = 0;
-        if (m.last) moved = Math.hypot(geo.cx - m.last.cx, geo.cy - m.last.cy) / Math.max(0.05, geo.width);
-        m.last = { cx: geo.cx, cy: geo.cy, w: geo.width };
-        if (skin) {
-          t0 ??= now;
-          const ts = (now - t0) / 1000;
-          samples.current.push({ t: ts, r: skin.r, g: skin.g, b: skin.b });
-          if (ts > WARMUP_SECONDS) {
-            m.sum += moved;
-            m.n++;
-          }
-          setHint(skin.brightness < 45 ? 'dark' : moved > 0.04 ? 'moving' : 'ok');
-          setProgress(Math.min(1, ts / SCAN_SECONDS));
-          if (now - lastLive > 250) {
-            lastLive = now;
-            const recent = samples.current.filter((s) => s.t > ts - 10 && s.t > WARMUP_SECONDS);
-            const live = estimate(recent);
-            if (live.pulse.length) wave.current = Array.from(live.pulse.slice(-150));
-            if (ts > 10 && live.heartRate && live.quality > 0.35) setLiveHr(Math.round(live.heartRate));
-          }
-          if (ts >= SCAN_SECONDS) {
-            finish();
-            return;
-          }
+      previousMediaTime = mediaTime;
+      lastFrameAt = now;
+      restarting = false;
+      try {
+        const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = model.detectForVideo(video, now);
+        let guidance: Hint = 'ok';
+        let skin: ReturnType<typeof sampleSkin> = null;
+        if (faces.length !== 1) {
+          guidance = faces.length ? 'manyFaces' : 'noFace';
+          previousGeometry = null;
+          brightnessHistory = [];
         } else {
-          setHint('noFace');
+          const lm = faces[0]!;
+          const geometry = faceGeometry(lm);
+          const aspect = video.videoHeight / video.videoWidth;
+          const eyeSpan = Math.hypot(lm[33]!.x - lm[263]!.x, (lm[33]!.y - lm[263]!.y) * aspect);
+          const moved = previousGeometry && Math.hypot(geometry.cx - previousGeometry.cx, (geometry.cy - previousGeometry.cy) * aspect) > 0.02 * eyeSpan;
+          const pose = matrices[0]?.data;
+          // MediaPipe sends its rotation matrix in column-major order.
+          const rotated = pose && Math.hypot(pose[2]!, pose[6]!) > Math.sin(20 * Math.PI / 180);
+          previousGeometry = geometry;
+          if (eyeSpan < 60 / 640) guidance = 'framing';
+          else if (moved || rotated) guidance = 'moving';
+          else {
+            grabFrame(video, 320, canvas);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+            skin = sampleSkin(ctx.getImageData(0, 0, canvas.width, canvas.height), lm);
+            if (!skin || skin.brightness > 220) guidance = 'lighting';
+            else if (skin.brightness < 50) guidance = 'dark';
+            else {
+              brightnessHistory = brightnessHistory.filter(({ t }) => t >= mediaTime - 1);
+              const recent = brightnessHistory.map(({ value }) => value).sort((a, b) => a - b);
+              const baseline = recent[Math.floor(recent.length / 2)];
+              if (baseline !== undefined && Math.abs(skin.brightness - baseline) > 0.05 * baseline) guidance = 'lighting';
+              brightnessHistory.push({ t: mediaTime, value: skin.brightness });
+            }
+          }
         }
+        if (mediaTime - initialMediaTime >= WARMUP_SECONDS) {
+          if (guidance === 'ok' && skin) samples.current.push({ t: mediaTime, r: skin.r, g: skin.g, b: skin.b });
+          else rejectedTimes.current.push(mediaTime);
+        }
+        setHint(guidance);
+        setProgress(Math.min(1, (now - start) / (SCAN_SECONDS * 1000)));
+        if (guidance !== 'ok') {
+          setLiveHr(null);
+          wave.current = [];
+        } else if (now - lastLive >= 1000) {
+          lastLive = now;
+          const live = estimate(samples.current.filter(({ t }) => t >= mediaTime - 11), {
+            rejectedTimes: rejectedTimes.current.filter((t) => t >= mediaTime - 11),
+          });
+          wave.current = Array.from(live.pulse.slice(-150));
+          setLiveHr(live.heartRate === null ? null : Math.round(live.heartRate));
+        }
+        schedule();
+      } catch {
+        cam.fail('model');
       }
-      loop.current = requestAnimationFrame(tick);
     };
-    loop.current = requestAnimationFrame(tick);
-  }, [cam, finish]);
+    schedule();
+  }, [cam.start, cam.fail, cam.videoRef, finish]);
 
   const hints: Record<Hint, { text: string; icon: typeof Sun }> = {
     ok: { text: t('face.scanning'), icon: HeartPulse },
     noFace: { text: t('face.noFace'), icon: Camera },
-    manyFaces: { text: t('face.noFace'), icon: Users },
+    manyFaces: { text: t('face.manyFaces'), icon: Users },
     dark: { text: t('face.tooDark'), icon: Sun },
+    framing: { text: t('face.framing'), icon: Camera },
+    lighting: { text: t('face.lighting'), icon: Sun },
     moving: { text: t('face.moving'), icon: Hand },
   };
   const H = hints[hint];
   const remaining = Math.max(0, Math.ceil(SCAN_SECONDS * (1 - progress)));
 
   if (cam.status === 'error' && cam.error) {
-    return <CameraProblem error={cam.error} onRetry={begin} onSkip={() => { skip('vitals'); next(); }} />;
+    return <CameraProblem error={cam.error} onRetry={() => { cam.stop(); setPhase('intro'); }} onSkip={() => { skip('vitals'); next(); }} />;
   }
 
   return (
     <div className="flex flex-1 flex-col pt-5">
+      {phase === 'intro' && <div className="mb-3">{guide}</div>}
       <AnimatePresence mode="wait" initial={false}>
         {phase !== 'result' ? (
           <motion.div key="stage" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={spring.reveal} className="flex flex-col gap-4">
@@ -240,7 +283,6 @@ export default function FaceVitals({ next }: StepProps) {
                     {t('face.breathing')}: <span className="tnum font-semibold text-text">{result.rr}</span>/min
                   </p>
                 )}
-                {result.quality < 0.5 && <p className="mt-4 max-w-xs text-body text-seetoday-text">{t('face.lowQuality')}</p>}
               </>
             ) : (
               <p className="mt-4 max-w-xs text-body-lg text-text-2">{t('face.lowQuality')}</p>
@@ -252,7 +294,11 @@ export default function FaceVitals({ next }: StepProps) {
       <Dock>
         {phase === 'result' ? (
           <>
-            <Button onClick={next}>{t('common.next')}</Button>
+            <Button onClick={() => {
+              if (result?.hr) record('vitals', { heartRate: result.hr, breathingRate: result.rr, quality: result.quality });
+              else skip('vitals');
+              next();
+            }}>{t('common.next')}</Button>
             <LinkButton onClick={() => setPhase('intro')} className="inline-flex items-center justify-center gap-2">
               <RefreshCw size={16} aria-hidden /> {t('common.retry')}
             </LinkButton>
