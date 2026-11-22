@@ -1,0 +1,12 @@
+{
+  "_note": "PROVISIONAL daily targets for a moderately active adult, rounded, for development. Must be replaced with the ICMR-NIN RDA 2020 table values (by age, sex, pregnancy) before release.",
+  "mealShare": 0.33,
+  "groups": [
+    { "id": "child_4_9", "ageMin": 4, "ageMax": 9, "sex": "any", "daily": { "kcal": 1500, "protein": 20, "carbs": 200, "fat": 40, "fibre": 20, "iron": 12, "calcium": 550, "vitaminC": 40 } },
+    { "id": "teen_10_17", "ageMin": 10, "ageMax": 17, "sex": "any", "daily": { "kcal": 2200, "protein": 40, "carbs": 300, "fat": 45, "fibre": 30, "iron": 25, "calcium": 850, "vitaminC": 60 } },
+    { "id": "adult_female", "ageMin": 18, "ageMax": 120, "sex": "female", "daily": { "kcal": 2100, "protein": 46, "carbs": 290, "fat": 30, "fibre": 30, "iron": 29, "calcium": 1000, "vitaminC": 65 } },
+    { "id": "adult_male", "ageMin": 18, "ageMax": 120, "sex": "male", "daily": { "kcal": 2700, "protein": 54, "carbs": 370, "fat": 35, "fibre": 30, "iron": 19, "calcium": 1000, "vitaminC": 80 } },
+    { "id": "adult_other", "ageMin": 18, "ageMax": 120, "sex": "other", "daily": { "kcal": 2400, "protein": 50, "carbs": 330, "fat": 33, "fibre": 30, "iron": 24, "calcium": 1000, "vitaminC": 72 } }
+  ],
+  "pregnancyExtra": { "kcal": 350, "protein": 23, "iron": 8, "calcium": 0, "vitaminC": 15 }
+}

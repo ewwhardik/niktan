@@ -1,0 +1,29 @@
+{
+  "low_protein": [
+    { "id": "add_dal", "hi": "एक कटोरी और दाल या कुल्थी दाल लें", "en": "Add another katori of dal, or kulthi dal" },
+    { "id": "add_chana", "hi": "भुना चना या चना सब्ज़ी जोड़ें", "en": "Add roasted chana or chana curry" },
+    { "id": "add_curd", "hi": "एक कटोरी दही जोड़ें", "en": "Add a katori of curd" }
+  ],
+  "low_iron": [
+    { "id": "add_lal_bhaji", "hi": "लाल भाजी या पालक जोड़ें", "en": "Add lal bhaji (red amaranth) or palak" },
+    { "id": "add_kulthi", "hi": "कुल्थी या चना दाल लें", "en": "Have kulthi or chana dal" },
+    { "id": "jaggery_peanut", "hi": "गुड़-चना या गुड़-मूँगफली नाश्ते में", "en": "Jaggery with chana or peanuts as a snack" }
+  ],
+  "no_vitamin_c": [
+    { "id": "add_guava", "hi": "खाने के साथ अमरूद, नींबू या आँवला लें — आयरन बेहतर पचता है", "en": "Have guava, lemon or amla with the meal: it helps absorb iron" }
+  ],
+  "low_fibre": [
+    { "id": "add_salad", "hi": "सलाद या हरी सब्ज़ी जोड़ें", "en": "Add salad or a green vegetable" },
+    { "id": "millet_swap", "hi": "आधा चावल कोदो/कुटकी से बदलें", "en": "Swap half the rice for kodo or kutki millet" }
+  ],
+  "high_refined_carb": [
+    { "id": "millet_swap", "hi": "आधा चावल कोदो/कुटकी से बदलें", "en": "Swap half the rice for kodo or kutki millet" },
+    { "id": "less_rice_more_dal", "hi": "चावल थोड़ा कम, दाल-सब्ज़ी थोड़ी ज़्यादा", "en": "A little less rice, a little more dal and sabzi" }
+  ],
+  "high_kcal": [
+    { "id": "skip_fried", "hi": "तली चीज़ें (पूरी, समोसा) कम करें", "en": "Cut down fried items (puri, samosa)" }
+  ],
+  "tea_with_meal": [
+    { "id": "tea_gap", "hi": "खाने के 1 घंटे बाद चाय पिएँ — चाय आयरन को रोकती है", "en": "Have tea an hour after meals: tea blocks iron absorption" }
+  ]
+}
