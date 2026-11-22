@@ -1,0 +1,12 @@
+{
+  "emergency": { "hi": "आपातकालीन", "en": "Emergency" },
+  "medicine": { "hi": "मेडिसिन (सामान्य रोग)", "en": "General Medicine" },
+  "paediatrics": { "hi": "शिशु रोग", "en": "Paediatrics" },
+  "gynaecology": { "hi": "स्त्री रोग", "en": "Obstetrics & Gynaecology" },
+  "ophthalmology": { "hi": "नेत्र रोग", "en": "Ophthalmology" },
+  "ent": { "hi": "नाक, कान, गला", "en": "ENT" },
+  "orthopaedics": { "hi": "हड्डी रोग", "en": "Orthopaedics" },
+  "dermatology": { "hi": "त्वचा रोग", "en": "Dermatology" },
+  "surgery": { "hi": "सर्जरी", "en": "General Surgery" },
+  "dental": { "hi": "दंत रोग", "en": "Dental" }
+}
