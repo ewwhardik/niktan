@@ -1,0 +1,58 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icon.svg'],
+      manifest: {
+        name: 'NikTan — तीन मिनट की स्वास्थ्य जाँच',
+        short_name: 'NikTan',
+        description: 'A 3-minute phone health check that gets you triaged before you reach the OPD.',
+        lang: 'hi',
+        theme_color: '#0B0F0E',
+        background_color: '#FAFAF7',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+      },
+      workbox: {
+        // Scan steps must work on a flaky venue network once the app has loaded.
+        globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3}'],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/(cdn\.jsdelivr\.net|storage\.googleapis\.com)\/.*/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'mediapipe', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+        ],
+      },
+    }),
+  ],
+  server: {
+    proxy: { '/api': 'http://localhost:8787' },
+  },
+  build: {
+    target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          motion: ['motion'],
+          mediapipe: ['@mediapipe/tasks-vision'],
+        },
+      },
+    },
+  },
+});
