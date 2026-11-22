@@ -1,12 +1,267 @@
 {
-  "_note": "PROVISIONAL daily targets for a moderately active adult, rounded, for development. Must be replaced with the ICMR-NIN RDA 2020 table values (by age, sex, pregnancy) before release.",
+  "_note": "Daily targets from ICMR-NIN Expert Group on Nutrient Requirement for Indians, Recommended Dietary Allowances (RDA) and Estimated Average Requirements (EAR) - 2020. Energy: 'A Brief Note on Nutrient Requirements for Indians...' (nin.res.in/rdabook/brief_note.pdf), Table 1a/1b (children/adolescents at moderate activity, reference body weights). Protein, dietary fibre, calcium, iron, vitamin C: RDA values from 'Summary of RDA for Indians - ICMR-NIN, 2020' (Short Report, p.13); adult iron/calcium/vitamin C/protein also cross-checked against Brief Note Tables 2a, 3, 4. fat = upper limit of VISIBLE fat (cooking oil/ghee) g/day from 'Recommendations for Dietary Fat Intake in Indians' (Short Report, p.14). carbs is NOT an ICMR RDA: derived as 55% of energy (midpoint of the ICMR-NIN 2020 AMDR 45-65%E) / 4 kcal per g. ICMR band 16-18 y is applied to ages 16-17. adult_other_* (derived: true) is not an ICMR value: midpoint of male/female, iron = female value. pregnancyExtra/lactationExtra are deltas vs the adult_female group of the same activity; iron and calcium deltas are computed from absolute ICMR values (pregnancy iron 27 mg, calcium 1000 mg; lactation iron 23 mg, calcium 1200 mg), hence negative iron deltas. Pregnant and lactating women: visible fat 30 g/day absolute; no separate fibre value given. mealShare 0.33 is an app convention, not an ICMR figure. Units: kcal, grams (protein/carbs/fat/fibre), milligrams (iron/calcium/vitaminC). See planning/research/nutrition/REPORT.md.",
   "mealShare": 0.33,
   "groups": [
-    { "id": "child_4_9", "ageMin": 4, "ageMax": 9, "sex": "any", "daily": { "kcal": 1500, "protein": 20, "carbs": 200, "fat": 40, "fibre": 20, "iron": 12, "calcium": 550, "vitaminC": 40 } },
-    { "id": "teen_10_17", "ageMin": 10, "ageMax": 17, "sex": "any", "daily": { "kcal": 2200, "protein": 40, "carbs": 300, "fat": 45, "fibre": 30, "iron": 25, "calcium": 850, "vitaminC": 60 } },
-    { "id": "adult_female", "ageMin": 18, "ageMax": 120, "sex": "female", "daily": { "kcal": 2100, "protein": 46, "carbs": 290, "fat": 30, "fibre": 30, "iron": 29, "calcium": 1000, "vitaminC": 65 } },
-    { "id": "adult_male", "ageMin": 18, "ageMax": 120, "sex": "male", "daily": { "kcal": 2700, "protein": 54, "carbs": 370, "fat": 35, "fibre": 30, "iron": 19, "calcium": 1000, "vitaminC": 80 } },
-    { "id": "adult_other", "ageMin": 18, "ageMax": 120, "sex": "other", "daily": { "kcal": 2400, "protein": 50, "carbs": 330, "fat": 33, "fibre": 30, "iron": 24, "calcium": 1000, "vitaminC": 72 } }
+    {
+      "id": "child_4_6",
+      "ageMin": 4,
+      "ageMax": 6,
+      "sex": "any",
+      "daily": {
+        "kcal": 1360,
+        "protein": 16.0,
+        "carbs": 187,
+        "fat": 25,
+        "fibre": 20,
+        "iron": 11,
+        "calcium": 550,
+        "vitaminC": 35
+      }
+    },
+    {
+      "id": "child_7_9",
+      "ageMin": 7,
+      "ageMax": 9,
+      "sex": "any",
+      "daily": {
+        "kcal": 1700,
+        "protein": 23.0,
+        "carbs": 234,
+        "fat": 30,
+        "fibre": 26,
+        "iron": 15,
+        "calcium": 650,
+        "vitaminC": 45
+      }
+    },
+    {
+      "id": "boy_10_12",
+      "ageMin": 10,
+      "ageMax": 12,
+      "sex": "male",
+      "daily": {
+        "kcal": 2220,
+        "protein": 32.0,
+        "carbs": 305,
+        "fat": 35,
+        "fibre": 33,
+        "iron": 16,
+        "calcium": 850,
+        "vitaminC": 55
+      }
+    },
+    {
+      "id": "girl_10_12",
+      "ageMin": 10,
+      "ageMax": 12,
+      "sex": "female",
+      "daily": {
+        "kcal": 2060,
+        "protein": 33.0,
+        "carbs": 283,
+        "fat": 35,
+        "fibre": 30,
+        "iron": 28,
+        "calcium": 850,
+        "vitaminC": 50
+      }
+    },
+    {
+      "id": "boy_13_15",
+      "ageMin": 13,
+      "ageMax": 15,
+      "sex": "male",
+      "daily": {
+        "kcal": 2860,
+        "protein": 45.0,
+        "carbs": 393,
+        "fat": 45,
+        "fibre": 43,
+        "iron": 22,
+        "calcium": 1000,
+        "vitaminC": 70
+      }
+    },
+    {
+      "id": "girl_13_15",
+      "ageMin": 13,
+      "ageMax": 15,
+      "sex": "female",
+      "daily": {
+        "kcal": 2400,
+        "protein": 43.0,
+        "carbs": 330,
+        "fat": 40,
+        "fibre": 36,
+        "iron": 30,
+        "calcium": 1000,
+        "vitaminC": 65
+      }
+    },
+    {
+      "id": "boy_16_17",
+      "ageMin": 16,
+      "ageMax": 17,
+      "sex": "male",
+      "daily": {
+        "kcal": 3320,
+        "protein": 55.0,
+        "carbs": 457,
+        "fat": 50,
+        "fibre": 50,
+        "iron": 26,
+        "calcium": 1050,
+        "vitaminC": 85
+      }
+    },
+    {
+      "id": "girl_16_17",
+      "ageMin": 16,
+      "ageMax": 17,
+      "sex": "female",
+      "daily": {
+        "kcal": 2500,
+        "protein": 46.0,
+        "carbs": 344,
+        "fat": 35,
+        "fibre": 38,
+        "iron": 32,
+        "calcium": 1050,
+        "vitaminC": 70
+      }
+    },
+    {
+      "id": "adult_male_sedentary",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "male",
+      "activity": "sedentary",
+      "daily": {
+        "kcal": 2110,
+        "protein": 54.0,
+        "carbs": 290,
+        "fat": 25,
+        "fibre": 30,
+        "iron": 19,
+        "calcium": 1000,
+        "vitaminC": 80
+      }
+    },
+    {
+      "id": "adult_male_moderate",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "male",
+      "activity": "moderate",
+      "daily": {
+        "kcal": 2710,
+        "protein": 54.0,
+        "carbs": 373,
+        "fat": 30,
+        "fibre": 40,
+        "iron": 19,
+        "calcium": 1000,
+        "vitaminC": 80
+      }
+    },
+    {
+      "id": "adult_female_sedentary",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "female",
+      "activity": "sedentary",
+      "daily": {
+        "kcal": 1660,
+        "protein": 46.0,
+        "carbs": 228,
+        "fat": 20,
+        "fibre": 25,
+        "iron": 29,
+        "calcium": 1000,
+        "vitaminC": 65
+      }
+    },
+    {
+      "id": "adult_female_moderate",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "female",
+      "activity": "moderate",
+      "daily": {
+        "kcal": 2130,
+        "protein": 46.0,
+        "carbs": 293,
+        "fat": 25,
+        "fibre": 30,
+        "iron": 29,
+        "calcium": 1000,
+        "vitaminC": 65
+      }
+    },
+    {
+      "id": "adult_other_sedentary",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "other",
+      "activity": "sedentary",
+      "derived": true,
+      "daily": {
+        "kcal": 1885,
+        "protein": 50.0,
+        "carbs": 259,
+        "fat": 22,
+        "fibre": 28,
+        "iron": 29,
+        "calcium": 1000,
+        "vitaminC": 72
+      }
+    },
+    {
+      "id": "adult_other_moderate",
+      "ageMin": 18,
+      "ageMax": 120,
+      "sex": "other",
+      "activity": "moderate",
+      "derived": true,
+      "daily": {
+        "kcal": 2420,
+        "protein": 50.0,
+        "carbs": 333,
+        "fat": 28,
+        "fibre": 35,
+        "iron": 29,
+        "calcium": 1000,
+        "vitaminC": 72
+      }
+    }
   ],
-  "pregnancyExtra": { "kcal": 350, "protein": 23, "iron": 8, "calcium": 0, "vitaminC": 15 }
+  "pregnancyExtra": {
+    "kcal": 350,
+    "protein": 9.5,
+    "iron": -2,
+    "calcium": 0,
+    "vitaminC": 15
+  },
+  "pregnancyExtraThirdTrimester": {
+    "kcal": 350,
+    "protein": 22.0,
+    "iron": -2,
+    "calcium": 0,
+    "vitaminC": 15
+  },
+  "lactationExtra": {
+    "kcal": 600,
+    "protein": 17.0,
+    "iron": -6,
+    "calcium": 200,
+    "vitaminC": 50
+  },
+  "lactationExtra7to12m": {
+    "kcal": 520,
+    "protein": 13.0,
+    "iron": -6,
+    "calcium": 200,
+    "vitaminC": 50
+  },
+  "pregnancyLactationVisibleFat": 30
 }

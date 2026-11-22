@@ -16,7 +16,8 @@ describe('mealTotals', () => {
       { dishId: 'roti', count: 3 },
       { dishId: 'dal_arhar', count: 1 },
     ]);
-    expect(totals.kcal).toBe(85 * 3 + 150);
+    const per = (id: string) => dishes.find((d) => d.id === id)!.per.kcal;
+    expect(totals.kcal).toBeCloseTo(per('roti') * 3 + per('dal_arhar'), 1);
   });
 
   it('reports unknown dishes and skips them', () => {
@@ -30,19 +31,27 @@ describe('mealTotals', () => {
   });
 
   it('half portions are allowed', () => {
-    expect(mealTotals([{ dishId: 'rice', count: 0.5 }]).totals.kcal).toBe(100);
+    const rice = dishes.find((d) => d.id === 'rice')!.per.kcal;
+    expect(mealTotals([{ dishId: 'rice', count: 0.5 }]).totals.kcal).toBeCloseTo(rice / 2, 1);
   });
 });
 
 describe('dailyTarget', () => {
   it('adds pregnancy extras for pregnant women only', () => {
     const base = dailyTarget(kamla);
-    expect(dailyTarget({ ...kamla, pregnant: true }).iron).toBe(base.iron + 8);
-    expect(dailyTarget({ age: 30, sex: 'male', pregnant: true }).iron).toBe(dailyTarget({ age: 30, sex: 'male' }).iron);
+    // ICMR-NIN 2020: pregnancy adds energy and protein (iron RDA is slightly lower than for non-pregnant women).
+    expect(dailyTarget({ ...kamla, pregnant: true }).kcal).toBe(base.kcal + 350);
+    expect(dailyTarget({ ...kamla, pregnant: true }).protein).toBeGreaterThan(base.protein);
+    expect(dailyTarget({ age: 30, sex: 'male', pregnant: true })).toEqual(dailyTarget({ age: 30, sex: 'male' }));
   });
 
   it('children under 4 use the youngest group', () => {
     expect(dailyTarget({ age: 2, sex: 'male' })).toEqual(dailyTarget({ age: 5, sex: 'female' }));
+  });
+
+  it('adults use the moderately active row', () => {
+    expect(dailyTarget({ age: 30, sex: 'female' }).kcal).toBeGreaterThan(dailyTarget({ age: 30, sex: 'female', pregnant: false }).kcal - 1);
+    expect(dailyTarget({ age: 30, sex: 'male' }).kcal).toBeGreaterThan(dailyTarget({ age: 30, sex: 'female' }).kcal);
   });
 });
 

@@ -56,9 +56,10 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 
 export function dailyTarget(person: Person): Nutrients {
   const age = Math.max(person.age, 4);
-  const group =
-    targetTable.groups.find((g) => age >= g.ageMin && age <= g.ageMax && (g.sex === 'any' || g.sex === person.sex)) ??
-    targetTable.groups.find((g) => g.id === 'adult_other')!;
+  const sex = person.sex === 'other' && age < 18 ? 'female' : person.sex;
+  const matches = targetTable.groups.filter((g) => age >= g.ageMin && age <= g.ageMax && (g.sex === 'any' || g.sex === sex));
+  // Adults have sedentary and moderate rows; OPD patients are assumed moderately active.
+  const group = matches.find((g) => g.id.endsWith('_moderate')) ?? matches[0] ?? targetTable.groups.find((g) => g.id === 'adult_other_moderate')!;
   const target = { ...group.daily };
   if (person.pregnant && person.sex === 'female') {
     for (const [k, v] of Object.entries(targetTable.pregnancyExtra) as [Nutrient, number][]) target[k] += v;
