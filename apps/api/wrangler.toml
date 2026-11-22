@@ -1,0 +1,23 @@
+name = "niktan-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "niktan"
+# Replace with the id printed by `wrangler d1 create niktan`.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[ai]
+binding = "AI"
+
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5173,https://niktan.pages.dev"
+DEMO_MODE = "true"
+
+[triggers]
+crons = ["30 0 * * *"]
+
+# Secrets (set with `wrangler secret put`): STAFF_SECRET, GEMINI_API_KEY, GROQ_API_KEY

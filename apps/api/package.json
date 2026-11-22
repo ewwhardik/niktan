@@ -1,0 +1,24 @@
+{
+  "name": "@niktan/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply niktan --local",
+    "db:migrate:remote": "wrangler d1 migrations apply niktan --remote",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@niktan/core": "workspace:*",
+    "hono": "^4.6.10",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "vitest": "^2.1.4",
+    "wrangler": "^3.87.0"
+  }
+}
