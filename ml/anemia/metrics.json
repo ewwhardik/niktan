@@ -1,0 +1,427 @@
+{
+  "ghana_dedup": {
+    "files": 4262,
+    "unique_images": 514,
+    "groups": 494,
+    "anaemic_unique": 291,
+    "non_anaemic_unique": 223
+  },
+  "n_total": 731,
+  "per_dataset_counts": {
+    "eda_india": {
+      "n": 95,
+      "anaemic": 68
+    },
+    "eda_italy": {
+      "n": 122,
+      "anaemic": 23
+    },
+    "ghana": {
+      "n": 514,
+      "anaemic": 291
+    }
+  },
+  "lr_C_grid_auc_mean_sd_10x5fold": {
+    "0.01": [
+      0.695,
+      0.001
+    ],
+    "0.1": [
+      0.702,
+      0.002
+    ],
+    "1.0": [
+      0.703,
+      0.003
+    ],
+    "10.0": [
+      0.698,
+      0.004
+    ]
+  },
+  "lr_C": 1.0,
+  "gbm_auc_mean_sd_5x5fold": [
+    0.759,
+    0.01
+  ],
+  "pooled_cv": {
+    "lr": {
+      "all": {
+        "n": 731,
+        "n_pos": 382,
+        "auc": 0.707,
+        "auc_ci95": [
+          0.666,
+          0.746
+        ],
+        "sensitivity": 0.851,
+        "sens_ci95": [
+          0.812,
+          0.883
+        ],
+        "specificity": 0.387,
+        "spec_ci95": [
+          0.337,
+          0.439
+        ],
+        "tp": 325,
+        "fn": 57,
+        "tn": 135,
+        "fp": 214
+      },
+      "ghana": {
+        "n": 514,
+        "n_pos": 291,
+        "auc": 0.638,
+        "auc_ci95": [
+          0.589,
+          0.69
+        ],
+        "sensitivity": 0.852,
+        "sens_ci95": [
+          0.807,
+          0.888
+        ],
+        "specificity": 0.215,
+        "spec_ci95": [
+          0.166,
+          0.274
+        ],
+        "tp": 248,
+        "fn": 43,
+        "tn": 48,
+        "fp": 175
+      },
+      "eda_india": {
+        "n": 95,
+        "n_pos": 68,
+        "auc": 0.676,
+        "auc_ci95": [
+          0.56,
+          0.793
+        ],
+        "sensitivity": 0.838,
+        "sens_ci95": [
+          0.733,
+          0.907
+        ],
+        "specificity": 0.296,
+        "spec_ci95": [
+          0.159,
+          0.485
+        ],
+        "tp": 57,
+        "fn": 11,
+        "tn": 8,
+        "fp": 19
+      },
+      "eda_italy": {
+        "n": 122,
+        "n_pos": 23,
+        "auc": 0.912,
+        "auc_ci95": [
+          0.832,
+          0.973
+        ],
+        "sensitivity": 0.87,
+        "sens_ci95": [
+          0.679,
+          0.955
+        ],
+        "specificity": 0.798,
+        "spec_ci95": [
+          0.708,
+          0.865
+        ],
+        "tp": 20,
+        "fn": 3,
+        "tn": 79,
+        "fp": 20
+      },
+      "eda_all": {
+        "n": 217,
+        "n_pos": 91,
+        "auc": 0.851,
+        "auc_ci95": [
+          0.799,
+          0.899
+        ],
+        "sensitivity": 0.846,
+        "sens_ci95": [
+          0.758,
+          0.906
+        ],
+        "specificity": 0.69,
+        "spec_ci95": [
+          0.605,
+          0.765
+        ],
+        "tp": 77,
+        "fn": 14,
+        "tn": 87,
+        "fp": 39
+      },
+      "spearman_prob_vs_hb_eda": -0.695
+    },
+    "gbm": {
+      "all": {
+        "n": 731,
+        "n_pos": 382,
+        "auc": 0.759,
+        "auc_ci95": [
+          0.723,
+          0.795
+        ],
+        "sensitivity": 0.848,
+        "sens_ci95": [
+          0.809,
+          0.881
+        ],
+        "specificity": 0.479,
+        "spec_ci95": [
+          0.427,
+          0.531
+        ],
+        "tp": 324,
+        "fn": 58,
+        "tn": 167,
+        "fp": 182
+      },
+      "ghana": {
+        "n": 514,
+        "n_pos": 291,
+        "auc": 0.691,
+        "auc_ci95": [
+          0.644,
+          0.738
+        ],
+        "sensitivity": 0.849,
+        "sens_ci95": [
+          0.803,
+          0.885
+        ],
+        "specificity": 0.345,
+        "spec_ci95": [
+          0.286,
+          0.41
+        ],
+        "tp": 247,
+        "fn": 44,
+        "tn": 77,
+        "fp": 146
+      },
+      "eda_india": {
+        "n": 95,
+        "n_pos": 68,
+        "auc": 0.662,
+        "auc_ci95": [
+          0.536,
+          0.778
+        ],
+        "sensitivity": 0.882,
+        "sens_ci95": [
+          0.785,
+          0.939
+        ],
+        "specificity": 0.259,
+        "spec_ci95": [
+          0.132,
+          0.447
+        ],
+        "tp": 60,
+        "fn": 8,
+        "tn": 7,
+        "fp": 20
+      },
+      "eda_italy": {
+        "n": 122,
+        "n_pos": 23,
+        "auc": 0.904,
+        "auc_ci95": [
+          0.829,
+          0.965
+        ],
+        "sensitivity": 0.739,
+        "sens_ci95": [
+          0.535,
+          0.875
+        ],
+        "specificity": 0.838,
+        "spec_ci95": [
+          0.753,
+          0.898
+        ],
+        "tp": 17,
+        "fn": 6,
+        "tn": 83,
+        "fp": 16
+      },
+      "eda_all": {
+        "n": 217,
+        "n_pos": 91,
+        "auc": 0.866,
+        "auc_ci95": [
+          0.814,
+          0.913
+        ],
+        "sensitivity": 0.846,
+        "sens_ci95": [
+          0.758,
+          0.906
+        ],
+        "specificity": 0.714,
+        "spec_ci95": [
+          0.63,
+          0.786
+        ],
+        "tp": 77,
+        "fn": 14,
+        "tn": 90,
+        "fp": 36
+      }
+    }
+  },
+  "within_dataset_lr": {
+    "ghana": {
+      "n": 514,
+      "n_pos": 291,
+      "auc": 0.653,
+      "auc_ci95": [
+        0.605,
+        0.705
+      ],
+      "sensitivity": 0.842,
+      "sens_ci95": [
+        0.796,
+        0.879
+      ],
+      "specificity": 0.251,
+      "spec_ci95": [
+        0.199,
+        0.312
+      ],
+      "tp": 245,
+      "fn": 46,
+      "tn": 56,
+      "fp": 167
+    },
+    "eda_all": {
+      "n": 217,
+      "n_pos": 91,
+      "auc": 0.872,
+      "auc_ci95": [
+        0.822,
+        0.919
+      ],
+      "sensitivity": 0.868,
+      "sens_ci95": [
+        0.784,
+        0.923
+      ],
+      "specificity": 0.778,
+      "spec_ci95": [
+        0.698,
+        0.842
+      ],
+      "tp": 79,
+      "fn": 12,
+      "tn": 98,
+      "fp": 28
+    },
+    "eda_india": {
+      "n": 95,
+      "n_pos": 68,
+      "auc": 0.664,
+      "auc_ci95": [
+        0.54,
+        0.778
+      ],
+      "sensitivity": 0.809,
+      "sens_ci95": [
+        0.7,
+        0.885
+      ],
+      "specificity": 0.333,
+      "spec_ci95": [
+        0.186,
+        0.522
+      ],
+      "tp": 55,
+      "fn": 13,
+      "tn": 9,
+      "fp": 18
+    }
+  },
+  "cross_dataset_lr": {
+    "train_ghana_test_eda": {
+      "n": 217,
+      "n_pos": 91,
+      "auc": 0.697,
+      "auc_ci95": [
+        0.619,
+        0.77
+      ],
+      "sensitivity": 0.308,
+      "sens_ci95": [
+        0.222,
+        0.409
+      ],
+      "specificity": 0.905,
+      "spec_ci95": [
+        0.841,
+        0.945
+      ],
+      "tp": 28,
+      "fn": 63,
+      "tn": 114,
+      "fp": 12
+    },
+    "train_eda_test_ghana": {
+      "n": 514,
+      "n_pos": 291,
+      "auc": 0.595,
+      "auc_ci95": [
+        0.545,
+        0.648
+      ],
+      "sensitivity": 0.45,
+      "sens_ci95": [
+        0.394,
+        0.508
+      ],
+      "specificity": 0.664,
+      "spec_ci95": [
+        0.599,
+        0.722
+      ],
+      "tp": 131,
+      "fn": 160,
+      "tn": 148,
+      "fp": 75
+    }
+  },
+  "final_threshold_from_oof": 0.39137347961512664,
+  "final_oof_at_threshold": {
+    "n": 731,
+    "n_pos": 382,
+    "auc": 0.707,
+    "auc_ci95": [
+      0.666,
+      0.746
+    ],
+    "sensitivity": 0.851,
+    "sens_ci95": [
+      0.812,
+      0.883
+    ],
+    "specificity": 0.387,
+    "spec_ci95": [
+      0.337,
+      0.439
+    ],
+    "tp": 325,
+    "fn": 57,
+    "tn": 135,
+    "fp": 214
+  }
+}

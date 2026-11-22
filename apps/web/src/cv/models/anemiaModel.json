@@ -1,0 +1,232 @@
+{
+  "name": "niktan-anaemia-conjunctiva-lr",
+  "version": "1.0.0",
+  "task": "P(anaemia) from palpebral conjunctiva colour",
+  "featureSpec": "features.py (wb=none, HIGHLIGHT_MAX=250, SHADOW_MIN=20, MIN_PIXELS=50, sRGB D65 CIELAB)",
+  "whiteBalance": "none",
+  "features": [
+    "a_mean",
+    "a_median",
+    "a_p25",
+    "a_p75",
+    "L_mean",
+    "L_median",
+    "b_mean",
+    "ei_mean",
+    "ei_median",
+    "rch_mean",
+    "gr_mean"
+  ],
+  "standardization": {
+    "mean": [
+      28.29573337597447,
+      28.665590812872303,
+      25.163793346716414,
+      31.745770300000448,
+      53.7194328942671,
+      54.246245229839914,
+      13.457296173747501,
+      24.20799309935351,
+      23.836025854999455,
+      0.46690921276808134,
+      0.5924248253932142
+    ],
+    "std": [
+      8.833466640148249,
+      9.311781408426526,
+      8.81467342453515,
+      9.443401164550881,
+      12.39795799180158,
+      12.746712808656264,
+      10.006994016310802,
+      9.644933075542125,
+      9.815481146650406,
+      0.052327027607286185,
+      0.12258981777075201
+    ]
+  },
+  "coefficients": [
+    0.15929697957672248,
+    -0.09618722884762933,
+    0.2921732410757726,
+    -0.22188344603646415,
+    -0.7635083831019558,
+    -0.09551005159910644,
+    -0.12437345936025346,
+    -0.7545953260269466,
+    -0.2547588220405296,
+    0.16510420640436796,
+    0.5361703996845643
+  ],
+  "intercept": 0.10053664058588027,
+  "link": "logistic: p = 1/(1+exp(-(sum_i coef_i*(x_i-mean_i)/std_i + intercept)))",
+  "threshold": 0.39137347961512664,
+  "thresholdRule": "largest p with out-of-fold sensitivity >= 0.85 (pooled training data)",
+  "regularization": {
+    "type": "L2",
+    "C": 1.0
+  },
+  "labels": "Ghana children 6-59 mo: dataset label (lab Hb, WHO <11 g/dL); Eyes-defy-anemia adults: WHO Hb <12 (F) / <13 (M) g/dL",
+  "training": {
+    "n": 731,
+    "n_anaemic": 382,
+    "datasets": {
+      "eda_india": {
+        "n": 95,
+        "anaemic": 68
+      },
+      "eda_italy": {
+        "n": 122,
+        "anaemic": 23
+      },
+      "ghana": {
+        "n": 514,
+        "anaemic": 291
+      }
+    }
+  },
+  "metrics": {
+    "cv": "patient-grouped stratified 5-fold, threshold re-chosen inside each training fold (nested)",
+    "pooled": {
+      "n": 731,
+      "n_pos": 382,
+      "auc": 0.707,
+      "auc_ci95": [
+        0.666,
+        0.746
+      ],
+      "sensitivity": 0.851,
+      "sens_ci95": [
+        0.812,
+        0.883
+      ],
+      "specificity": 0.387,
+      "spec_ci95": [
+        0.337,
+        0.439
+      ],
+      "tp": 325,
+      "fn": 57,
+      "tn": 135,
+      "fp": 214
+    },
+    "ghana": {
+      "n": 514,
+      "n_pos": 291,
+      "auc": 0.638,
+      "auc_ci95": [
+        0.589,
+        0.69
+      ],
+      "sensitivity": 0.852,
+      "sens_ci95": [
+        0.807,
+        0.888
+      ],
+      "specificity": 0.215,
+      "spec_ci95": [
+        0.166,
+        0.274
+      ],
+      "tp": 248,
+      "fn": 43,
+      "tn": 48,
+      "fp": 175
+    },
+    "eda_india": {
+      "n": 95,
+      "n_pos": 68,
+      "auc": 0.676,
+      "auc_ci95": [
+        0.56,
+        0.793
+      ],
+      "sensitivity": 0.838,
+      "sens_ci95": [
+        0.733,
+        0.907
+      ],
+      "specificity": 0.296,
+      "spec_ci95": [
+        0.159,
+        0.485
+      ],
+      "tp": 57,
+      "fn": 11,
+      "tn": 8,
+      "fp": 19
+    },
+    "eda_italy": {
+      "n": 122,
+      "n_pos": 23,
+      "auc": 0.912,
+      "auc_ci95": [
+        0.832,
+        0.973
+      ],
+      "sensitivity": 0.87,
+      "sens_ci95": [
+        0.679,
+        0.955
+      ],
+      "specificity": 0.798,
+      "spec_ci95": [
+        0.708,
+        0.865
+      ],
+      "tp": 20,
+      "fn": 3,
+      "tn": 79,
+      "fp": 20
+    },
+    "cross_dataset": {
+      "train_ghana_test_eda": {
+        "n": 217,
+        "n_pos": 91,
+        "auc": 0.697,
+        "auc_ci95": [
+          0.619,
+          0.77
+        ],
+        "sensitivity": 0.308,
+        "sens_ci95": [
+          0.222,
+          0.409
+        ],
+        "specificity": 0.905,
+        "spec_ci95": [
+          0.841,
+          0.945
+        ],
+        "tp": 28,
+        "fn": 63,
+        "tn": 114,
+        "fp": 12
+      },
+      "train_eda_test_ghana": {
+        "n": 514,
+        "n_pos": 291,
+        "auc": 0.595,
+        "auc_ci95": [
+          0.545,
+          0.648
+        ],
+        "sensitivity": 0.45,
+        "sens_ci95": [
+          0.394,
+          0.508
+        ],
+        "specificity": 0.664,
+        "spec_ci95": [
+          0.599,
+          0.722
+        ],
+        "tp": 131,
+        "fn": 160,
+        "tn": 148,
+        "fp": 75
+      }
+    }
+  },
+  "intendedUse": "Screening prompt only (\"possible anaemia - get a Hb blood test\"); not diagnostic."
+}
