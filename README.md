@@ -7,7 +7,6 @@
 [![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare%20Workers%20%2B%20Pages%20%2B%20D1-orange.svg)](https://workers.cloudflare.com)
 [![Privacy](https://img.shields.io/badge/Privacy-On--Device%20Edge%20CV%20(WASM)-success.svg)](docs/architecture.md)
 [![Tests](https://img.shields.io/badge/Tests-131%20passing-brightgreen.svg)](packages/core/test)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **NikTan** (from Chhattisgarhi *"nik"* = good/healthy + *"tan"* = body) is an edge-first, multimodal pre-consultation health screening and clinical triage system built for **Hackasol 5.0 (OI-01: Build for Real-World Impact)**.
 
@@ -37,7 +36,7 @@ In Indian public hospitals, patients routinely wait 2 to 4 hours in outpatient d
 - **Disproportionate Wait-to-Consult Ratio:** A study of 255 outpatients in a North Indian government teaching hospital documented an average wait of **242.8 minutes** from arrival until the doctor called the patient, against an average consultation duration of just **12.8 minutes** ([IJCMPH Study](https://www.ijcmph.com/index.php/ijcmph/article/view/16572)). In high-density neurology and general medicine OPDs, waits often exceed **110.9 minutes for a 5.3-minute consult**.
 - **Massive Patient Load:** Institutions like AIIMS Delhi manage **14,000 to 15,000 OPD patients daily** (>50 lakh annual consultations).
 - **The ABDM Scan & Share Gap:** The National Health Authority's ABDM Scan & Share successfully cut *registration* waits from ~1 hour down to 2–5 minutes across >23 crore tokens ([MoHFW Report](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2281466)). However, once registered, patients enter a single un-triaged queue. A critically ill patient waits behind 15 routine follow-ups, and doctors must take history and vitals from scratch.
-- **Detailed Clinical Rationale:** See [`docs/validation.md`](docs/validation.md) for full citations, field observations from Raipur (Dr. B.R. Ambedkar Memorial Hospital and District Hospital), and stakeholder interviews.
+- **Detailed Clinical Rationale:** See [`docs/validation.md`](docs/validation.md) for full citations and the planned validation (survey, OPD observation and recorded quotes still to be collected).
 
 ---
 
@@ -47,7 +46,7 @@ In Indian public hospitals, patients routinely wait 2 to 4 hours in outpatient d
 |---|---|---|---|---|
 | **Doctor History & Vitals Duration** | 2.5 – 4.0 min (out of 5.3 min total consult) | **0.5 – 1.0 min** | **65% – 75% time saved** per patient | Pre-consultation card stopwatch evaluation |
 | **High-Risk Patient Priority Discovery** | 80 – 120 min (waiting at position 15 in FIFO queue) | **< 10 seconds** (instant priority jump or 🔴 Emergency bypass) | **Moved from 15th to 1st (0 ahead)** | Automated integration test (`apps/api/test/d1.test.mjs`) |
-| **Cost of Basic Comprehensive Screening** | ₹650 – ₹1,500 (Hb blood draw, optometry, audiometry, travel) | **₹0 for citizen** / **~₹0.04 server cost** | **99.9% cost reduction** | Edge-compute economic model (`docs/cost.md`) |
+| **Cost of Basic Comprehensive Screening** | ₹650 – ₹1,500 (Hb blood draw, optometry, audiometry, travel) | **₹0 for citizen** / **~₹0.02 server cost (estimate)** | **Estimate** | Edge-compute economic model (`docs/cost.md`) |
 | **Screening Throughput per Device** | 0 (no pre-screening in standard OPDs) | **3.0 minutes** for full 5-module scan | **100+ screenings/day** per tablet | Production PWA execution |
 
 > **Reproduce the Priority Queue Benchmark:**  
@@ -57,7 +56,7 @@ In Indian public hospitals, patients routinely wait 2 to 4 hours in outpatient d
 
 ## Architecture and Data Flow
 
-NikTan is engineered with an **Edge-First, Zero-Knowledge Privacy Architecture**. Heavy computer vision and audio DSP run entirely inside the client's browser WebAssembly runtime. Raw camera streams and ocular frames never touch a server or third-party AI provider, ensuring full compliance with the **Digital Personal Data Protection (DPDP) Act 2023**.
+NikTan is engineered with an **Edge-First, Zero-Knowledge Privacy Architecture**. Heavy computer vision and audio DSP run entirely inside the client's browser WebAssembly runtime. Raw camera streams and ocular frames never touch a server or third-party AI provider, in a design aligned with India's **Digital Personal Data Protection (DPDP) Act 2023** (not a legal certification). Voice recordings and meal photos are sent to AI providers when online; face video and eye photos never leave the phone.
 
 ```mermaid
 flowchart TD
@@ -68,7 +67,7 @@ flowchart TD
             RPPG["POS rPPG Algorithm (Capillary Blood Pulse)"]
             EYE["Ocular Crop & 11 Color Descriptors"]
             PALLOR["Logistic Regression Pallor Model"]
-            VIS["Calibrated Tumbling-E Optotypes (85.6mm Card)"]
+            VIS["Calibrated Tumbling-E Optotypes (card short edge, 53.98 mm)"]
             DIN["Digits-in-Noise Speech Audiometry (WebAudio)"]
         end
         UI --> MP --> RPPG
@@ -120,7 +119,7 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 ### M1: In-Browser Contactless rPPG Heart Rate
 - **Algorithm:** Wang et al.'s **Plane-Orthogonal-to-Skin (POS)** remote photoplethysmography ([IEEE TBME](https://doi.org/10.1109/TBME.2016.2609282)).
 - **Implementation:** MediaPipe FaceLandmarker dynamically isolates regions of interest across forehead and bilateral cheeks while masking eyes and mouth.
-- **Signal Processing:** Temporal channel normalization, band-pass filtering (**0.7 – 3.0 Hz**, corresponding to 42–180 bpm), detrending, and Welch/FFT spectral density peak tracking over a 15–20 second rolling window.
+- **Signal Processing:** Temporal channel normalization, band-pass filtering (**0.7 – 3.0 Hz**, corresponding to 42–180 bpm), detrending, and Welch/FFT spectral density peak tracking over a 10-second rolling window during the scan and the full 30-second capture for the result.
 - **Quality Gate:** Rejects motion artifacts, lighting dropouts, and low signal-to-noise ratio (SNR) with clear audio-visual instructions ("कृपया स्थिर रहें", "बढ़िया रोशनी में आइए").
 - **Live Pulse Waveform:** Real-time pulse waveform synced with heartbeats.
 
@@ -131,16 +130,16 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 - **Experimental Flags:** Ocular sclera yellowness ($b^*$ chromaticity) for preliminary jaundice detection, and pupil-to-iris white reflectance ratio for cataract screening.
 
 ### M3: Clinically Calibrated Tumbling-E Visual Acuity
-- **Physical Calibration:** User matches an on-screen slider to any standard physical card (Aadhaar / ATM card width = 85.6 mm) to derive exact screen pixels-per-millimeter ($PPM$).
+- **Physical Calibration:** User matches an on-screen slider to the short edge of any standard ID-1 card (Aadhaar / ATM card, 53.98 mm) to derive exact screen pixels-per-millimeter ($PPM$).
 - **Dual Testing Modes:**
-  1. *40 cm Near Mode:* Monocular testing using real-time inter-pupillary distance (IPD) tracking to alert if the user is too close or far.
+  1. *40 cm Near Mode:* Monocular testing at an instructed 40 cm distance (camera-based distance tracking is not yet used).
   2. *2 m Far Mode:* Assisted distance acuity with directional taps or swipes.
 - **Standardized Snellen Output:** 0.1 logMAR staircase with 5 optotypes per tier; referral boundary calibrated to worse than 6/12 (or $\ge 2$ lines difference between eyes) per WHO guidelines.
 
 ### M4: Digits-in-Noise (DIN) Speech Audiometry
-- **Methodology:** Implements WHO hearWHO-style speech audiometry using binaural digit triplets (e.g., "३ ७ २") mixed with speech-shaped masking noise.
+- **Methodology:** Experimental, diotic digits-in-noise screen for adults (the method behind WHO hearWHO), using Hindi digit triplets (e.g., "३ ७ २") in speech-shaped noise. The pass/refer cut-off comes from published non-Hindi DIN research and is provisional until calibrated on local normal-hearing listeners.
 - **Adaptive Staircase:** 1-up-1-down SNR adaptation over 23 triplets. Evaluates speech recognition threshold (SRT) in decibels SNR.
-- **Noisy OPD Usability:** Specifically engineered to assess sensorineural hearing loss even in chaotic, reverberant waiting hall environments.
+- **Audio:** The Hindi digit and voice-guide recordings in `apps/web/public/audio` were synthesised with eSpeak NG (via the Echogarden toolkit); replace them with recorded human speech before any clinical use.
 
 ### M5: Multimodal Voice Symptom Structuring
 - **Push-to-Talk Speech Capture:** Patients speak naturally in Hindi, Chhattisgarhi, or Hinglish ("3 दिन से बुखार है और खाँसी आ रही है").
@@ -151,7 +150,7 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 ### M6: Deterministic Priority Triage Engine
 - **Clinical Protocol:** Emergency Severity Index (ESI) and Manchester Triage inspired rule engine (`packages/core/src/triage.ts`).
 - **Triage Tiers:**
-  - 🔴 **EMERGENCY:** Critical vital signs (HR > 130 or < 40 bpm) or confirmed red flags $\rightarrow$ Bypasses OPD queues, displays direct `tel:108` calling button, and immediately alerts hospital triage.
+  - 🔴 **EMERGENCY:** Critical vital signs (HR > 130 or < 40 bpm) or confirmed red flags $\rightarrow$ Bypasses the OPD queue and shows a direct `tel:108` button. It does not notify the hospital; a patient already in a queue who becomes an emergency is re-triaged to the top of the board.
   - 🟠 **SEE TODAY:** Moderate vital deviations, fever $\ge 3$ days, acute pallor with fatigue, or sudden sensory loss $\rightarrow$ Elevated to top priority in OPD queue.
   - 🟢 **ROUTINE:** Stable presentations $\rightarrow$ Sorted by arrival order.
 - **Automated Department Routing:** Routes to 8 specialized departments (General Medicine, Pediatrics for age < 14, Obstetrics & Gynecology, Ophthalmology, ENT, Orthopedics, Dermatology, Surgery).
@@ -161,7 +160,7 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 ## NikTan Thali: Nutrition Engine
 
 NikTan closes the clinical loop by linking screening observations (e.g., conjunctival pallor) with nutritional dietary interventions:
-1. **Computer Vision Dish Recognition:** Meal photos are analyzed via Gemini Flash Vision against a verified catalog of **70 Indian and Chhattisgarhi regional dishes**.
+1. **Computer Vision Dish Recognition:** Meal photos are analyzed via Gemini Flash Vision against a catalogue of **70 Indian and Chhattisgarhi dishes** whose nutrient values come from the Indian Nutrient Databank (the INDB data files carry no explicit licence; ask the authors before redistribution).
 2. **Deterministic Nutritional Calculation:** Computes macronutrients and micronutrients (protein, iron, calcium, vitamin C, dietary fiber) derived from the **Indian Nutrient Databank (INDB)** and ICMR-NIN IFCT 2017.
 3. **ICMR-NIN RDA 2020 Targets:** Compares meals against age- and sex-adjusted reference daily intakes.
 4. **Culturally Grounded Central Indian Swaps:** Recommends hyper-local, affordable alternatives:
@@ -271,7 +270,7 @@ For comprehensive implementation blueprints, benchmarks, and clinical reviews:
 
 | Document | Description |
 |---|---|
-| 📄 [`docs/validation.md`](docs/validation.md) | Clinical problem validation, OPD wait studies, ABDM Scan & Share analysis, field observations |
+| 📄 [`docs/validation.md`](docs/validation.md) | Clinical problem validation, OPD wait studies, ABDM Scan & Share analysis, planned validation |
 | 📊 [`docs/metrics.md`](docs/metrics.md) | Quantitative evaluation metrics, before/after comparisons, queue integration test benchmarks |
 | 💰 [`docs/cost.md`](docs/cost.md) | Costed plan for population-scale deployment (100k screenings/month, hospital tablet options) |
 | 👁️ [`docs/model-card-anemia.md`](docs/model-card-anemia.md) | Machine learning model card for conjunctival pallor detection (features, datasets, ROC-AUC) |
@@ -288,6 +287,21 @@ For comprehensive implementation blueprints, benchmarks, and clinical reviews:
 3. **On-Device Biometric Isolation:** Facial video streams and eye images are processed entirely within in-memory WebAssembly buffers and are destroyed upon step completion. No raw biometric imagery is ever transmitted or stored.
 
 ---
+
+## Data, Models and Third-Party Assets
+
+Nothing below is redistributed beyond what its licence allows; raw datasets are not in this repository.
+
+| What | Used for | Source | Licence |
+|---|---|---|---|
+| ML IDA Conjunctiva Dataset from Ghana | Training the pallor model (derived coefficients only) | Asare, Appiahene, Donkoh, Mendeley Data V1 (2022), doi:10.17632/nt7r8hv2pz.1 | CC BY 4.0 |
+| Eyes-defy-anemia | Training and per-country evaluation of the pallor model | Dimauro et al., IEEE DataPort (2022), doi:10.21227/t5s2-4j73 | CC BY 4.0 |
+| Indian Nutrient Databank (INDB) | Dish nutrient values | Vijayakumar et al., *Curr Dev Nutr* 8(7):103790 (2024); github.com/lindsayjaacks/Indian-Nutrient-Databank-INDB- | Paper CC BY; data files carry no explicit licence |
+| ICMR-NIN Nutrient Requirements 2020 / IFCT 2017 | Daily targets, raw-ingredient values | ICMR-National Institute of Nutrition, Hyderabad | Public reference |
+| MediaPipe FaceLandmarker | Face and iris landmarks in the browser | Google, `@mediapipe/tasks-vision` | Apache 2.0 |
+| Hindi digit and guide audio | Hearing test and voice guidance | Synthesised with eSpeak NG via Echogarden | eSpeak NG is GPL-3.0 software; replace with recorded speech before clinical use |
+| Inter, Noto Sans/Serif Devanagari, Instrument Serif | Typography | Fontsource packages | SIL Open Font License |
+| OPD waiting-time figures | Problem statement | Published Indian OPD time-motion studies, e.g. IJCMPH (ijcmph.com/index.php/ijcmph/article/view/16572); AIIMS Delhi OPD volumes; ABDM Scan & Share press release (PIB, 2026) | Cited, not redistributed |
 
 ## Team & Credits
 
