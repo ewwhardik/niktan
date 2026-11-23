@@ -93,7 +93,7 @@
     "quality": "Signal quality",
     "breathing": "Breathing (experimental)",
     "lowQuality": "The reading was not clear. Try again in better light, or skip.",
-    "feel": "Feel that? Your phone is tapping along with your pulse."
+    "feel": "Feel that? Your phone taps at your estimated heart rate."
   },
   "eye": {
     "title": "Eye check",
@@ -339,10 +339,10 @@
     "problemEyebrow": "The problem",
     "problemTitle": "Two hours in a queue for five minutes with a doctor.",
     "problemBody": "OPDs are first-come, first-served. A breathless patient waits behind a routine follow-up, and the doctor spends the consult asking basics nobody measured.",
-    "stat1": "average wait in a general-medicine OPD",
-    "stat2": "actual time with the doctor",
+    "stat1": "average wait in a neurology OPD",
+    "stat2": "average consult time in the same study",
     "stat3": "for a NikTan pre-screen",
-    "statSource": "Published Indian OPD time-motion studies; see README for sources.",
+    "statSource": "110.9 vs 5.3 min: a neurology OPD time-motion study; sources in the README.",
     "howEyebrow": "How it works",
     "howTitle": "Five checks. One verdict. Zero guesswork.",
     "steps": [
@@ -398,6 +398,8 @@
     "footer": "NikTan screens and prioritises. It never diagnoses. In an emergency call 108.",
     "status": "Service status",
     "staff": "Staff login",
-    "thali": "Scan a meal"
+    "thali": "Scan a meal",
+    "demoBoard": "Example board · simulated",
+    "example": "example"
   }
 }

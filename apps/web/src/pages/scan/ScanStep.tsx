@@ -37,11 +37,12 @@ export default function ScanStep() {
     prev.current = index;
   }, [index]);
 
-  // The scan runs in a dark "chamber": the status bar should match it.
+  // The scan runs in a dark "chamber": the status bar should match it, then restore on exit.
   useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]:not([media])') ?? document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'theme-color' }));
-    meta.setAttribute('content', '#000000');
-    return () => meta.remove();
+    const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+    const before = metas.map((m) => m.content);
+    metas.forEach((m) => (m.content = '#000000'));
+    return () => metas.forEach((m, i) => (m.content = before[i]!));
   }, []);
 
   if (!profile) return <Navigate to="/info" replace />;

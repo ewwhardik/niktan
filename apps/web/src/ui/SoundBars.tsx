@@ -10,6 +10,7 @@ export function SoundBars({ analyser, active, className = '' }: { analyser: Anal
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const data = new Uint8Array(analyser?.frequencyBinCount ?? 64);
     let raf = 0;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const draw = (now: number) => {
       const w = c.clientWidth;
       const h = c.clientHeight;
@@ -24,7 +25,7 @@ export function SoundBars({ analyser, active, className = '' }: { analyser: Anal
       const gap = 4;
       const bw = (w - gap * (bars - 1)) / bars;
       for (let i = 0; i < bars; i++) {
-        const idle = 0.06 + 0.04 * Math.sin(now / 400 + i * 0.5);
+        const idle = reduce ? 0.06 : 0.06 + 0.04 * Math.sin(now / 400 + i * 0.5);
         const v = active && analyser ? (data[Math.floor((i / bars) * data.length * 0.7)] ?? 0) / 255 : idle;
         const bh = Math.max(3, v * h);
         ctx.fillStyle = i % 8 === 3 ? '#5EF0C8' : 'rgba(100,210,255,0.85)';
@@ -34,7 +35,8 @@ export function SoundBars({ analyser, active, className = '' }: { analyser: Anal
         ctx.fill();
       }
       ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
+      // With reduced motion, only redraw while sound is actually playing.
+      if (!reduce || active) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);

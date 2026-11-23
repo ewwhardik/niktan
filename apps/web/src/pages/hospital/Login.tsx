@@ -81,7 +81,7 @@ export default function Login() {
       <div className="mx-auto mt-6 grid w-full max-w-xs grid-cols-3 gap-2.5">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((k, i) =>
           k === '' ? (
-            <span key={i} />
+            <span key={`blank-${i}`} />
           ) : (
             <motion.button key={k} whileTap={{ scale: 0.9 }} transition={spring.tap} disabled={busy || !hid || demoMode === null} onClick={() => press(k)} aria-label={k === 'del' ? 'delete' : k} className="tnum flex h-16 items-center justify-center rounded-full bg-surface text-title-1 shadow-1">
               {k === 'del' ? <Delete size={22} /> : k}

@@ -1,0 +1,62 @@
+{
+  "_note": "Coordinates in the normalized glTF space of each file: Y-up, +Z = anatomical front (toward camera), +X = patient LEFT (viewer right when facing the model), bbox height 2 units, bbox centred at origin.",
+  "body": {
+    "eyes": [
+      -0.0001,
+      0.8611,
+      0.1094
+    ],
+    "left_ear": [
+      0.103,
+      0.8537,
+      -0.0278
+    ],
+    "right_ear": [
+      -0.1047,
+      0.8535,
+      -0.028
+    ],
+    "forehead": [
+      -0.0001,
+      0.9138,
+      0.0899
+    ],
+    "chest_heart": [
+      0.0376,
+      0.5247,
+      0.1295
+    ]
+  },
+  "heart": {
+    "aorta": [
+      0.0687,
+      0.7931,
+      -0.1772
+    ],
+    "pulmonary_artery": [
+      0.2215,
+      0.3943,
+      0.3465
+    ],
+    "superior_vena_cava": [
+      -0.3728,
+      0.638,
+      0.06
+    ],
+    "inferior_vena_cava": [
+      -0.3691,
+      -0.8277,
+      0.0703
+    ],
+    "left_ventricle": [
+      0.933,
+      -0.5688,
+      0.5447
+    ],
+    "right_ventricle": [
+      0.0882,
+      -0.3944,
+      0.923
+    ]
+  }
+}

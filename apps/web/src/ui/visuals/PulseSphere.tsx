@@ -56,15 +56,19 @@ export function PulseSphere({ className = '', bpm = 72 }: { className?: string; 
 
     let raf = 0;
     let visible = true;
+    let disposed = false;
+    // One loop at most: the observer only restarts it after it has stopped offscreen.
     const io = new IntersectionObserver(([e]) => {
       visible = !!e?.isIntersecting;
-      if (visible && !reduce) raf = requestAnimationFrame(draw);
+      if (visible && !reduce && raf === 0 && !disposed) raf = requestAnimationFrame(draw);
     });
     io.observe(canvas);
 
     let rx = 0;
     let ry = 0;
     function draw(now: number) {
+      raf = 0;
+      if (disposed) return;
       const t = now / 1000;
       ctx!.clearRect(0, 0, w, h);
       const R = Math.min(w, h) * 0.36;
@@ -112,6 +116,7 @@ export function PulseSphere({ className = '', bpm = 72 }: { className?: string; 
     }
     raf = requestAnimationFrame(draw);
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       ro.disconnect();
       io.disconnect();

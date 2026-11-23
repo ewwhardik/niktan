@@ -1,4 +1,4 @@
-import { motion, useMotionValueEvent, useScroll, useTransform } from 'motion/react';
+import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { ArrowRight, ArrowUpRight, Cpu, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -65,7 +65,7 @@ function Nav({ onStart }: { onStart: () => void }) {
   useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 12));
   return (
     <header className={`fixed inset-x-0 top-0 z-40 transition-[background,border-color] duration-300 ${scrolled ? 'glass border-b border-border/70' : 'border-b border-transparent'}`}>
-      <nav className="mx-auto flex h-16 max-w-[1240px] items-center gap-6 px-5 pt-[env(safe-area-inset-top)] md:px-10">
+      <nav className="mx-auto flex min-h-16 max-w-[1240px] items-center gap-6 px-5 pt-[env(safe-area-inset-top)] md:px-10">
         <a href="#top" className="flex items-center gap-2.5">
           <Glyph />
           <span className="text-title-3 font-semibold tracking-tight">NikTan</span>
@@ -174,8 +174,9 @@ export function Landing() {
 
   const hero = useRef<HTMLElement>(null);
   const { scrollYProgress: heroP } = useScroll({ target: hero, offset: ['start start', 'end start'] });
-  const sphereY = useTransform(heroP, [0, 1], [0, 120]);
-  const sphereScale = useTransform(heroP, [0, 1], [1, 0.82]);
+  const reduce = useReducedMotion();
+  const sphereY = useTransform(heroP, [0, 1], [0, reduce ? 0 : 120]);
+  const sphereScale = useTransform(heroP, [0, 1], [1, reduce ? 1 : 0.82]);
 
   const bento = [
     { icon: Lock, t: t('home.b1t'), d: t('home.b1d'), span: 'md:col-span-2 md:row-span-2', dark: true },
@@ -238,7 +239,7 @@ export function Landing() {
             { k: 'tri', label: 'Triage', value: t('card.routine'), unit: '', pos: 'left-[8%] bottom-[14%]', d: 1.3 },
           ].map((c) => (
             <motion.div key={c.k} initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.8, ease, delay: c.d }} className={`glass absolute ${c.pos} rounded-2xl px-4 py-3 shadow-3 ring-1 ring-border/60`}>
-              <p className="mono text-[10px] tracking-[0.14em] text-text-3 uppercase">{c.label}</p>
+              <p className="mono text-[10px] tracking-[0.14em] text-text-3 uppercase">{c.label} · {t('home.example')}</p>
               <p className="tnum text-title-2 font-semibold">
                 {c.value} {c.unit && <span className="text-caption font-normal text-text-3">{c.unit}</span>}
               </p>
@@ -261,7 +262,7 @@ export function Landing() {
         </Reveal>
         <div className="mt-16 grid gap-px overflow-hidden rounded-xl bg-border md:grid-cols-3">
           {[
-            { v: 122, u: 'min', l: t('home.stat1') },
+            { v: 110.9, u: 'min', l: t('home.stat1'), dec: 1 },
             { v: 5.3, u: 'min', l: t('home.stat2'), dec: 1 },
             { v: 3, u: 'min', l: t('home.stat3'), em: true },
           ].map((s, i) => (
@@ -288,8 +289,10 @@ export function Landing() {
         <div className="mt-14 grid auto-rows-[minmax(220px,auto)] gap-4 md:grid-cols-4">
           {bento.map((b, i) => (
             <Reveal key={b.t} delay={(i % 3) * 0.08} className={b.span}>
-              <motion.button
-                type="button"
+              <motion.div
+                role={b.to ? 'button' : undefined}
+                tabIndex={b.to ? 0 : undefined}
+                onKeyDown={b.to ? (e) => e.key === 'Enter' && navigate(b.to!) : undefined}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 26 }}
                 onClick={b.to ? () => navigate(b.to!) : undefined}
@@ -307,7 +310,7 @@ export function Landing() {
                   <h3 className={`font-semibold ${b.dark ? 'max-w-sm text-[clamp(1.75rem,3vw,2.5rem)] leading-tight' : 'text-title-2'}`}>{b.t}</h3>
                   <p className={`mt-2 max-w-md text-body-lg ${b.dark ? 'text-white/65' : b.emergency ? 'text-emergency-ink' : 'text-text-2'}`}>{b.d}</p>
                 </div>
-              </motion.button>
+              </motion.div>
             </Reveal>
           ))}
         </div>
@@ -327,7 +330,7 @@ export function Landing() {
           <Reveal delay={0.15}>
             <div className="rounded-xl bg-white/[0.03] p-5 ring-1 ring-white/10">
               <div className="mb-4 flex items-center justify-between">
-                <span className="mono text-caption tracking-[0.14em] text-white/50 uppercase">Medicine · Live</span>
+                <span className="mono text-caption tracking-[0.14em] text-white/50 uppercase">{t('home.demoBoard')}</span>
                 <motion.span className="size-2 rounded-full bg-[var(--signal-2)]" animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.6 }} />
               </div>
               <MiniBoard />
@@ -370,7 +373,7 @@ export function Landing() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-5 py-10 pb-[max(40px,env(safe-area-inset-bottom))] text-body text-text-3 md:flex-row md:items-center md:px-10">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-5 py-10 pb-[calc(112px+env(safe-area-inset-bottom))] sm:pb-10 text-body text-text-3 md:flex-row md:items-center md:px-10">
           <div className="flex items-center gap-2.5 text-text">
             <Glyph className="size-6" /> <span className="font-semibold">NikTan</span>
           </div>

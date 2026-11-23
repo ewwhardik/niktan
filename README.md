@@ -298,6 +298,7 @@ Nothing below is redistributed beyond what its licence allows; raw datasets are 
 | Eyes-defy-anemia | Training and per-country evaluation of the pallor model | Dimauro et al., IEEE DataPort (2022), doi:10.21227/t5s2-4j73 | CC BY 4.0 |
 | Indian Nutrient Databank (INDB) | Dish nutrient values | Vijayakumar et al., *Curr Dev Nutr* 8(7):103790 (2024); github.com/lindsayjaacks/Indian-Nutrient-Databank-INDB- | Paper CC BY; data files carry no explicit licence |
 | ICMR-NIN Nutrient Requirements 2020 / IFCT 2017 | Daily targets, raw-ingredient values | ICMR-National Institute of Nutrition, Hyderabad | Public reference |
+| BodyParts3D v4.0 (heart and body 3D models) | Health-card anatomy views | © The Database Center for Life Science (DBCLS), dbarchive.biosciencedbc.jp/en/bodyparts3d; modified (decimated, recoloured, normalised) | CC BY 4.0 |
 | MediaPipe FaceLandmarker | Face and iris landmarks in the browser | Google, `@mediapipe/tasks-vision` | Apache 2.0 |
 | Hindi digit and guide audio | Hearing test and voice guidance | Synthesised with eSpeak NG via Echogarden | eSpeak NG is GPL-3.0 software; replace with recorded speech before clinical use |
 | Inter, Noto Sans/Serif Devanagari, Instrument Serif | Typography | Fontsource packages | SIL Open Font License |

@@ -57,12 +57,15 @@ export default function EyeScan({ next, guide }: StepProps) {
     let raf = 0;
     let stopped = false;
     const radii = { left: 60, right: 60 };
+    let lastFrame = -1;
     const tick = () => {
       if (stopped) return;
       const video = cam.videoRef.current;
       const c = overlay.current;
       const lm = model.current;
-      if (video && c && lm && video.readyState >= 2) {
+      // Detect only when the camera has delivered a new frame, not on every display refresh.
+      if (video && c && lm && video.readyState >= 2 && video.currentTime !== lastFrame) {
+        lastFrame = video.currentTime;
         let faces: NormalizedLandmark[][] = [];
         try {
           faces = lm.detectForVideo(video, performance.now()).faceLandmarks;

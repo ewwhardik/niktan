@@ -1,17 +1,17 @@
 /**
  * 3D anchor points for callouts, in each model's normalised frame (height 2, centred, facing +Z).
- * The patient's left side is +X, which appears on the viewer's right.
+ * Computed from the BodyParts3D geometry; the patient's left side is +X (the viewer's right).
  */
 export const anchors = {
   body: {
-    eyes: [-0.035, 0.885, 0.11] as [number, number, number],
-    eyesRight: [0.035, 0.885, 0.11] as [number, number, number],
-    ear: [-0.1, 0.86, 0] as [number, number, number],
-    heart: [0.06, 0.47, 0.11] as [number, number, number],
+    eyes: [-0.03, 0.861, 0.109] as [number, number, number],
+    eyesRight: [0.03, 0.861, 0.109] as [number, number, number],
+    ear: [-0.105, 0.854, -0.028] as [number, number, number],
+    heart: [0.038, 0.525, 0.13] as [number, number, number],
   },
   heart: {
-    aorta: [0.0, 0.75, 0.1] as [number, number, number],
-    pulmonary: [0.25, 0.6, 0.2] as [number, number, number],
-    venaCava: [-0.4, 0.5, 0.0] as [number, number, number],
+    aorta: [0.069, 0.793, -0.177] as [number, number, number],
+    pulmonary: [0.222, 0.394, 0.347] as [number, number, number],
+    venaCava: [-0.373, 0.638, 0.06] as [number, number, number],
   },
 };

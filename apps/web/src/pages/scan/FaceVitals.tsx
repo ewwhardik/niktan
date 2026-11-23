@@ -37,7 +37,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
   const samples = useRef<RgbSample[]>([]);
   const rejectedTimes = useRef<number[]>([]);
   const mesh = useRef<HTMLCanvasElement>(null);
-  const telemetry = useRef({ light: 0, quality: 0, fps: 0, frames: 0, since: 0 });
+  const telemetry = useRef({ light: 0, quality: 0, fps: 0, frames: 0, since: 0, progress: 0 });
   const [hud, setHud] = useState({ light: 0, quality: 0, fps: 0 });
 
   // Instrument read-outs refresh at 4 Hz; the camera loop itself never re-renders React.
@@ -46,16 +46,27 @@ export default function FaceVitals({ next, guide }: StepProps) {
     const id = window.setInterval(() => {
       const tm = telemetry.current;
       setHud({ light: tm.light, quality: tm.quality, fps: tm.fps });
+      setProgress(tm.progress);
     }, 250);
     return () => clearInterval(id);
   }, [phase]);
 
-  // Once a pulse is locked, the phone taps along with it: you feel your own heartbeat being read.
+  // Once a pulse is estimated, the phone taps at that rate. A single timer reads the latest rate from
+  // a ref, so the rhythm doesn't restart every time the estimate updates.
+  const beatRate = useRef<number | null>(null);
+  beatRate.current = phase === 'scanning' && hint === 'ok' ? liveHr : null;
   useEffect(() => {
-    if (phase !== 'scanning' || !liveHr || hint !== 'ok') return;
-    const id = window.setInterval(() => haptic(8), 60000 / liveHr);
-    return () => clearInterval(id);
-  }, [phase, liveHr, hint]);
+    if (phase !== 'scanning') return;
+    let timer = 0;
+    const tick = () => {
+      const bpm = beatRate.current;
+      if (bpm) haptic(28);
+      timer = window.setTimeout(tick, bpm ? 60000 / bpm : 400);
+    };
+    tick();
+    return () => clearTimeout(timer);
+  }, [phase]);
+
   const finish = useCallback(() => {
     cam.stop();
     const reading = estimate(samples.current, { rejectedTimes: rejectedTimes.current });
@@ -182,7 +193,6 @@ export default function FaceVitals({ next, guide }: StepProps) {
         const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = model.detectForVideo(video, now);
         let guidance: Hint = 'ok';
         let skin: ReturnType<typeof sampleSkin> = null;
-        drawMesh(video, faces.length === 1 ? faces[0]! : null, true);
         const tm = telemetry.current;
         tm.frames++;
         if (now - tm.since >= 1000) {
@@ -227,8 +237,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
           else rejectedTimes.current.push(mediaTime);
         }
         setHint(guidance);
-        setProgress(Math.min(1, (now - start) / (SCAN_SECONDS * 1000)));
-        if (guidance !== 'ok' && faces.length === 1) drawMesh(video, faces[0]!, false);
+        telemetry.current.progress = Math.min(1, (now - start) / (SCAN_SECONDS * 1000));
+        drawMesh(video, faces.length === 1 ? faces[0]! : null, guidance === 'ok');
         if (guidance !== 'ok') {
           setLiveHr(null);
           wave.current = [];

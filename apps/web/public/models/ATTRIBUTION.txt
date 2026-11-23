@@ -1,0 +1,8 @@
+heart.glb and body.glb are derived from BodyParts3D v4.0,
+© The Database Center for Life Science (DBCLS), licensed under
+Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://dbarchive.biosciencedbc.jp/en/bodyparts3d/
+
+Modifications: selected structures merged per anatomical part, decimated,
+recoloured in medical-illustration convention (arteries red, veins blue),
+normalised to 2 units tall and compressed with meshopt (gltf-transform).

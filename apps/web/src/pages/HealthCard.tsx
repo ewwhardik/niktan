@@ -169,40 +169,7 @@ export default function HealthCard() {
   const hrOk = view.vitals && view.vitals.quality >= 0.5;
   const hr = hrOk ? view.vitals?.heartRate : null;
   const visionRefer = view.vision ? visionNeedsReferral(view.vision) : null;
-  function heartRateStatus(): { status: RowStatus; label: string } {
-    if (view?.vitals?.heartRate == null) return flagRow(null);
-    if (!hrOk) return { status: 'none', label: t('face.quality') + ' ↓' };
-    if (view.age < 18) return { status: 'none', label: t('card.recorded') };
-    return flagRow(tr.reasons.some((reason) => reason.code.startsWith('hr_')));
-  }
   const vocab = new Map(VOCAB.map((s) => [s.code, s]));
-
-  const rows = [
-    {
-      icon: HeartPulse,
-      label: t('card.hr'),
-      value: hr ? `${Math.round(hr)}` : '—',
-      unit: hr ? t('face.bpm') : '',
-      chip: heartRateStatus(),
-    },
-    { icon: Eye, label: t('card.pallor'), value: '', unit: '', chip: flagRow(view.eye?.pallor) },
-    { icon: Eye, label: t('card.jaundice'), value: '', unit: '', chip: flagRow(view.eye?.jaundice) },
-    { icon: Eye, label: t('card.cataract'), value: '', unit: '', chip: flagRow(view.eye?.cataract) },
-    {
-      icon: Glasses,
-      label: view.vision ? t(view.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near') : t('card.visionRow'),
-      value: view.vision ? `${view.vision.rightLogMar !== null ? snellen6(view.vision.rightLogMar) : '—'} · ${view.vision.leftLogMar !== null ? snellen6(view.vision.leftLogMar) : '—'}` : '',
-      unit: '',
-      chip: visionRefer === null ? flagRow(null) : visionRefer ? { status: 'refer' as RowStatus, label: t('card.refer') } : view.vision?.leftLogMar == null || view.vision?.rightLogMar == null || view.vision.distanceMm !== 2000 ? { status: 'none' as RowStatus, label: t('card.recorded') } : { status: 'normal' as RowStatus, label: t('card.noFlag') },
-    },
-    {
-      icon: Ear,
-      label: t('card.hearingRow'),
-      value: '',
-      unit: '',
-      chip: !view.hearing ? flagRow(null) : { status: 'none' as RowStatus, label: t(`hearing.${view.hearing.result}`) },
-    },
-  ];
 
   async function openShare() {
     setBusy(true);
@@ -228,18 +195,17 @@ export default function HealthCard() {
   const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' ? 'check' : 'normal';
   const visionValue = v.vision ? `${v.vision.rightLogMar !== null ? snellen6(v.vision.rightLogMar) : '—'} · ${v.vision.leftLogMar !== null ? snellen6(v.vision.leftLogMar) : '—'}` : undefined;
   const bodyCallouts: Callout[] = [
-    { id: 'eye', label: t('card.eyeFlags'), tone: eyeTone, at: anchors.body.eyes, side: 'left' },
-    { id: 'vision', label: t('card.visionRow'), value: visionValue, tone: visionTone, at: anchors.body.eyesRight, side: 'right' },
-    { id: 'ear', label: t('card.hearingRow'), tone: hearingTone, at: anchors.body.ear, side: 'left' },
+    { id: 'eye', label: t('card.eyeFlags'), tone: eyeTone, at: anchors.body.eyes, side: 'left', dy: -22 },
+    { id: 'vision', label: t('card.visionRow'), value: visionValue, tone: visionTone, at: anchors.body.eyesRight, side: 'right', dy: -14 },
+    { id: 'ear', label: t('card.hearingRow'), tone: hearingTone, at: anchors.body.ear, side: 'left', dy: 26 },
     { id: 'heart', label: t('card.hr'), value: hr ? `${Math.round(hr)} bpm` : undefined, tone: hrTone, at: anchors.body.heart, side: 'right' },
   ];
   const heartCallouts: Callout[] = [
-    { id: 'aorta', label: t('card.aorta'), tone: 'none', at: anchors.heart.aorta, side: 'left' },
+    { id: 'aorta', label: t('card.aorta'), tone: 'none', at: anchors.heart.aorta, side: 'left', dy: -18 },
     { id: 'pa', label: t('card.pulmonary'), tone: 'none', at: anchors.heart.pulmonary, side: 'right' },
-    { id: 'vc', label: t('card.venaCava'), tone: 'none', at: anchors.heart.venaCava, side: 'left' },
+    { id: 'vc', label: t('card.venaCava'), tone: 'none', at: anchors.heart.venaCava, side: 'left', dy: 18 },
   ];
   const checks = [v.vitals, v.eye, v.vision, v.hearing, v.symptoms].filter((x) => x != null).length;
-  const completion = Math.round((checks / 5) * 100);
   const scanTime = new Date(scan.startedAt ?? Date.now()).toLocaleTimeString(lang === 'en' ? 'en-IN' : 'hi-IN', { hour: 'numeric', minute: '2-digit' });
   const tiles = [
     { icon: HeartPulse, label: t('card.hr'), value: hr ? String(Math.round(hr)) : '—', unit: hr ? 'BPM' : '', bg: 'bg-[#D8A92B]' },
@@ -300,19 +266,19 @@ export default function HealthCard() {
           {/* Vital tiles */}
           <motion.section variants={riseChild} className="grid grid-cols-3 gap-2.5 sm:gap-4 lg:col-span-5">
             {tiles.map((tile) => (
-              <div key={tile.label} className={`${tile.bg} flex min-h-[120px] flex-col justify-between rounded-[22px] p-3.5 text-white shadow-[0_14px_30px_-18px_rgba(0,0,0,.45)] sm:p-5`}>
+              <div key={tile.label} className={`${tile.bg} flex min-h-[120px] min-w-0 flex-col justify-between rounded-[22px] p-3.5 text-[#1d1d1f] shadow-[0_14px_30px_-18px_rgba(0,0,0,.45)] sm:p-5`}>
                 <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-black/70 sm:size-9">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-[#1d1d1f] sm:size-9">
                     <tile.icon size={16} strokeWidth={2} aria-hidden />
                   </span>
                   <span className="text-label leading-tight font-medium sm:truncate sm:text-body">{tile.label}</span>
                 </div>
                 <div className="flex items-end justify-between gap-1">
                   <p className="flex items-baseline gap-1">
-                    <span className="tnum text-[1.6rem] leading-none font-semibold sm:text-[2rem]">{tile.value}</span>
-                    {tile.unit && <span className="text-[11px] font-medium opacity-85">{tile.unit}</span>}
+                    <span className="tnum truncate text-[clamp(1.15rem,6vw,1.6rem)] leading-none font-semibold sm:text-[2rem]">{tile.value}</span>
+                    {tile.unit && <span className="text-[11px] font-semibold">{tile.unit}</span>}
                   </p>
-                  <span className="tnum hidden text-caption opacity-85 xl:block">{scanTime}</span>
+                  <span className="tnum hidden text-caption font-medium xl:block">{scanTime}</span>
                 </div>
               </div>
             ))}
@@ -336,13 +302,16 @@ export default function HealthCard() {
                 <h2 className="text-[clamp(1.75rem,3vw,2.4rem)] leading-tight font-semibold">{t('card.overall')}</h2>
               </div>
               <div className="text-right">
-                <p className="tnum text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-semibold tracking-tight">{completion}%</p>
+                <p className="tnum text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-semibold tracking-tight">
+                  {checks}<span className="text-[0.55em] text-[#8e8e93]">/5</span>
+                </p>
                 <span className={`mt-2 inline-block rounded-full px-3 py-1 text-caption font-semibold ${PRIORITY_META[tr.priority].solid}`}>{t('card.checksDone', { n: checks })}</span>
               </div>
             </div>
             <Suspense fallback={<div className="h-[440px] lg:h-[560px]" />}>
-              <AnatomyViewer model="heart" callouts={heartCallouts} bpm={hr ?? 66} className="-mt-6 h-[440px] w-full lg:h-[560px]" fallback={modelFallback(HeartPulse)} />
+              <AnatomyViewer model="heart" callouts={heartCallouts} bpm={hr} className="-mt-6 h-[440px] w-full lg:h-[560px]" fallback={modelFallback(HeartPulse)} />
             </Suspense>
+            <p className="absolute right-5 bottom-4 left-5 text-[10px] text-[#8e8e93]">3D anatomy: BodyParts3D © DBCLS, CC BY 4.0</p>
           </motion.section>
 
           {/* Body map with the checks */}
@@ -352,7 +321,7 @@ export default function HealthCard() {
                 <p className="text-label text-[#6e6e73]">{t('card.bodyMapEyebrow')}</p>
                 <h2 className="text-title-2 font-semibold">{t('card.bodyMapTitle')}</h2>
               </div>
-              <span className="text-caption text-[#6e6e73]">{t('card.dragToRotate')}</span>
+              <span className="hidden text-caption text-[#6e6e73] [@media(pointer:fine)]:inline">{t('card.dragToRotate')}</span>
             </div>
             <Suspense fallback={<div className="h-[460px]" />}>
               <AnatomyViewer model="body" callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
@@ -364,7 +333,7 @@ export default function HealthCard() {
             <div className={`${card} p-5`}>
               <div className="flex items-center justify-between">
                 <p className="text-body font-medium">{t('card.pallor')}</p>
-                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${v.eye?.pallor ? 'bg-seetoday text-seetoday-on' : 'bg-[#1d1d1f] text-white'}`}>{v.eye?.pallorScore != null ? `${Math.round(v.eye.pallorScore * 100)}%` : '—'}</span>
+                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${v.eye?.pallor ? 'bg-seetoday text-seetoday-on' : 'bg-[#1d1d1f] text-white'}`}>{v.eye?.pallor == null ? '—' : v.eye.pallor ? t('card.checkFlag') : t('card.noFlag')}</span>
               </div>
               <div className="mt-4 flex flex-col gap-2 text-body">
                 {[
