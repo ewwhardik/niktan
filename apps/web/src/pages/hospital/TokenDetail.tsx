@@ -7,6 +7,7 @@ import { departments, symptoms as VOCAB, type DepartmentId, type EyeFlags, type 
 import { pickLang } from '../../i18n';
 import { api } from '../../lib/api';
 import { snellen6 } from '../../tests/vision';
+import { cataractView, jaundiceView } from '../../tests/eyeSummary';
 import { visionExtrasLine } from '../../tests/visionSummary';
 import { Button } from '../../ui/Button';
 import { PRIORITY_META, SimBadge } from '../../ui/Chip';
@@ -171,8 +172,14 @@ export default function TokenDetail() {
             ),
           )}
           {kv(t('card.pallor'), card.eye ? <>{flag(card.eye.pallor)}{card.eye.pallorScore != null && <span className="ml-1.5 text-caption text-text-3">p {card.eye.pallorScore.toFixed(2)}</span>}</> : '—')}
-          {kv(t('card.jaundice'), flag(card.eye?.jaundice))}
-          {kv(t('card.cataract'), flag(card.eye?.cataract))}
+          {[jaundiceView(card.eye, t), cataractView(card.eye, card.session.age, card.vision, t)].map((r, i) =>
+            kv(t(i === 0 ? 'card.jaundice' : 'card.cataract'), (
+              <span className="flex flex-col items-end gap-0.5 text-right">
+                <span className={r.level === 'likely' || r.level === 'possible' ? 'text-seetoday-text' : r.level === null ? 'text-text-3' : ''}>{r.level === null ? '—' : r.label}</span>
+                {r.evidence && <span className="text-caption text-text-3">{r.evidence}</span>}
+              </span>
+            )),
+          )}
           {kv(t('card.visionRow'), card.vision ? `${t(card.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · R ${card.vision.rightLogMar != null ? snellen6(card.vision.rightLogMar) : '—'} · L ${card.vision.leftLogMar != null ? snellen6(card.vision.leftLogMar) : '—'}${visionExtrasLine(card.vision, t) ? ` · ${visionExtrasLine(card.vision, t)}` : ''}` : '—')}
           {kv(t('card.hearingRow'), card.hearing ? `${t('hearing.experimental')} · ${t('hearing.' + card.hearing.result)} (${card.hearing.srtDb} dB SNR)${card.hearing.tones?.reliable ? ` · ${t('hearing.toneResult')}: ${card.hearing.tones.asymmetry ? t('hearing.toneAsym') : card.hearing.tones.highDrop ? t('hearing.toneDrop') : t('hearing.toneOk')}` : ''}` : '—')}
         </motion.section>

@@ -14,6 +14,8 @@ const JoinBody = z.object({
   sessionId: z.string().min(1).max(64),
   hospitalId: z.string().min(1).max(64),
   idempotencyKey: z.string().min(8).max(64),
+  /** Only honoured at demo hospitals: lets the public demo board show this visit (no identity). */
+  showOnDemoBoard: z.boolean().optional().default(false),
 });
 
 queue.get('/hospitals', async (c) => {
@@ -39,18 +41,20 @@ queue.post('/join', rateLimit('join', 20, 3600), async (c) => {
   }
 
   const departmentId = `${body.hospitalId}:${card.triage.department}`;
-  const dept = await db.prepare('SELECT id FROM departments WHERE id = ?').bind(departmentId).first();
+  const dept = await db.prepare('SELECT d.id, h.is_demo FROM departments d JOIN hospitals h ON h.id = d.hospital_id WHERE d.id = ?')
+    .bind(departmentId).first<{ id: string; is_demo: number }>();
   if (!dept) throw new HTTPException(404, { message: 'Hospital or department not found' });
+  const demoVisible = body.showOnDemoBoard && dept.is_demo ? 1 : 0;
   await saveTriage(c.env, card.session.id, card.triage);
   const day = istDay();
   const id = newId('t');
   // D1 executes the batch atomically. A retry, even from a different tab, picks up the same active visit.
   const [, selected] = await db.batch<CitizenToken>([
-    db.prepare(`INSERT INTO tokens (id, citizen_id, session_id, department_id, number, day, priority, status, created_at, idempotency_key)
+    db.prepare(`INSERT INTO tokens (id, citizen_id, session_id, department_id, number, day, priority, status, created_at, idempotency_key, demo_visible)
       SELECT ?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(number),0)+1 FROM tokens WHERE department_id = ?4 AND day = ?5 AND simulated = 0),
-        ?5, ?6, 'waiting', ?7, ?8
+        ?5, ?6, 'waiting', ?7, ?8, ?9
       WHERE NOT EXISTS (SELECT 1 FROM tokens WHERE session_id = ?3 AND day = ?5 AND status IN ('waiting','called','in_consult'))
-      ON CONFLICT(idempotency_key) DO NOTHING`).bind(id, newId('q'), body.sessionId, departmentId, day, card.triage.priority, now(), body.idempotencyKey),
+      ON CONFLICT(idempotency_key) DO NOTHING`).bind(id, newId('q'), body.sessionId, departmentId, day, card.triage.priority, now(), body.idempotencyKey, demoVisible),
     db.prepare(`SELECT t.* FROM tokens t JOIN departments d ON d.id = t.department_id
       WHERE t.session_id = ? AND d.hospital_id = ? AND
         (t.idempotency_key = ? OR (t.day = ? AND t.status IN ('waiting','called','in_consult')))

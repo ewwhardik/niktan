@@ -1,4 +1,5 @@
 import rules from './triage.rules.json';
+import { assessCataract, assessJaundice, EYE_RULES } from './eyeRisk';
 import symptomList from './symptoms.json';
 import type {
   DepartmentId,
@@ -131,8 +132,8 @@ function todayReasons(input: TriageInput, hr: number | null): Reason[] {
   if (fever?.durationDays != null && fever.durationDays >= rules.feverDaysToday) {
     reasons.push({ code: 'fever_long', hi: `${fever.durationDays} दिन से बुखार`, en: `Fever for ${fever.durationDays} days` });
   }
-  if (input.eye?.jaundice) {
-    reasons.push({ code: 'jaundice_flag', hi: 'आँखों में पीलापन दिखा', en: 'Yellowish eyes seen (jaundice flag)' });
+  if (assessJaundice(input.eye).level === 'likely') {
+    reasons.push({ code: 'jaundice_flag', hi: 'पीलिया के संकेत (आँखों का पीलापन या लक्षण): बिलीरुबिन जाँच करवाएँ', en: 'Signs of jaundice (yellow eyes or symptoms): get a bilirubin test' });
   }
   if (input.eye?.pallor && (has('fatigue') || has('breathlessness') || has('dizziness'))) {
     reasons.push({ code: 'pallor_symptomatic', hi: 'खून की कमी के लक्षण + थकान/साँस फूलना', en: 'Pallor with tiredness or breathlessness' });
@@ -164,6 +165,9 @@ export function visionExtraReasons(vision?: Vision | null): Reason[] {
   if (vision?.colour?.flag) {
     reasons.push({ code: 'colour_red_green', hi: 'लाल-हरे रंग पहचानने में अंतर हो सकता है: आँख के डॉक्टर से पुष्टि करें', en: 'Possible red-green colour vision difference: confirm with an eye doctor' });
   }
+  if (vision?.contrastLogCs != null && vision.glareLogCs != null && vision.contrastLogCs - vision.glareLogCs >= EYE_RULES.cataract.glareLossLogCs - 1e-9) {
+    reasons.push({ code: 'glare_loss', hi: 'तेज़ रोशनी (चकाचौंध) में कॉन्ट्रास्ट बहुत घटा: मोतियाबिंद का संकेत हो सकता है, आँख के डॉक्टर को दिखाएँ', en: 'Contrast dropped a lot under glare, a possible cataract sign: see an eye doctor' });
+  }
   if (vision?.astigmatism?.right || vision?.astigmatism?.left) {
     reasons.push({ code: 'astigmatism_flag', hi: 'डायल की कुछ रेखाएँ गहरी दिखीं: संभावित एस्टिग्मैटिज़्म, आँख की जाँच करवाएँ', en: 'Some dial lines looked darker: possible astigmatism, arrange an eye test' });
   }
@@ -173,7 +177,11 @@ export function visionExtraReasons(vision?: Vision | null): Reason[] {
 function routineReasons(input: TriageInput): Reason[] {
   const reasons: Reason[] = [];
   if (input.eye?.pallor) reasons.push({ code: 'pallor_flag', hi: 'खून की कमी की जाँच करवाएँ (Hb)', en: 'Pallor seen: get an Hb blood test' });
-  if (input.eye?.cataract) reasons.push({ code: 'cataract_flag', hi: 'मोतियाबिंद की जाँच करवाएँ', en: 'Possible cataract: see an eye doctor' });
+  const jaundice = assessJaundice(input.eye).level;
+  if (jaundice === 'possible') reasons.push({ code: 'jaundice_possible', hi: 'आँखों में हल्का पीलापन या पीलिया के लक्षण: दिन की रोशनी में फिर जाँचें, पेशाब गहरा हो तो डॉक्टर को दिखाएँ', en: 'Slight yellow tint or a jaundice symptom: recheck in daylight, see a doctor if urine is dark' });
+  const cataract = assessCataract(input.eye, input.age, input.vision).level;
+  if (cataract === 'likely') reasons.push({ code: 'cataract_flag', hi: 'मोतियाबिंद के संकेत: आँख के डॉक्टर से जाँच करवाएँ', en: 'Signs of cataract: see an eye doctor' });
+  if (cataract === 'possible') reasons.push({ code: 'cataract_possible', hi: 'मोतियाबिंद के कुछ संकेत: आँख की जाँच करवाएँ', en: 'Some cataract signs: arrange an eye check' });
   if (visionNeedsReferral(input.vision)) reasons.push(input.vision?.distanceMm === 400
     ? { code: 'vision_refer', hi: 'पास की नज़र की जाँच करवाएँ', en: 'Arrange a near-vision check' }
     : { code: 'vision_refer', hi: 'नज़र कमज़ोर: आँख के डॉक्टर को दिखाएँ', en: 'Reduced vision: see an eye doctor' });
@@ -207,8 +215,9 @@ export function routeDepartment(input: TriageInput, priority: Priority): Departm
     const dept = symptomByCode.get(top.code)?.department as DepartmentId | undefined;
     if (dept && dept !== 'paediatrics') return dept;
   }
-  if (input.eye?.jaundice || input.eye?.pallor) return 'medicine';
-  if (input.eye?.cataract || visionNeedsReferral(input.vision) || visionExtraReasons(input.vision).length) return 'ophthalmology';
+  if (assessJaundice(input.eye).level === 'likely' || input.eye?.pallor) return 'medicine';
+  const cataract = assessCataract(input.eye, input.age, input.vision).level;
+  if (cataract === 'likely' || cataract === 'possible' || visionNeedsReferral(input.vision) || visionExtraReasons(input.vision).length) return 'ophthalmology';
   if (input.hearing?.result === 'refer' || input.hearing?.tones?.asymmetry || input.hearing?.tones?.highDrop) return 'ent';
   return 'medicine';
 }
@@ -257,7 +266,8 @@ export function triage(input: TriageInput): TriageResult {
   }
   const today = todayReasons(input, hr);
   const priority: Priority = today.length > 0 ? 'today' : 'routine';
-  const seen = new Set(today.flatMap((t) => [t.code, t.code.replace(/^severe:/, 'symptom:')]));
+  // A specific see-today reason ("Fever for 3 days", "Severe headache") already names its symptom.
+  const seen = new Set(today.flatMap((t) => [t.code, t.code.replace(/^severe:/, 'symptom:'), ...(t.code === 'fever_long' ? ['symptom:fever'] : [])]));
   const reasons = [...today, ...routineReasons(input).filter((r) => !seen.has(r.code))];
   return { priority, department: routeDepartment(input, priority), reasons, rulesVersion: RULES_VERSION, gaps, acuity: acuityScore(input, priority, reasons) };
 }

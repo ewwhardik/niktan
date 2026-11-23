@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { ArrowLeft, Clock, Eye, Kanban, LogOut, Server, Star, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Clock, Eye, Gauge, Kanban, LogOut, Server, Star, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { PRIORITY_META } from '../../ui/Chip';
 import { CountUp } from '../../ui/Numbers';
 import { riseChild, spring, staggerParent } from '../../ui/motion';
+import { ImpactPanel, useImpact } from './Impact';
 import { logout, useStaff } from './staff';
 
 interface Stats {
@@ -56,6 +57,7 @@ export default function Admin() {
   const lang = i18n.language;
   const navigate = useNavigate();
   const staff = useStaff();
+  const impact = useImpact(staff, 15000);
   const [stats, setStats] = useState<Stats | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
 
@@ -124,6 +126,10 @@ export default function Admin() {
       {stale && <button onClick={() => void load()} className="mx-auto block rounded-md bg-seetoday-tint p-3">{t(stats ? 'design.stale' : 'common.error')} · {t('common.retry')}</button>}
       {!stats && !stale && <p className="p-6 text-center" role="status">{t('common.loading')}</p>}
       {stats && <motion.main variants={staggerParent} initial="hidden" animate="show" className="mx-auto grid max-w-6xl gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
+        <Panel title={t('impact.panel')} icon={Gauge} className="md:col-span-2 xl:col-span-3">
+          <ImpactPanel impact={impact} />
+        </Panel>
+
         <Panel title={lang === 'en' ? "Today's patients" : 'आज के मरीज़'} icon={Users}>
           <p className="text-hero-num font-semibold tracking-tight">
             <CountUp value={totalPatients} />

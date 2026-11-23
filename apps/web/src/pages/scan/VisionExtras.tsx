@@ -3,7 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, EyeOff } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { haptic } from '../../lib/perf';
-import { answerContrast, BAYER4, contrastScore, ditherFor, LEVELS, startContrast, type ContrastState } from '../../tests/contrast';
+import { answerContrast, BAYER4, contrastScore, ditherFor, GLARE_CARD, LEVELS, startContrast, type ContrastState } from '../../tests/contrast';
 import { makeDots, makePlates, scoreColour, type ColourResult, type Plate } from '../../tests/colorVision';
 import type { Direction } from '../../tests/vision';
 import { Button, LinkButton } from '../../ui/Button';
@@ -103,7 +103,7 @@ export function AstigmatismStep({ eye, onAnswer, onSkip }: { eye: 'right' | 'lef
 }
 
 /** A tumbling E drawn pixel by pixel with Bayer dithering so its contrast is physically exact. */
-function DitheredE({ cssSize, logCs, dir }: { cssSize: number; logCs: number; dir: Direction }) {
+function DitheredE({ cssSize, logCs, dir, background = 255 }: { cssSize: number; logCs: number; dir: Direction; background?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -113,7 +113,7 @@ function DitheredE({ cssSize, logCs, dir }: { cssSize: number; logCs: number; di
     const n = Math.max(20, Math.round(cssSize * dpr));
     canvas.width = n;
     canvas.height = n;
-    const { lo, hi, frac } = ditherFor(logCs);
+    const { lo, hi, frac } = ditherFor(logCs, background);
     const img = ctx.createImageData(n, n);
     const cell = n / 5;
     for (let y = 0; y < n; y++) {
@@ -125,7 +125,7 @@ function DitheredE({ cssSize, logCs, dir }: { cssSize: number; logCs: number; di
         else if (dir === 'left') [gx, gy] = [4 - gx, 4 - gy];
         else if (dir === 'up') [gx, gy] = [4 - gy, gx];
         const ink = gx === 0 || gy === 0 || gy === 2 || gy === 4;
-        const v = ink ? (BAYER4[(y % 4) * 4 + (x % 4)]! < frac ? hi : lo) : 255;
+        const v = ink ? (BAYER4[(y % 4) * 4 + (x % 4)]! < frac ? hi : lo) : background;
         const k = (y * n + x) * 4;
         img.data[k] = v;
         img.data[k + 1] = v;
@@ -134,7 +134,7 @@ function DitheredE({ cssSize, logCs, dir }: { cssSize: number; logCs: number; di
       }
     }
     ctx.putImageData(img, 0, 0);
-  }, [cssSize, logCs, dir]);
+  }, [cssSize, logCs, dir, background]);
   return <canvas ref={ref} style={{ width: cssSize, height: cssSize, imageRendering: 'pixelated' }} aria-hidden />;
 }
 
@@ -161,6 +161,39 @@ export function ContrastStep({ pxPerMm, onDone, onSkip }: { pxPerMm: number; onD
         <span className="tnum absolute right-3 bottom-2 text-caption text-black/35">{Math.round(10 ** -LEVELS[s.level]! * 1000) / 10}%</span>
       </div>
       <p className="text-center text-body text-text-2">{t('vision.instruction')}</p>
+      <ArrowPad onAnswer={respond} />
+      <LinkButton onClick={onSkip}>{t('vision.skipTest')}</LinkButton>
+    </motion.div>
+  );
+}
+
+/** The contrast test again, on a grey card inside a bright white glare ring (cataract glare disability). */
+export function GlareStep({ pxPerMm, onDone, onSkip }: { pxPerMm: number; onDone: (logCs: number) => void; onSkip: () => void }) {
+  const { t } = useTranslation();
+  const [s, setS] = useState<ContrastState>(() => startContrast());
+  const cssSize = Math.min((window.innerWidth - 64) / 2.5, Math.max(56, 16 * pxPerMm));
+  const respond = (d: Direction | 'unsure') => {
+    haptic(10);
+    const next = answerContrast(s, d);
+    if (next.done) onDone(contrastScore(next));
+    else setS(next);
+  };
+  const grey = `rgb(${GLARE_CARD},${GLARE_CARD},${GLARE_CARD})`;
+  return (
+    <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={spring.reveal} className="flex flex-1 flex-col gap-4">
+      <p className="rounded-2xl bg-white/[0.08] px-4 py-2.5 text-center text-body-lg font-medium">{t('vision.glareBanner')}</p>
+      <div className="relative flex h-[34svh] min-h-52 items-center justify-center rounded-[28px] bg-black">
+        <div className="flex items-center justify-center rounded-full bg-white shadow-[0_0_60px_20px_rgba(255,255,255,0.6)]" style={{ width: cssSize * 2.4, height: cssSize * 2.4 }}>
+          <div className="flex items-center justify-center rounded-full" style={{ width: cssSize * 1.75, height: cssSize * 1.75, background: grey }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={`${s.level}-${s.shown}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                <DitheredE cssSize={cssSize} logCs={LEVELS[s.level]!} dir={s.current} background={GLARE_CARD} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+      <p className="text-center text-body text-text-2">{t('vision.glareInstruction')}</p>
       <ArrowPad onAnswer={respond} />
       <LinkButton onClick={onSkip}>{t('vision.skipTest')}</LinkButton>
     </motion.div>

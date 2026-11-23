@@ -10,7 +10,7 @@ import { useScan } from '../../state/scan';
 import { Button, LinkButton } from '../../ui/Button';
 import { Dock } from '../../ui/Layout';
 import { spring } from '../../ui/motion';
-import { AstigmatismStep, ColourStep, ContrastStep, VisionSteps } from './VisionExtras';
+import { AstigmatismStep, ColourStep, ContrastStep, GlareStep, VisionSteps } from './VisionExtras';
 import type { ColourResult } from '../../tests/colorVision';
 import { REDUCED_BELOW } from '../../tests/contrast';
 import type { Vision } from '@niktan/core';
@@ -31,11 +31,16 @@ function TumblingE({ size, dir }: { size: number; dir: Direction }) {
   );
 }
 
-type Phase = 'calibrate' | 'right' | 'left' | 'dial-right' | 'dial-left' | 'contrast' | 'colour' | 'result';
+/** Below this the plain contrast score is already so low that a drop under glare could not show. */
+const GLARE_MIN_LOGCS = 0.9;
+
+type Phase = 'calibrate' | 'right' | 'left' | 'dial-right' | 'dial-left' | 'contrast' | 'glare' | 'colour' | 'result';
 
 export default function VisionTest({ next, guide }: StepProps) {
   const { t } = useTranslation();
-  const { record, skip } = useScan();
+  const { record, skip, profile } = useScan();
+  /** The glare test is for the ages where cataract is common. */
+  const glareTest = (profile?.age ?? 0) >= 40;
   const dpr = window.devicePixelRatio || 1;
   const calibrationKey = `niktan.cardShort.${screen.width}x${screen.height}.${dpr}`;
   const maxCardPx = Math.min(420, window.innerWidth - 56);
@@ -46,6 +51,7 @@ export default function VisionTest({ next, guide }: StepProps) {
   const [results, setResults] = useState<{ right: number | null; left: number | null }>({ right: null, left: null });
   const [astig, setAstig] = useState<{ right: boolean | null; left: boolean | null } | null>(null);
   const [contrast, setContrast] = useState<number | null>(null);
+  const [glare, setGlare] = useState<number | null>(null);
   const [colour, setColour] = useState<ColourResult | null>(null);
   const pxPerMm = cardPx / CARD_SHORT_EDGE_MM;
   const optotype = screenOptotype(stair.logMar, distanceMm, pxPerMm, dpr);
@@ -69,7 +75,7 @@ export default function VisionTest({ next, guide }: StepProps) {
 
   /** Saves acuity plus whichever extra checks were done; skipped ones stay null. */
   const finish = (extras: Pick<Vision, 'astigmatism' | 'contrastLogCs' | 'colour'>) => {
-    record('vision', { distanceMm, rightLogMar: results.right, leftLogMar: results.left, ...extras });
+    record('vision', { distanceMm, rightLogMar: results.right, leftLogMar: results.left, ...extras, glareLogCs: extras.contrastLogCs != null ? glare : null });
     haptic([20, 40, 20]);
     setPhase('result');
   };
@@ -164,8 +170,8 @@ export default function VisionTest({ next, guide }: StepProps) {
     );
   }
 
-  if (phase === 'dial-right' || phase === 'dial-left' || phase === 'contrast' || phase === 'colour') {
-    const step = phase === 'contrast' ? 2 : phase === 'colour' ? 3 : 1;
+  if (phase === 'dial-right' || phase === 'dial-left' || phase === 'contrast' || phase === 'glare' || phase === 'colour') {
+    const step = phase === 'contrast' || phase === 'glare' ? 2 : phase === 'colour' ? 3 : 1;
     return (
       <div className="flex flex-1 flex-col gap-4 pt-6 pb-6">
         <VisionSteps active={step} />
@@ -179,7 +185,10 @@ export default function VisionTest({ next, guide }: StepProps) {
               onAnswer={(v) => { setAstig((a) => ({ right: a?.right ?? null, left: v })); setPhase('contrast'); }} />
           )}
           {phase === 'contrast' && (
-            <ContrastStep key="c" pxPerMm={pxPerMm} onSkip={() => setPhase('colour')} onDone={(v) => { setContrast(v); setPhase('colour'); }} />
+            <ContrastStep key="c" pxPerMm={pxPerMm} onSkip={() => setPhase('colour')} onDone={(v) => { setContrast(v); setGlare(null); setPhase(glareTest && v >= GLARE_MIN_LOGCS ? 'glare' : 'colour'); }} />
+          )}
+          {phase === 'glare' && (
+            <GlareStep key="g" pxPerMm={pxPerMm} onSkip={() => setPhase('colour')} onDone={(v) => { setGlare(v); setPhase('colour'); }} />
           )}
           {phase === 'colour' && (
             <ColourStep key="col" onSkip={() => finish({ astigmatism: astig, contrastLogCs: contrast, colour: null })}
@@ -206,6 +215,7 @@ export default function VisionTest({ next, guide }: StepProps) {
           {[
             { label: t('vision.stepDial'), value: !astig || (astig.right === null && astig.left === null) ? '—' : astig.right || astig.left ? t('vision.dialFlag') : t('vision.dialOk'), warn: !!(astig?.right || astig?.left) },
             { label: t('vision.stepContrast'), value: contrast === null ? '—' : `${contrast.toFixed(2)} logCS · ${contrast < REDUCED_BELOW ? t('vision.contrastLow') : t('vision.contrastOk')}`, warn: contrast !== null && contrast < REDUCED_BELOW },
+            ...(glare !== null && contrast !== null ? [{ label: t('vision.glare'), value: `${glare.toFixed(2)} logCS · ${contrast - glare >= 0.3 - 1e-9 ? t('vision.glareDrop', { n: (contrast - glare).toFixed(2) }) : t('vision.glareOk')}`, warn: contrast - glare >= 0.3 - 1e-9 }] : []),
             { label: t('vision.stepColour'), value: !colour ? '—' : colour.flag === null ? t('vision.colourVoid') : `${colour.correct}/${colour.total} · ${colour.flag ? t('vision.colourFlag') : t('vision.colourOk')}`, warn: !!colour?.flag },
           ].map((r) => (
             <div key={r.label} className="flex items-center justify-between gap-4 rounded-lg bg-surface px-4 py-3.5 shadow-1">

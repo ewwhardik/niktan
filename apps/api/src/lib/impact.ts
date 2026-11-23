@@ -12,20 +12,23 @@ export function consultMinutes(measuredMin: number[], fallbackMin: number, minSa
 }
 
 /**
- * Counterfactual wait in a first-come-first-served line with one doctor working at `consultMin` per
- * patient. A patient waits for everyone who arrived earlier and is still in line, which is
- * (earlier arrivals x consult minutes) while the queue never empties, but someone arriving after the
- * line has cleared is not charged for patients already seen.
+ * Counterfactual wait in a first-come-first-served line with the same doctor capacity. The moments the
+ * doctor actually called someone are kept, but handed out in arrival order instead of priority order,
+ * so idle time, breaks and a late start cost both worlds equally. Patients who would only reach the
+ * doctor after the last real call are charged one consult time per place beyond it.
+ *
+ * (An earlier model assumed the doctor worked non-stop from the first arrival. When the doctor started
+ * later than the first arrivals, that made the first-come line look free and priority look worse.)
  */
-export function fcfsWaits(arrivals: { id: string; arrivedAt: number; number: number }[], consultMin: number): Map<string, number> {
-  const sorted = [...arrivals].sort((a, b) => a.arrivedAt - b.arrivedAt || a.number - b.number);
+export function fcfsWaits(arrivals: { id: string; arrivedAt: number; number: number; calledAt: number | null }[], consultMin: number): Map<string, number> {
+  const order = [...arrivals].sort((a, b) => a.arrivedAt - b.arrivedAt || a.number - b.number);
+  const slots = arrivals.map((a) => a.calledAt).filter((t): t is number => t !== null).sort((a, b) => a - b);
+  const last = slots.length ? slots[slots.length - 1]! : null;
   const waits = new Map<string, number>();
-  let doctorFreeAt = -Infinity;
-  for (const a of sorted) {
-    const start = Math.max(a.arrivedAt, doctorFreeAt);
-    waits.set(a.id, (start - a.arrivedAt) / MIN);
-    doctorFreeAt = start + consultMin * MIN;
-  }
+  order.forEach((a, k) => {
+    const call = k < slots.length ? slots[k]! : (last ?? a.arrivedAt) + (k - slots.length + 1) * consultMin * MIN;
+    waits.set(a.id, Math.max(0, call - a.arrivedAt) / MIN);
+  });
   return waits;
 }
 
@@ -75,29 +78,36 @@ export interface ImpactVisit {
   historyUseful: number | null;
 }
 
+/** Without triage there is no emergency bypass: that patient would have queued in General Medicine. */
+const isEmergency = (department: string) => department.endsWith(':emergency');
+const fcfsLine = (department: string) => (isEmergency(department) ? department.replace(/:emergency$/, ':medicine') : department);
+
 /**
  * Compares each called patient's real wait with the first-come-first-served counterfactual, per
- * department and separately for real and simulated visits, since the two never share a queue.
- * Simulated consults run `simTimeScale` times faster, so their default consult time is scaled too.
+ * department line and separately for real and simulated visits, since the two never share a queue.
+ * Emergency-routed patients are placed in the General Medicine line they would have joined, and their
+ * fast-track call is not counted as a slot of that line. Simulated consults run `simTimeScale` times
+ * faster, so their default consult time is scaled too.
  */
 export function measureImpact(visits: ImpactVisit[], defaultConsultMin: (department: string) => number, simTimeScale: number) {
   const groups = new Map<string, ImpactVisit[]>();
   for (const v of visits) {
-    const key = `${v.simulated ? 1 : 0}|${v.department}`;
+    const key = `${v.simulated ? 1 : 0}|${fcfsLine(v.department)}`;
     groups.set(key, [...(groups.get(key) ?? []), v]);
   }
   const pairs: (WaitPair & { simulated: boolean })[] = [];
   const durations: { simulated: boolean; min: number }[] = [];
   for (const group of groups.values()) {
-    const { simulated, department } = group[0]!;
-    const measured = group
+    const { simulated } = group[0]!;
+    const line = fcfsLine(group[0]!.department);
+    const measuredOf = (vs: ImpactVisit[]) => vs
       .filter((v) => v.consultStart !== null && v.consultEnd !== null && v.consultEnd >= v.consultStart)
       .map((v) => (v.consultEnd! - v.consultStart!) / MIN);
-    for (const min of measured) durations.push({ simulated, min });
-    const consult = consultMinutes(measured, defaultConsultMin(department) / (simulated ? simTimeScale : 1));
+    for (const min of measuredOf(group)) durations.push({ simulated, min });
+    const consult = consultMinutes(measuredOf(group.filter((v) => !isEmergency(v.department))), defaultConsultMin(line) / (simulated ? simTimeScale : 1));
     // Someone who left before being called took no doctor time in either world.
     const inLine = group.filter((v) => v.calledAt !== null || v.status !== 'left');
-    const fcfs = fcfsWaits(inLine, consult);
+    const fcfs = fcfsWaits(inLine.map((v) => (isEmergency(v.department) ? { ...v, calledAt: null } : v)), consult);
     for (const v of inLine) {
       if (v.calledAt === null) continue;
       pairs.push({ priority: v.priority, simulated, actualMin: Math.max(0, (v.calledAt - v.arrivedAt) / MIN), fcfsMin: fcfs.get(v.id)! });

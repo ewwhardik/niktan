@@ -111,6 +111,10 @@ describe('see-today rules', () => {
     expect(triage({ ...adult, symptoms: [sym('fever', { durationDays: 2 })] }).priority).toBe('routine');
   });
 
+  it('a long fever is listed once, not again as plain "fever"', () => {
+    expect(codes({ ...adult, symptoms: [sym('fever', { durationDays: 3 }), sym('cough')] })).toEqual(['fever_long', 'symptom:cough']);
+  });
+
   it('fever with unknown duration is routine', () => {
     expect(triage({ ...adult, symptoms: [sym('fever')] }).priority).toBe('routine');
   });

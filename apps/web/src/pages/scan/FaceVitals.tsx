@@ -30,7 +30,7 @@ const ACQUISITION_SECONDS = 20;
 type Phase = 'intro' | 'loading' | 'scanning' | 'result';
 type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving' | 'framing' | 'lighting' | 'frozen';
 
-export default function FaceVitals({ next, guide }: StepProps) {
+export default function FaceVitals({ next, guide, position }: StepProps) {
   const { t } = useTranslation();
   const { record, skip } = useScan();
   const cam = useCamera('user');
@@ -629,7 +629,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
       <AnimatePresence mode="wait" initial={false}>
         {phase !== 'result' ? (
           <motion.div key="panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.reveal} className="flex flex-col gap-5">
-            <StepTitle eyebrow="01 / 05 · rPPG" title={t('face.title')} body={phase === 'scanning' ? null : <><p>{t('face.instruction')}</p><p className="mt-2 text-body text-text-3">{t('face.light')}</p></>} />
+            <StepTitle eyebrow={`${position} · rPPG`} title={t('face.title')} body={phase === 'scanning' ? null : <><p>{t('face.instruction')}</p><p className="mt-2 text-body text-text-3">{t('face.light')}</p></>} />
             {phase === 'intro' && guide}
             {(
               <button type="button" onClick={toggleSound} aria-pressed={sound}
@@ -654,7 +654,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           </motion.div>
         ) : (
           <motion.div key="result" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-col gap-5">
-            <StepTitle eyebrow="01 / 05 · rPPG" title={t('face.result')} />
+            <StepTitle eyebrow={`${position} · rPPG`} title={t('face.result')} />
             {result?.hr ? (
               <>
                 <div>

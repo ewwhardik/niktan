@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Minus, Plus } from 'lucide-react';
+import { Check, Ear, Glasses, Minus, Plus, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useScan, type Profile } from '../state/scan';
+import { planMinutes, useScan, type Plan, type Profile } from '../state/scan';
 import { Button } from '../ui/Button';
 import { Dock, Screen, TopBar } from '../ui/Layout';
 import { spring } from '../ui/motion';
@@ -24,13 +24,14 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 export function BasicInfo() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { begin, profile } = useScan();
+  const { begin, profile, plan: savedPlan, setPlan: savePlan } = useScan();
   const location = useLocation();
   const prior = location.state?.consented ? null : profile;
   const [age, setAge] = useState(prior ? String(prior.age) : '');
   const [sex, setSex] = useState<Profile['sex'] | null>(prior?.sex ?? null);
   const [pregnant, setPregnant] = useState<'yes' | 'no' | null>(prior?.sex === 'female' && prior.age >= 12 && prior.age <= 55 ? (prior.pregnant ? 'yes' : 'no') : null);
   const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState<Plan>(prior ? savedPlan : 'quick');
 
   if (!location.state?.consented && !profile) return <Navigate to="/start" replace />;
 
@@ -93,6 +94,37 @@ export function BasicInfo() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="flex flex-col gap-2">
+          <span id="plan-label" className="text-label font-medium text-text-2">{t('plan.title')}</span>
+          <div role="radiogroup" aria-labelledby="plan-label" className="grid gap-3 sm:grid-cols-2">
+            {([
+              { id: 'quick', icon: Zap, extras: [] },
+              { id: 'full', icon: Glasses, extras: [Glasses, Ear] },
+            ] as const).map((o) => {
+              const on = plan === o.id;
+              return (
+                <motion.button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setPlan(o.id)}
+                  className={`relative flex flex-col items-start gap-1 rounded-md border p-4 text-left transition-colors ${on ? 'border-accent bg-accent-soft text-accent-soft-ink' : 'border-border bg-surface hover:bg-sunken'}`}
+                >
+                  <span className="flex w-full items-center gap-2">
+                    <o.icon size={18} aria-hidden />
+                    <span className="text-body-lg font-semibold">{t(`plan.${o.id}`)}</span>
+                    <span className="tnum ml-auto rounded-full bg-sunken px-2 py-0.5 text-caption font-medium text-text-2">{t('plan.minutes', { n: planMinutes(o.id) })}</span>
+                  </span>
+                  <span className={`text-body ${on ? '' : 'text-text-2'}`}>{t(`plan.${o.id}Sub`)}</span>
+                  {on && <Check size={16} className="absolute right-3 bottom-3" aria-hidden />}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <Dock>
@@ -103,7 +135,9 @@ export function BasicInfo() {
             setBusy(true);
             const next = { age: ageNum, sex: sex!, pregnant: askPregnant && pregnant === 'yes' };
             if (!prior || prior.age !== next.age || prior.sex !== next.sex || prior.pregnant !== next.pregnant) {
-              await begin(next, i18n.language);
+              await begin(next, i18n.language, plan);
+            } else if (plan !== savedPlan) {
+              savePlan(plan);
             }
             setBusy(false);
             navigate('/scan/face');

@@ -36,6 +36,17 @@ export function rgbToLab(r: number, g: number, b: number): [number, number, numb
   return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
 }
 
+/** CIELAB (D65) from linear-light sRGB components in 0..1 (values above 1 are allowed). */
+export function linearToLab(R: number, G: number, B: number): [number, number, number] {
+  const x = M[0][0] * R + M[0][1] * G + M[0][2] * B;
+  const y = M[1][0] * R + M[1][1] * G + M[1][2] * B;
+  const z = M[2][0] * R + M[2][1] * G + M[2][2] * B;
+  const fx = f(x / WHITE[0]);
+  const fy = f(y / WHITE[1]);
+  const fz = f(z / WHITE[2]);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
 export function percentile(sorted: number[], q: number): number {
   const pos = (sorted.length - 1) * q;
   const lo = Math.floor(pos);

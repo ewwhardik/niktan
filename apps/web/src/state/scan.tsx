@@ -35,6 +35,19 @@ export const SCREENING_STEPS = [
 ] as const;
 export type ScreeningStep = (typeof SCREENING_STEPS)[number]['route'];
 
+/**
+ * Quick covers what triage needs (pulse, eyes, symptoms) in about three minutes; full adds the
+ * vision and hearing tests. Either can add the skipped tests later from the Health Card.
+ */
+export type Plan = 'quick' | 'full';
+const QUICK: readonly ScreeningStep[] = ['face', 'eye', 'symptoms'];
+export function stepsFor(plan: Plan): (typeof SCREENING_STEPS)[number][] {
+  return SCREENING_STEPS.filter((s) => plan === 'full' || QUICK.includes(s.route));
+}
+/** Typical minutes per step, for "about N min" hints. */
+export const STEP_MINUTES: Record<ScreeningStep, number> = { face: 1, eye: 0.7, vision: 2, hearing: 3, symptoms: 1 };
+export const planMinutes = (plan: Plan) => Math.max(1, Math.round(stepsFor(plan).reduce((m, s) => m + STEP_MINUTES[s.route], 0)));
+
 interface ScanState {
   sessionId: string | null;
   profile: Profile | null;
@@ -43,6 +56,8 @@ interface ScanState {
   pending: ModuleName[];
   tokenId: string | null;
   startedAt: number | null;
+  /** Older saved scans have no plan; they ran all five steps. */
+  plan?: Plan;
   creation?: { key: string; lang: string };
 }
 
@@ -55,7 +70,9 @@ function newCreation(lang: string): NonNullable<ScanState['creation']> {
 }
 
 interface ScanApi extends ScanState {
-  begin: (profile: Profile, lang: string) => Promise<void>;
+  plan: Plan;
+  begin: (profile: Profile, lang: string, plan?: Plan) => Promise<void>;
+  setPlan: (plan: Plan) => void;
   record: <M extends ModuleName>(module: M, data: Results[M]) => void;
   skip: (module: ModuleName) => void;
   sync: () => Promise<string | null>;
@@ -145,11 +162,13 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('online', onReconnect);
   }, [sync]);
 
-  const begin = useCallback(async (profile: Profile, lang: string) => {
+  const begin = useCallback(async (profile: Profile, lang: string, plan: Plan = 'quick') => {
     if (inFlight.current) await inFlight.current;
     generation.current++;
-    update({ ...empty, profile, startedAt: Date.now(), creation: newCreation(lang) });
+    update({ ...empty, profile, plan, startedAt: Date.now(), creation: newCreation(lang) });
   }, [update]);
+
+  const setPlan = useCallback((plan: Plan) => update({ ...latest.current, plan }), [update]);
 
   const record = useCallback<ScanApi['record']>((module, data) => {
     const s = latest.current;
@@ -194,7 +213,9 @@ export function ScanProvider({ children }: { children: ReactNode }) {
 
   const value: ScanApi = {
     ...state,
+    plan: state.plan ?? 'full',
     begin,
+    setPlan,
     record,
     skip,
     sync,

@@ -15,6 +15,8 @@ export interface TokenRow {
   consult_start: number | null;
   consult_end: number | null;
   simulated: number;
+  /** Real visit the citizen chose to show on a demo hospital's public board. */
+  demo_visible?: number;
 }
 
 /** Waiting order: priority first, then arrival. Same order on the board and for the citizen's position. */

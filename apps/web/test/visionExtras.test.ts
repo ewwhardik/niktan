@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerContrast, BAYER4, contrastScore, ditherFor, LEVELS, shownContrast, startContrast } from '../src/tests/contrast';
+import { answerContrast, BAYER4, contrastScore, ditherFor, GLARE_CARD, LEVELS, shownContrast, startContrast } from '../src/tests/contrast';
 import { BACKGROUND, CONTROL, FIGURE, makeDots, makePlates, mulberry32, scoreColour } from '../src/tests/colorVision';
 
 const lightness = (hex: string) => {
@@ -11,6 +11,16 @@ const lightness = (hex: string) => {
 const mean = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
 
 describe('contrast sensitivity', () => {
+  it('the glare card shows each level at its true contrast against grey, not white', () => {
+    const lin = (v: number) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    const bg = lin(GLARE_CARD);
+    for (const level of LEVELS) {
+      const { lo, hi, frac } = ditherFor(level, GLARE_CARD);
+      const letter = (1 - frac) * lin(lo) + frac * lin(hi);
+      expect(Math.abs(Math.log10(1 - letter / bg) + level)).toBeLessThan(0.005);
+    }
+  });
+
   it('dithers two grey levels to hit the intended physical contrast', () => {
     for (const level of LEVELS) {
       const d = ditherFor(level);

@@ -41,6 +41,10 @@ Open the [production app](https://niktan.vercel.app/) on the phone and the [staf
 
 ---
 
+### [1:35 – 1:45] Your Own Phone on the Board (optional, for a non-emergency run)
+- *(Presenter 2 runs a **Quick check** (~3 min) with a see-today symptom, e.g. "5 din se bukhar", taps **Join OPD queue**, ticks **Show my visit on the demo board**, and picks the demo hospital.)*
+- *"That visit is now on the hospital board, marked LIVE, sorted above routine patients who arrived before it. Above the board: today's urgent patients against a first-come, first-served line, measured from the queue's own timestamps."*
+
 ### [1:45 – 2:20] The Doctor's Pre-Consultation Card & Live Queue
 - *(Presenter 1 clicks the token on the Triage Board)*
   - *"When the doctor calls token #15, look at the Pre-Consult Card: Vitals, conjunctival pallor status, Snellen vision score, hearing tier, and AI-structured symptoms are already filled in."*

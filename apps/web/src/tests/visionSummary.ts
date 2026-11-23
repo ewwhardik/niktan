@@ -9,6 +9,7 @@ export function visionExtrasLine(v: Vision | null | undefined, t: TFunction): st
     parts.push(`${t('vision.stepDial')} ${v.astigmatism.right || v.astigmatism.left ? t('vision.dialFlag').toLowerCase() : t('vision.dialOk').toLowerCase()}`);
   }
   if (v.contrastLogCs != null) parts.push(`${t('vision.stepContrast')} ${v.contrastLogCs.toFixed(2)}`);
+  if (v.glareLogCs != null) parts.push(`${t('vision.glare')} ${v.glareLogCs.toFixed(2)}`);
   if (v.colour) parts.push(`${t('vision.stepColour')} ${v.colour.flag === null ? '?' : `${v.colour.correct}/${v.colour.total}`}`);
   return parts.join(' · ');
 }

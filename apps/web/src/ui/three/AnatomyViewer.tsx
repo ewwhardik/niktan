@@ -126,7 +126,9 @@ function GlbModel({ model, bpm, sway }: { model: Model; bpm?: number | null; swa
     const ext = object.userData.extent as { w: number; h: number; d: number };
     const vfov = (cam.fov * Math.PI) / 180;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * (view.width / view.height));
-    const sideRoom = model === 'body' ? 3.2 : 1.25;
+    // Phones need more side room, or the callout labels run off the card.
+    const narrow = view.width < 480;
+    const sideRoom = model === 'body' ? (narrow ? 3.8 : 3.2) : narrow ? 2.3 : 1.25;
     const dH = (ext.h / 2) * 1.12 / Math.tan(vfov / 2);
     const dW = ((ext.w * sideRoom) / 2) / Math.tan(hfov / 2);
     cam.position.set(0, 0, Math.max(dH, dW) + ext.d / 2);

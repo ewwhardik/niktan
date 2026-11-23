@@ -1,11 +1,13 @@
 import { motion } from 'motion/react';
 import { Camera, CircleCheck, Eye, ScanEye, TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { useTranslation } from 'react-i18next';
 import type { FaceLandmarker } from '@mediapipe/tasks-vision';
 import { grabFrame, useCamera } from '../../cv/camera';
-import { cropImage, eyeHeuristics, locateLowerLid, pallorFromCrop, type EyeHeuristics, type PallorResult } from '../../cv/eye';
+import { combineHeuristics, cropImage, eyeHeuristics, locateLowerLid, pallorFromCrop, type EyeHeuristics, type PallorResult } from '../../cv/eye';
+import { assessCataract, assessJaundice, type EyeAnswers, type EyeFlags, type RiskLevel } from '@niktan/core';
 import { IRIS, LOWER_LID, loadFaceLandmarker } from '../../cv/face';
 import { haptic } from '../../lib/perf';
 import { useScan } from '../../state/scan';
@@ -36,9 +38,12 @@ function stageBoxToVideo(video: HTMLVideoElement, frameW: number, frameH: number
   };
 }
 
-export default function EyeScan({ next, guide }: StepProps) {
+export default function EyeScan({ next, guide, position }: StepProps) {
   const { t } = useTranslation();
-  const { record, skip } = useScan();
+  const { record, skip, profile } = useScan();
+  const [answers, setAnswers] = useState<EyeAnswers>({});
+  /** The screen turns white for a moment so it lights the eyes like a flash. */
+  const [flash, setFlash] = useState(false);
   const cam = useCamera('user', { idealWidth: 1280, requestTorch: true });
   const model = useRef<FaceLandmarker | null>(null);
   const [phase, setPhase] = useState<Phase>('straight');
@@ -209,12 +214,31 @@ export default function EyeScan({ next, guide }: StepProps) {
         setHint(faces.length ? 'face.manyFaces' : 'face.noFace');
         return;
       }
-      const img = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
       if (phase === 'straight') {
-        const result = eyeHeuristics(img, faces[0]!);
-        setHeur({ ...result, cataract: cam.torch ? result.cataract : null });
+        // Light the eyes with the screen, then read three frames and keep the medians.
+        setFlash(true);
+        const frames: EyeHeuristics[] = [];
+        try {
+          for (const wait of [320, 140, 140]) {
+            await new Promise((r) => setTimeout(r, wait));
+            const still = grabFrame(video, 1280);
+            const found = model.current?.detectForVideo(still, performance.now()).faceLandmarks ?? [];
+            if (found.length === 1) frames.push(eyeHeuristics(still.getContext('2d')!.getImageData(0, 0, still.width, still.height), found[0]!));
+          }
+        } finally {
+          setFlash(false);
+        }
+        const result = combineHeuristics(frames);
+        if (!result) {
+          setHint(frames.some((f) => !f.eyesOpen) ? 'eye.openWide' : 'face.noFace');
+          return;
+        }
+        setHeur(result);
         setPhase('lid');
-      } else {
+        return;
+      }
+      const img = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+      {
         const box = locateLowerLid(faces[0]!, img.width, img.height, stageBoxToVideo(video, img.width, img.height));
         if (!box) {
           setHint('eye.align');
@@ -258,15 +282,32 @@ export default function EyeScan({ next, guide }: StepProps) {
     setHeur(null);
     setThumb(null);
     setHint('');
+    setAnswers({});
   }
+
+  const age = profile?.age ?? 30;
+  /** Cataract questions only matter from middle age; younger people get the two jaundice ones. */
+  const askCataract = age >= 40;
+  const flags: EyeFlags = {
+    pallor: pallor?.flag ?? null,
+    pallorScore: pallor ? Math.round(pallor.probability * 1000) / 1000 : null,
+    jaundice: null,
+    cataract: null,
+    quality: pallor ? Math.min(1, pallor.pixels / 1500) : 0,
+    scleraB: heur?.scleraB == null ? null : Math.round(heur.scleraB * 10) / 10,
+    scleraReferenced: heur?.referenced ?? false,
+    eyesAgree: heur?.eyesAgree ?? null,
+    pupilOpacity: heur?.pupilOpacity ?? null,
+    answers,
+  };
+  const jaundice = assessJaundice(flags);
+  const cataract = assessCataract(flags, age);
 
   function accept() {
     record('eye', {
-      pallor: pallor?.flag ?? null,
-      pallorScore: pallor ? Math.round(pallor.probability * 1000) / 1000 : null,
-      jaundice: heur?.jaundice ?? null,
-      cataract: heur?.cataract ?? null,
-      quality: pallor ? Math.min(1, pallor.pixels / 1500) : 0,
+      ...flags,
+      jaundice: jaundice.level === null ? null : jaundice.level === 'likely',
+      cataract: cataract.level === null ? null : cataract.level === 'likely',
     });
     next();
   }
@@ -275,10 +316,15 @@ export default function EyeScan({ next, guide }: StepProps) {
     return <CameraProblem error={cam.error} onRetry={reset} onSkip={() => { skip('eye'); next(); }} />;
   }
 
-  const rows: { key: 'pallor' | 'jaundice' | 'cataract'; label: string; value: boolean | null }[] = [
-    { key: 'pallor', label: t('eye.pallor'), value: pallor ? pallor.flag : null },
-    { key: 'jaundice', label: t('eye.jaundice'), value: heur?.jaundice ?? null },
-    { key: 'cataract', label: t('eye.cataract'), value: heur?.cataract ?? null },
+  const rows: { key: 'pallor' | 'jaundice' | 'cataract'; label: string; level: RiskLevel | null; note?: string }[] = [
+    { key: 'pallor', label: t('eye.pallor'), level: pallor ? (pallor.flag ? 'likely' : 'low') : null },
+    { key: 'jaundice', label: t('eye.jaundice'), level: jaundice.level, note: heur?.scleraB != null ? t(heur.referenced ? 'eye.refUsed' : 'eye.refMissing') : undefined },
+    { key: 'cataract', label: t('eye.cataract'), level: cataract.level, note: heur?.redReflex ? t('eye.redReflex') : undefined },
+  ];
+  const questions: { key: keyof EyeAnswers; label: string }[] = [
+    { key: 'yellowEyes', label: t('eye.q.yellowEyes') },
+    { key: 'darkUrine', label: t('eye.q.darkUrine') },
+    ...(askCataract ? [{ key: 'cloudyVision' as const, label: t('eye.q.cloudyVision') }, { key: 'nightGlare' as const, label: t('eye.q.nightGlare') }] : []),
   ];
 
   const live = cam.status === 'live';
@@ -308,7 +354,7 @@ export default function EyeScan({ next, guide }: StepProps) {
       {live && (
         <div className="absolute top-4 left-4 flex gap-1.5">
           <Hud label="track" value={locked ? (phase === 'straight' ? 'IRIS LOCK' : 'LID') : 'SEARCH'} tone={locked ? 'good' : 'warn'} />
-          <Hud label="torch" value={cam.torch ? 'ON' : 'OFF'} />
+          <Hud label="light" value={cam.torch ? 'TORCH' : 'SCREEN'} />
         </div>
       )}
       {live && !busy && cue && (
@@ -319,7 +365,13 @@ export default function EyeScan({ next, guide }: StepProps) {
           </span>
         </div>
       )}
-      {busy && live && <motion.div className="absolute inset-0 bg-white" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />}
+      {busy && live && !flash && <motion.div className="absolute inset-0 bg-white" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />}
+      {flash && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-white pb-16" role="status">
+          <p className="rounded-full bg-black/80 px-4 py-2 text-label font-medium text-white">{t('eye.flashHold')}</p>
+        </div>,
+        document.body,
+      )}
     </StageFrame>
   ) : (
     <div className="relative mx-auto flex aspect-square w-full max-w-[400px] items-center justify-center lg:w-[min(60vh,520px)] lg:max-w-none">
@@ -333,7 +385,7 @@ export default function EyeScan({ next, guide }: StepProps) {
     <StepLayout stage={stage}>
       {phase !== 'result' ? (
         <div className="flex flex-col gap-5">
-          <StepTitle eyebrow={`02 / 05 · ${phase === 'straight' ? 'Sclera · Pupil' : 'Conjunctiva'}`} title={t('eye.title')} body={<><p role={hint ? 'status' : undefined}>{hint ? t(hint) : t(phase === 'straight' ? 'face.instruction' : 'eye.instruction')}</p><p className="mt-2 text-body text-text-3">{live ? t('eye.auto') : t('eye.torch')}</p></>} />
+          <StepTitle eyebrow={`${position} · ${phase === 'straight' ? 'Sclera · Pupil' : 'Conjunctiva'}`} title={t('eye.title')} body={<><p role={hint ? 'status' : undefined}>{hint ? t(hint) : t(phase === 'straight' ? 'face.instruction' : 'eye.instruction')}</p><p className="mt-2 text-body text-text-3">{live ? t('eye.auto') : t('eye.torch')}</p>{phase === 'straight' && <p className="mt-2 text-body text-text-2">{t('eye.paperTip')}</p>}</>} />
           <div className="flex gap-2">
             {(['straight', 'lid'] as const).map((p, i) => (
               <span key={p} className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-caption ${phase === p ? 'bg-accent text-on-accent' : 'bg-white/[0.06] text-text-3'}`}>
@@ -345,28 +397,47 @@ export default function EyeScan({ next, guide }: StepProps) {
         </div>
       ) : (
         <motion.div variants={staggerParent} initial="hidden" animate="show" className="flex flex-col gap-4">
-          <StepTitle eyebrow="02 / 05" title={t('eye.title')} />
+          <StepTitle eyebrow={position} title={t('eye.title')} />
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl bg-surface">
             {rows.map((r) => (
               <motion.li variants={riseChild} key={r.label} className="flex min-h-16 items-center justify-between gap-3 px-5 py-3">
                 <span className="min-w-0">
                   <span className="block text-body-lg">{r.label}</span>
-                  {r.value !== null && <span className="mt-0.5 block text-body text-text-2">{t(`eye.why.${r.key}.${r.value ? 'check' : 'normal'}`)}</span>}
+                  {r.level !== null && <span className="mt-0.5 block text-body text-text-2">{t(`eye.why.${r.key}.${r.level === 'low' ? 'normal' : 'check'}`)}</span>}
+                  {r.note && <span className="mt-0.5 block text-caption text-text-3">{r.note}</span>}
                 </span>
-                {r.value === null ? (
-                  <span className="text-caption text-text-3">{t('common.notChecked')}</span>
-                ) : r.value ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-seetoday-tint px-2.5 py-1 text-caption font-medium text-seetoday-ink">
-                    <TriangleAlert size={14} aria-hidden /> {t('eye.check')}
+                {r.level === null ? (
+                  <span className="shrink-0 text-caption text-text-3">{t('common.notChecked')}</span>
+                ) : r.level !== 'low' ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-seetoday-tint px-2.5 py-1 text-caption font-medium text-seetoday-ink">
+                    <TriangleAlert size={14} aria-hidden /> {t(r.level === 'likely' ? 'eye.check' : 'eye.possible')}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-routine-tint px-2.5 py-1 text-caption font-medium text-routine-ink">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-routine-tint px-2.5 py-1 text-caption font-medium text-routine-ink">
                     <CircleCheck size={14} aria-hidden /> {t('eye.normal')}
                   </span>
                 )}
               </motion.li>
             ))}
           </ul>
+          <motion.section variants={riseChild} className="rounded-xl bg-surface p-4" aria-labelledby="eye-q">
+            <h3 id="eye-q" className="text-body-lg font-medium">{t('eye.q.title')}</h3>
+            <ul className="mt-3 flex flex-col gap-3">
+              {questions.map((q) => (
+                <li key={q.key} className="flex items-center justify-between gap-3">
+                  <span className="text-body">{q.label}</span>
+                  <span role="radiogroup" aria-label={q.label} className="flex shrink-0 gap-1.5">
+                    {([true, false] as const).map((v) => (
+                      <button key={String(v)} type="button" role="radio" aria-checked={answers[q.key] === v} onClick={() => setAnswers((a) => ({ ...a, [q.key]: a[q.key] === v ? null : v }))}
+                        className={`min-h-11 min-w-14 rounded-full px-3 text-label font-medium ${answers[q.key] === v ? 'bg-accent text-on-accent' : 'bg-white/[0.06] text-text-2'}`}>
+                        {t(v ? 'info.yes' : 'info.no')}
+                      </button>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </motion.section>
           <motion.p variants={riseChild} className="text-caption text-text-3">
             {t('app.notDiagnosis')}
           </motion.p>

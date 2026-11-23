@@ -7,6 +7,8 @@ export interface Staff {
   hid: string;
   role: 'nurse' | 'doctor' | 'admin';
   demoMode: boolean;
+  /** Public demo account: sees simulated visits and visits a citizen chose to show. */
+  demoOnly: boolean;
 }
 
 /** Loads the signed-in staff member or sends them to the login screen. */

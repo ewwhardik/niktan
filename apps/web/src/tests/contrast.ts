@@ -57,8 +57,8 @@ const toSrgb = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.
  * levels that matter. Instead the letter mixes two adjacent grey levels pixel by pixel: `frac` of
  * the pixels use `hi`, the rest `lo`, so the average luminance gives exactly 10^-logCS contrast.
  */
-export function ditherFor(logCs: number): { lo: number; hi: number; frac: number } {
-  const target = 1 - 10 ** -logCs;
+export function ditherFor(logCs: number, background = 255): { lo: number; hi: number; frac: number } {
+  const target = toLinear(background / 255) * (1 - 10 ** -logCs);
   const exact = 255 * toSrgb(target);
   const lo = Math.max(0, Math.min(254, Math.floor(exact)));
   const hi = lo + 1;
@@ -74,3 +74,10 @@ export function shownContrast({ lo, hi, frac }: { lo: number; hi: number; frac: 
 
 /** 4×4 Bayer thresholds: spreads the `hi` pixels evenly, with no visible pattern at reading distance. */
 export const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+
+/**
+ * Glare test card: mid-grey (sRGB 124, about 20 % of white) so a full-white ring around it is five
+ * times brighter, like the glare annulus of clinical glare testers. Light scattered by a clouded
+ * lens veils the letter, so contrast sensitivity drops under glare far more than in a clear eye.
+ */
+export const GLARE_CARD = 124;

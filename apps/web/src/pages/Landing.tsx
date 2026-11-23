@@ -1,10 +1,10 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, HeartPulse, Languages, Lock, Siren, Soup, WifiOff, Play } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, HeartPulse, Languages, Lock, MessageSquareHeart, Siren, Soup, Star, ThumbsUp, Timer, WifiOff, Play } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { SCREENING_STEPS, useScan } from '../state/scan';
+import { stepsFor, useScan } from '../state/scan';
 import { ProductFilm } from '../ui/ProductFilm';
 import { Assemble } from '../ui/visuals/Assemble';
 import { GLYPHS, HangingSpider } from '../ui/visuals/HeroGlyphs';
@@ -223,14 +223,61 @@ function SectionHead({ eyebrow, title, body, center = false }: { eyebrow: string
   );
 }
 
+interface PublicStats {
+  screened: number;
+  rating: number | null;
+  ratings: number;
+  wouldUse: number | null;
+  lastWaitMin: number | null;
+  waits: number;
+}
+
+/** Live answers from the in-app survey: the problem-validation evidence, counted as it comes in. */
+function Voices({ stats }: { stats: PublicStats | null }) {
+  const { t } = useTranslation();
+  const has = !!stats && stats.ratings > 0;
+  const tiles = has
+    ? [
+        { icon: Timer, value: stats!.lastWaitMin != null ? Math.round(stats!.lastWaitMin) : null, unit: t('common.min'), label: t('voices.wait', { n: stats!.waits }) },
+        { icon: ThumbsUp, value: stats!.wouldUse != null ? Math.round(stats!.wouldUse * 100) : null, unit: '%', label: t('voices.wouldUse') },
+        { icon: Star, value: stats!.rating != null ? Math.round(stats!.rating * 10) / 10 : null, unit: '/5', label: t('voices.rating', { n: stats!.ratings }) },
+      ]
+    : [];
+  return (
+    <section className="relative px-5 pt-24 md:px-10 md:pt-32" aria-labelledby="voices-title">
+      <Reveal className="mx-auto max-w-[1100px]">
+        <p className="eyebrow">{t('voices.eyebrow')}</p>
+        <h2 id="voices-title" className="mt-4 max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-[1.05] font-semibold">{t('voices.title')}</h2>
+        <p className="mt-4 max-w-2xl text-body-lg text-text-2">{t(has ? 'voices.sub' : 'voices.empty')}</p>
+        {has && (
+          <ul className="mt-10 grid gap-4 sm:grid-cols-3">
+            {tiles.map((x) => (
+              <li key={x.label} className="rounded-2xl border border-border bg-surface p-6">
+                <x.icon size={22} className="text-text-3" aria-hidden />
+                <p className="tnum mt-4 text-[clamp(2.25rem,5vw,3.25rem)] leading-none font-semibold">
+                  {x.value ?? '—'}<span className="ml-1 text-title-3 text-text-3">{x.value != null ? x.unit : ''}</span>
+                </p>
+                <p className="mt-2 text-body text-text-2">{x.label}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link to="/feedback" className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-full border border-border px-5 text-body-lg font-medium hover:bg-sunken">
+          <MessageSquareHeart size={18} aria-hidden /> {t('voices.cta')}
+        </Link>
+      </Reveal>
+    </section>
+  );
+}
+
 export function Landing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { profile, results } = useScan();
-  const nextStep = profile && SCREENING_STEPS.find(({ module }) => results[module] === undefined);
-  const [stats, setStats] = useState<{ screened: number } | null>(null);
+  const { profile, results, plan } = useScan();
+  const nextStep = profile && stepsFor(plan).find(({ module }) => results[module] === undefined);
+  const [stats, setStats] = useState<PublicStats | null>(null);
   useEffect(() => {
-    api.get<{ screened: number }>('/api/stats/public').then(setStats).catch(() => undefined);
+    api.get<PublicStats>('/api/stats/public').then(setStats).catch(() => undefined);
   }, []);
   const start = () => navigate('/start');
   const startOrContinue = () => nextStep ? navigate(`/scan/${nextStep.route}`) : start();
@@ -520,6 +567,8 @@ export function Landing() {
           <DataFlow labels={t('home.flow', { returnObjects: true }) as Parameters<typeof DataFlow>[0]['labels']} />
         </Reveal>
       </section>
+
+      <Voices stats={stats} />
 
       {/* Closing */}
       <section className="relative px-5 pt-28 pb-24 text-center md:px-10 md:pt-40 md:pb-32">

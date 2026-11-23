@@ -39,12 +39,30 @@ export const Vitals = z.object({
 });
 export type Vitals = z.infer<typeof Vitals>;
 
+/** Quick yes/no answers asked on the eye step; null when not asked or not answered. */
+export const EyeAnswers = z.object({
+  yellowEyes: z.boolean().nullable().optional(),
+  darkUrine: z.boolean().nullable().optional(),
+  cloudyVision: z.boolean().nullable().optional(),
+  nightGlare: z.boolean().nullable().optional(),
+});
+export type EyeAnswers = z.infer<typeof EyeAnswers>;
+
 export const EyeFlags = z.object({
   pallor: z.boolean().nullable().default(null),
   pallorScore: z.number().min(0).max(1).nullable().default(null),
+  /** Fused results from `assessJaundice` / `assessCataract` at capture time (true only when "likely"). */
   jaundice: z.boolean().nullable().default(null),
   cataract: z.boolean().nullable().default(null),
   quality: z.number().min(0).max(1),
+  /** Sclera CIELAB b* (yellowness), white-balanced against a reference when `scleraReferenced`. */
+  scleraB: z.number().min(-40).max(80).nullable().optional(),
+  scleraReferenced: z.boolean().optional(),
+  /** Whether the two eyes gave similar sclera readings (null when only one eye was usable). */
+  eyesAgree: z.boolean().nullable().optional(),
+  /** Pupil lightness relative to the sclera, 0 (black pupil) .. 1; grey or white pupils score high. */
+  pupilOpacity: z.number().min(0).max(1.5).nullable().optional(),
+  answers: EyeAnswers.optional(),
 });
 export type EyeFlags = z.infer<typeof EyeFlags>;
 
@@ -58,6 +76,8 @@ export const Vision = z.object({
   colour: z.object({ correct: z.number().int().min(0), total: z.number().int().min(1), controlCorrect: z.boolean(), flag: z.boolean().nullable() }).nullable().optional(),
   /** "Some dial lines look darker or sharper", per eye. */
   astigmatism: z.object({ right: z.boolean().nullable(), left: z.boolean().nullable() }).nullable().optional(),
+  /** Contrast sensitivity again with a bright glare ring around the letter (cataract glare disability). */
+  glareLogCs: z.number().min(0).max(2.5).nullable().optional(),
 });
 export type Vision = z.infer<typeof Vision>;
 

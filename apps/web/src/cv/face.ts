@@ -43,6 +43,13 @@ export const ROI = {
 
 /** Iris landmarks (present in FaceLandmarker's 478-point output). */
 export const IRIS = { right: [468, 469, 470, 471, 472], left: [473, 474, 475, 476, 477] };
+/** Full eyelid contour (closed loop, corner to corner over the top and back along the bottom). */
+export const EYE_CONTOUR = {
+  right: [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7],
+  left: [263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249],
+};
+/** Chin, the two face edges at cheek level, and the top of the forehead. */
+export const FACE_FRAME = { chin: 152, right: 234, left: 454, top: 10 };
 /** Lower eyelid contour points, used to place the conjunctiva crop box. */
 export const LOWER_LID = { right: [33, 7, 163, 144, 145, 153, 154, 155, 133], left: [263, 249, 390, 373, 374, 380, 381, 382, 362] };
 

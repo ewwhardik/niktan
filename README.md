@@ -11,7 +11,7 @@
 [![Live app on Vercel](https://img.shields.io/badge/Live%20app-Vercel-000000.svg)](https://niktan.vercel.app/)
 [![API on Cloudflare](https://img.shields.io/badge/API-Cloudflare%20Workers%20%2B%20D1-orange.svg)](https://workers.cloudflare.com)
 [![Privacy](https://img.shields.io/badge/Privacy-On--Device%20Edge%20CV%20(WASM)-success.svg)](docs/architecture.md)
-[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](packages/core/test)
+[![Tests](https://img.shields.io/badge/Tests-287%20passing-brightgreen.svg)](packages/core/test)
 
 **NikTan** (from Chhattisgarhi *"nik"* = good/healthy + *"tan"* = body) is an edge-first, multimodal pre-consultation health screening and clinical triage system built for **Hackasol 5.0 (OI-01: Build for Real-World Impact)**.
 
@@ -66,7 +66,8 @@ Screenshots come from the deployed web app. Sample health results, queue tokens 
 - **Disproportionate Wait-to-Consult Ratio:** A study of 255 outpatients in a North Indian government teaching hospital documented an average wait of **242.8 minutes** from arrival until the doctor called the patient, against an average consultation duration of just **12.8 minutes** ([IJCMPH Study](https://www.ijcmph.com/index.php/ijcmph/article/view/16572)). In high-density neurology and general medicine OPDs, waits often exceed **110.9 minutes for a 5.3-minute consult**.
 - **Massive Patient Load:** Institutions like AIIMS Delhi manage **14,000 to 15,000 OPD patients daily** (>50 lakh annual consultations).
 - **The ABDM Scan & Share Gap:** The National Health Authority's ABDM Scan & Share successfully cut *registration* waits from ~1 hour down to 2–5 minutes across >23 crore tokens ([MoHFW Report](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2281466)). However, once registered, patients enter a single un-triaged queue. A critically ill patient waits behind 15 routine follow-ups, and doctors must take history and vitals from scratch.
-- **Detailed Clinical Rationale:** See [`docs/validation.md`](docs/validation.md) for full citations and the planned validation (survey, OPD observation and recorded quotes still to be collected).
+- **Detailed Clinical Rationale:** See [`docs/validation.md`](docs/validation.md) for full citations and the planned validation (OPD observation and recorded quotes still to be collected).
+- **Live user evidence:** after each check, a 30-second in-app survey asks how long the person's last OPD visit took and whether they would use NikTan. The landing page shows the anonymous averages live (*"From people who tried it"*), so every person who tries the prototype at the event adds to the evidence. Nothing there is typed in by the team.
 
 ---
 
@@ -77,8 +78,10 @@ Screenshots come from the deployed web app. Sample health results, queue tokens 
 | **Doctor History & Vitals Duration** | 2.5 – 4.0 min (out of 5.3 min total consult) | **0.5 – 1.0 min** | **65% – 75% time saved** per patient | Pre-consultation card stopwatch evaluation |
 | **High-Risk Patient Priority Discovery** | 80 – 120 min (waiting at position 15 in FIFO queue) | **< 10 seconds** (instant priority jump or 🔴 Emergency bypass) | **Moved from 15th to 1st (0 ahead)** | Automated integration test (`apps/api/test/d1.test.mjs`) |
 | **Cost of Basic Comprehensive Screening** | ₹650 – ₹1,500 (Hb blood draw, optometry, audiometry, travel) | **₹0 for citizen** / **~₹0.02 server cost (estimate)** | **Estimate** | Edge-compute economic model (`docs/cost.md`) |
-| **Screening Throughput per Device** | 0 (no pre-screening in standard OPDs) | **3.0 minutes** for full 5-module scan | **100+ screenings/day** per tablet | Production PWA execution |
+| **Screening Throughput per Device** | 0 (no pre-screening in standard OPDs) | **~3 min** quick check (pulse, eyes, symptoms); **~8 min** full check adding vision and hearing | **100+ screenings/day** per tablet | Per-step estimate shown live in the scan header |
 
+> **See it live:** the hospital board shows *"Today vs first-come, first-served"*, and the admin dashboard shows per-priority bars. Both come from the queue's own timestamps. The counterfactual hands the doctor's real call times to the same patients in arrival order (same capacity, different order). Emergency bypasses are put back into the General Medicine line they would have joined. Routine patients waiting slightly longer is shown, not hidden.
+>
 > **Reproduce the Priority Queue Benchmark:**  
 > In `apps/api/test/d1.test.mjs`, 14 routine synthetic visits were waiting in General Medicine. A 15th patient arrived reporting 3 days of acute fever. Arrival order placed the patient at position 15. NikTan's deterministic triage classified the case as **🟠 See Today**, reprioritizing the patient to **0 ahead (1st in line)** while preserving ticket #15. Run: `pnpm --filter @niktan/api test`. Full evaluation metrics in [`docs/metrics.md`](docs/metrics.md).
 
@@ -158,7 +161,8 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 - **Conjunctival Pallor (Anemia Screening Flag):** MediaPipe automatically crops the inferior palpebral conjunctiva as the patient gently pulls the lower eyelid down. Extracts 11 normalized colorimetric features across CIELAB ($L^*, a^*, b^*$), normalized red/green ratios, and erythema indices.
 - **Machine Learning Model (v2):** A logit blend of logistic regression (70%) and 200 depth-2 boosted trees (30%), trained on 731 pooled clinical samples (Ghana pediatric ML IDA dataset + Indian/Italian adult Eyes-defy-anemia dataset, CC BY 4.0). Trees alone score higher but transfer worse between countries, so the blend keeps cross-population behaviour close to the logistic model.
 - **High-Sensitivity Calibration:** Grouped cross-validated AUC **0.743** (v1: 0.707), sensitivity **84%**, specificity **43%** (v1: 39%), i.e. about a quarter fewer false "get an Hb test" prompts at the same sensitivity. Browser and Python inference match to 1e-9. Detailed model card: [`docs/model-card-anemia.md`](docs/model-card-anemia.md).
-- **Experimental Flags:** Ocular sclera yellowness ($b^*$ chromaticity) for preliminary jaundice detection, and pupil-to-iris white reflectance ratio for cataract screening.
+- **Jaundice screen (v2):** the sclera is segmented from the eyelid landmarks, and an optional white paper under the chin is detected automatically to cancel the room light's colour (BiliScreen / neoSCB approach). The screen acts as a flash over three frames. Yellowness is fused with two symptom questions (yellow eyes noticed, dark urine) into low / possible / likely.
+- **Cataract screen (v2), works on every phone:** pupil opacity is measured against the same eye's sclera (so dark brown irises don't hide it), with the screen as the light source. A **glare-disability test** (contrast letters inside a bright ring, age 40+) and cataract symptoms (cloudy vision, night glare) are fused with age and acuity. Method, thresholds and limits: [`docs/eye-screening.md`](docs/eye-screening.md).
 
 ### M3: Clinically Calibrated Tumbling-E Visual Acuity
 - **Physical Calibration:** User matches an on-screen slider to the short edge of any standard ID-1 card (Aadhaar / ATM card, 53.98 mm) to derive exact screen pixels-per-millimeter ($PPM$).
@@ -229,11 +233,11 @@ Staff access the live clinical triage board at `/hospital`.
 
 | Role | Public Demo PIN | Scope |
 |---|---|---|
-| **Staff Nurse** | `2468` | Review live priority queue and call patients to triage desk |
-| **Medical Officer (Doctor)** | `1357` | Inspect pre-consultation card, record notes, and close visits |
+| **Staff Nurse** | `2468` | Review live priority queue, call patients, add simulated patients |
+| **Medical Officer (Doctor)** | `1357` | Inspect pre-consultation card, record notes, close visits, add simulated patients |
 | **Hospital Admin** | `9090` | Seed synthetic OPD patients (**SIM**) and review analytics |
 
-*Note: Public demo PINs are restricted to simulated records for privacy. Private staff accounts are provisioned via `apps/api/scripts/staff.mjs`.*
+*Note: Public demo PINs see simulated records, plus any real visit whose citizen ticked **Show my visit on the demo board** when joining a demo hospital (age, sex and results only, never a name). A judge can scan on their own phone and watch the visit appear on the board with a **LIVE** badge. Private staff accounts are provisioned via `apps/api/scripts/staff.mjs`.*
 
 ### Operations & Accountability Endpoints
 
@@ -314,6 +318,8 @@ For comprehensive implementation blueprints, benchmarks, and clinical reviews:
 
 | Document | Description |
 |---|---|
+| [`docs/eye-screening.md`](docs/eye-screening.md) | Jaundice and cataract v2: white-referenced sclera colour, pupil opacity, glare test, symptom fusion, thresholds |
+| [`docs/audit.md`](docs/audit.md) | Audit against every OI-01 requirement: why it wins, where it could fail, what was fixed |
 | [`docs/product-tour.md`](docs/product-tour.md) | Screenshots of citizen, screening and hospital workflows with capture details |
 | [`docs/design-roadmap.md`](docs/design-roadmap.md) | Interaction design decisions, responsive checks and screening recovery |
 | 📄 [`docs/validation.md`](docs/validation.md) | Clinical problem validation, OPD wait studies, ABDM Scan & Share analysis, planned validation |

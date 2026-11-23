@@ -123,8 +123,8 @@
     "torch": "Turn on good light. Avoid coloured light.",
     "capture": "Take photo",
     "pallor": "Pale eyelid (possible anaemia)",
-    "jaundice": "Yellow eyes (experimental)",
-    "cataract": "White pupil (experimental)",
+    "jaundice": "Yellow eyes (jaundice screen)",
+    "cataract": "Cloudy lens (cataract screen)",
     "normal": "No flag in this image",
     "check": "Get checked",
     "openCamera": "Turn on camera",
@@ -143,13 +143,27 @@
         "normal": "The inner eyelid has a healthy red colour in this photo."
       },
       "jaundice": {
-        "check": "The white of the eye looks yellowish. This can be lighting, but yellow eyes need a doctor's check (bilirubin test).",
+        "check": "The white of the eye looks yellow, or you reported signs of jaundice. Please see a doctor for a bilirubin blood test.",
         "normal": "The white of the eye does not look yellow."
       },
       "cataract": {
-        "check": "The pupil looks cloudy or white in the light. Please see an eye doctor; cataracts are treatable.",
-        "normal": "The pupil looks clear in this photo."
+        "check": "The pupil looks hazy, or your answers point to a clouded lens. Please see an eye doctor: cataract is treatable with a short operation, free under government schemes.",
+        "normal": "No signs of a clouded lens."
       }
+    },
+    "possible": "Possible",
+    "paperTip": "For a truer colour reading, hold a plain white paper just under your chin. The screen will flash white for a moment.",
+    "flashHold": "Hold still, keep your eyes open",
+    "openWide": "Open your eyes a little wider and look straight at the screen",
+    "refUsed": "Colour corrected with your white paper",
+    "refMissing": "No white paper seen: room light may tint the colour, so this reading is cautious",
+    "redReflex": "A red glow in the pupil was seen, which usually means a clear lens",
+    "q": {
+      "title": "A few quick questions",
+      "yellowEyes": "Has anyone said your eyes look yellow?",
+      "darkUrine": "Is your urine dark yellow or brown these days?",
+      "cloudyVision": "Is your vision cloudy or foggy, as if through a dirty glass?",
+      "nightGlare": "Do lights at night dazzle you or show halos?"
     }
   },
   "vision": {
@@ -196,7 +210,12 @@
     "colourFlag": "possible red-green difference",
     "colourOk": "no difference seen",
     "extraRefer": "Some results suggest an eye test. This is a screening hint, not a diagnosis.",
-    "notSure": "Not sure"
+    "notSure": "Not sure",
+    "glare": "Glare test",
+    "glareBanner": "Glare test: same letters, now with a bright ring around them",
+    "glareInstruction": "Look at the grey circle, not the white ring. Tap the way the E points; tap “Can't see” if you cannot see it.",
+    "glareOk": "little change under glare",
+    "glareDrop": "dropped {{n}} under glare"
   },
   "hearing": {
     "title": "Hearing test",
@@ -295,10 +314,20 @@
     "aorta": "Aorta",
     "pulmonary": "Pulmonary artery",
     "venaCava": "Vena cava",
-    "checkYour": "Check your",
-    "overall": "Overall screening",
-    "checksDone": "{{n}} of 5 checks",
-    "patient": "Patient"
+    "checkYour": "Your checks",
+    "overall": "Screening summary",
+    "checksDone": "{{n}} of {{total}} checks",
+    "patient": "Patient",
+    "nextStep": "Next step",
+    "joinHint": "Join the {{dept}} queue from your phone",
+    "inQueue": "You are in the queue",
+    "viewToken": "View my token",
+    "deskTitle": "At the desk",
+    "deskNone": "Nothing extra: every check was completed.",
+    "addTitle": "Add a check",
+    "addSub": "Optional. Each one adds to your card and updates the hospital if you are in a queue.",
+    "riskLikely": "Get checked",
+    "riskPossible": "Possible"
   },
   "queue": {
     "title": "OPD queue",
@@ -313,7 +342,10 @@
     "priorityNote": "Patients who need care sooner are seen first.",
     "aheadLabel": "people ahead of you",
     "etaLabel": "estimated wait",
-    "you": "You"
+    "you": "You",
+    "showOnBoard": "Show my visit on the demo board",
+    "showOnBoardSub": "Demo hospitals only. Staff on the public demo board will see your age, sex and screening results, never a name or phone number.",
+    "openCard": "Open my health card"
   },
   "thali": {
     "title": "Scan your meal",
@@ -414,7 +446,9 @@
     "save": "Save",
     "logout": "Sign out",
     "empty": "No patients waiting",
-    "live": "Live"
+    "live": "Live",
+    "liveVisit": "LIVE",
+    "emptyDemo": "Demo PINs show simulated patients, plus any phone visit a citizen chose to show here. Add simulated patients, or scan on your phone and tick \"Show my visit on the demo board\" when you join the queue."
   },
   "service": {
     "title": "Service status",
@@ -887,7 +921,8 @@
   "scan": {
     "stepOf": "Step {{n}} of {{total}} · {{name}} · about {{min}} min left",
     "saved": "{{name}} saved",
-    "skipped": "{{name}} skipped"
+    "skipped": "{{name}} skipped",
+    "extraStep": "Extra check · {{name}} · about {{min}} min"
   },
   "tools": {
     "label": "Health Papers",
@@ -998,5 +1033,51 @@
     "tooMany": "Too many reports from this network. Try again in an hour.",
     "another": "Read another report",
     "disclaimer": "This explains numbers; it does not diagnose. One value outside the range is often not a problem. Discuss your report with a doctor."
+  },
+  "impact": {
+    "title": "Today vs first-come, first-served",
+    "panel": "Time saved by priority (today)",
+    "urgentSooner": "Urgent patients called {{n}} min sooner",
+    "urgentLater": "Urgent patients called {{n}} min later",
+    "empty": "Call or start a few patients: the board then compares their wait with a first-come, first-served line.",
+    "pair": "{{actual}} vs {{fcfs}} min",
+    "called": "{{n}} of {{total}} called",
+    "useful": "history useful {{pct}}% (n={{n}})",
+    "sooner": "{{n}} min sooner",
+    "later": "{{n}} min later",
+    "withNikTan": "With NikTan",
+    "fcfs": "First come, first served",
+    "consult": "Average consult {{n}} min ({{c}} measured)",
+    "method": "Counterfactual: the doctor's real call times are handed out in arrival order instead of priority order, per department. Emergency patients are placed in the General Medicine line they would have stood in without triage. Routine patients may wait a little longer; that is the trade the priority queue makes."
+  },
+  "plan": {
+    "title": "Which check?",
+    "quick": "Quick check",
+    "quickSub": "Pulse, eyes and symptoms: what the OPD needs to see you in the right order.",
+    "full": "Full check",
+    "fullSub": "Adds the vision and hearing tests. Hearing needs earphones.",
+    "minutes": "~{{n}} min"
+  },
+  "voices": {
+    "eyebrow": "FROM PEOPLE WHO TRIED IT",
+    "title": "Measured with the people it is for.",
+    "sub": "Live answers from the 30-second survey after a check. Nothing here is typed in by us.",
+    "empty": "After your check, a 30-second survey asks how long your last OPD visit took and whether you would use NikTan. The answers appear here, live.",
+    "wait": "average wait at their last OPD visit (n={{n}})",
+    "wouldUse": "would use NikTan before their next visit",
+    "rating": "average rating ({{n}} answers)",
+    "cta": "Tried it? Answer the 30-second survey"
+  },
+  "eyeSignal": {
+    "scleraB": "sclera b* {{n}}",
+    "referenced": "white-referenced",
+    "unreferenced": "no white reference",
+    "opacity": "pupil opacity {{n}}",
+    "reported_yellow_eyes": "reported yellow eyes",
+    "reported_dark_urine": "reported dark urine",
+    "reported_cloudy": "reported cloudy vision",
+    "reported_glare": "reported night glare",
+    "glare_loss": "contrast dropped under glare",
+    "poor_acuity": "acuity worse than 6/12"
   }
 }

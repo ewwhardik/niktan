@@ -236,6 +236,32 @@ test('public staff PINs cannot view or change citizen visits, and private access
   expect((await request(tokenPath, { token: doctor })).status).toBe(200);
 });
 
+test('a citizen can choose to show their visit on a demo hospital board, and public nurses can seed the demo', async () => {
+  const login = (pin, hid = hospitalId) => request('/hospital/login', { method: 'POST', body: { hospitalId: hid, pin } }).then((r) => r.json());
+  const { token: nurse } = await login('2468');
+  expect((await post(`/hospital/${hospitalId}/simulate`, { count: 1, seed: 3 }, nurse)).status).toBe(200);
+
+  const shown = await createSession();
+  const hidden = await createSession();
+  const joinDemo = (sessionId, key, showOnDemoBoard) => post('/queue/join', { hospitalId: hospitalId, sessionId, idempotencyKey: key, showOnDemoBoard });
+  expect((await joinDemo(shown, 'demo-visible-01', true)).status).toBe(201);
+  expect((await joinDemo(hidden, 'demo-visible-02', false)).status).toBe(201);
+
+  const rows = Object.values((await request(`/hospital/${hospitalId}/board`, { token: nurse }).then((r) => r.json())).columns).flat();
+  const live = rows.filter((visit) => visit.live);
+  expect(live).toHaveLength(1);
+  expect(live[0]).toMatchObject({ simulated: false, age: profile.age });
+  expect(rows.some((visit) => visit.simulated)).toBe(true);
+  // The shown visit can be opened and called by the demo staff; the other stays private.
+  expect((await request(`/hospital/tokens/${live[0].id}`, { token: nurse })).status).toBe(200);
+  expect((await post(`/hospital/tokens/${live[0].id}/call`, undefined, nurse)).status).toBe(200);
+  const other = await env.DB.prepare('SELECT id FROM tokens WHERE session_id = ?').bind(hidden).first();
+  expect((await request(`/hospital/tokens/${other.id}`, { token: nurse })).status).toBe(404);
+  // Leave the shared demo hospital as it was for the tests that follow.
+  for (const id of [shown, hidden]) expect((await remove(`/sessions/${id}`)).status).toBe(200);
+  expect((await post(`/hospital/${hospitalId}/simulate/clear`, undefined, (await login('9090')).token)).status).toBe(200);
+});
+
 test('retention deletes linked and anonymous old records and keeps recent screenings', async () => {
   const id = await createSession();
   const fresh = await createSession();
@@ -466,9 +492,9 @@ test('impact compares today\'s priority queue with first-come-first-served, for 
   const response = await call(`/hospital/${hid}/impact`, { token: nurse, bindings: real });
   expect(response.status).toBe(200);
   const impact = await response.json();
-  expect(impact.real.priorities.today).toEqual({ n: 1, actualMin: 1, fcfsMin: 15, savedMin: 14 });
-  expect(impact.real.priorities.routine).toEqual({ n: 1, actualMin: 8, fcfsMin: 0, savedMin: -8 });
-  expect(impact.real.urgent).toEqual({ n: 1, actualMin: 1, fcfsMin: 15, savedMin: 14 });
+  expect(impact.real.priorities.today).toEqual({ n: 1, actualMin: 1, fcfsMin: 17, savedMin: 16 });
+  expect(impact.real.priorities.routine).toEqual({ n: 1, actualMin: 8, fcfsMin: 4, savedMin: -4 });
+  expect(impact.real.urgent).toEqual({ n: 1, actualMin: 1, fcfsMin: 17, savedMin: 16 });
   expect(impact.real).toMatchObject({ visits: 5, called: 2, simulatedVisits: 0, consultMin: 5, historyUseful: { share: 1, n: 1 } });
   expect(impact.all).toMatchObject({ includesSimulated: true, visits: 6, called: 3, simulatedVisits: 1 });
   expect(impact.all.priorities.emergency.n).toBe(1);
@@ -533,4 +559,13 @@ test('retention keeps each kind of record for its own period and deletes in boun
 
   await worker.scheduled({}, { ...env, RETENTION_DAYS: '7' });
   expect(await ids('sessions', 'ret-')).toEqual(['ret-sim-recent']);
+});
+
+test('the public counter reports the anonymous feedback survey without any session detail', async () => {
+  expect((await post('/feedback', { sessionId: 'anonymous', rating: 5, wouldUse: true, lastOpdWaitMin: 150, comment: '' })).status).toBe(201);
+  const stats = await request('/stats/public').then((r) => r.json());
+  expect(Object.keys(stats).sort()).toEqual(['lastWaitMin', 'ratings', 'rating', 'screened', 'waits', 'wouldUse'].sort());
+  expect(stats.waits).toBeGreaterThanOrEqual(1);
+  expect(stats.lastWaitMin).toBeGreaterThan(0);
+  expect(stats.wouldUse).toBeGreaterThan(0);
 });

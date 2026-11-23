@@ -68,7 +68,7 @@ hospital.get('/:hid/board', requireStaff(), async (c) => {
      JOIN departments d ON d.id = t.department_id
      JOIN sessions s ON s.id = t.session_id
      LEFT JOIN triage tr ON tr.session_id = t.session_id
-     WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) AND t.status IN ('waiting', 'called', 'in_consult')`,
+     WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1 OR t.demo_visible = 1) AND t.status IN ('waiting', 'called', 'in_consult')`,
   )
     .bind(hid, day, Number(c.get('staff')!.demoOnly))
     .all<BoardRow>();
@@ -91,6 +91,7 @@ hospital.get('/:hid/board', requireStaff(), async (c) => {
       createdAt: r.created_at,
       waitedMin: Math.round((now() - r.created_at) / 60000),
       simulated: !!r.simulated,
+      live: !!r.demo_visible,
       heartRate: vitals && vitals.quality >= 0.5 ? Math.round(vitals.heartRate) : null,
       flags: [eye?.pallor && 'pallor', eye?.jaundice && 'jaundice', eye?.cataract && 'cataract'].filter(Boolean),
       reasons: r.reasons_json ? JSON.parse(r.reasons_json) : [],
@@ -119,7 +120,7 @@ hospital.get('/tokens/:id', requireStaff(), async (c) => {
   )
     .bind(c.req.param('id'))
     .first<TokenRow & { hospital_id: string; code: string }>();
-  if (!token || token.hospital_id !== staff.hid || (staff.demoOnly && !token.simulated)) throw new HTTPException(404, { message: 'Token not found' });
+  if (!token || token.hospital_id !== staff.hid || (staff.demoOnly && !token.simulated && !token.demo_visible)) throw new HTTPException(404, { message: 'Token not found' });
   const card = await loadCard(c.env, token.session_id);
   const note = await c.env.DB.prepare('SELECT note, history_prefilled_useful FROM doctor_notes WHERE token_id = ?').bind(token.id).first();
   const { id, number, status, priority, created_at, consult_start, simulated, code } = token;
@@ -142,7 +143,7 @@ hospital.post('/tokens/:id/:action', requireStaff(), async (c) => {
   const t = TRANSITIONS[action.data];
   const placeholders = t.from.map((_, i) => `?${i + 5}`).join(', ');
   const res = await c.env.DB.prepare(
-    `UPDATE tokens SET ${t.sql} WHERE id = ?1 AND (?4 = 0 OR simulated = 1) AND status IN (${placeholders})
+    `UPDATE tokens SET ${t.sql} WHERE id = ?1 AND (?4 = 0 OR simulated = 1 OR demo_visible = 1) AND status IN (${placeholders})
        AND department_id IN (SELECT id FROM departments WHERE hospital_id = ?3)`,
   )
     .bind(c.req.param('id'), now(), staff.hid, Number(staff.demoOnly), ...t.from)
@@ -161,7 +162,7 @@ hospital.put('/tokens/:id/note', requireStaff(['doctor', 'admin']), async (c) =>
   const result = await c.env.DB.prepare(
     `INSERT INTO doctor_notes (token_id, note, history_prefilled_useful)
      SELECT t.id, ?2, ?3 FROM tokens t JOIN departments d ON d.id = t.department_id
-     WHERE t.id = ?1 AND d.hospital_id = ?4 AND (?5 = 0 OR t.simulated = 1)
+     WHERE t.id = ?1 AND d.hospital_id = ?4 AND (?5 = 0 OR t.simulated = 1 OR t.demo_visible = 1)
      ON CONFLICT(token_id) DO UPDATE SET note = ?2, history_prefilled_useful = ?3`,
   )
     .bind(c.req.param('id'), body.note, useful, staff.hid, Number(staff.demoOnly))
@@ -178,8 +179,12 @@ const Simulate = z.object({
   seed: z.number().int().optional(),
 });
 
-hospital.post('/:hid/simulate', requireStaff(['admin']), rateLimit('simulate', 10, 3600), async (c) => {
+hospital.post('/:hid/simulate', requireStaff(), rateLimit('simulate', 10, 3600), async (c) => {
   if (c.env.DEMO_MODE !== 'true') throw new HTTPException(403, { message: 'Simulator is off' });
+  // Any public demo account may add simulated patients, so a judge on the nurse or doctor PIN is
+  // never stuck on an empty board; a hospital's own accounts still need the admin role.
+  const caller = c.get('staff')!;
+  if (caller.role !== 'admin' && !caller.demoOnly) throw new HTTPException(403, { message: 'Not allowed for this role' });
   const hid = c.req.param('hid');
   const body = await parseBody(c, Simulate);
   const rand = mulberry32(body.seed ?? Date.now());
@@ -241,16 +246,16 @@ hospital.get('/:hid/stats', requireStaff(['admin']), async (c) => {
   const [priorities, departments, waits, flags, scans, feedback, consults] = await db.batch([
     db.prepare(
       `SELECT t.priority, t.simulated, COUNT(*) AS n FROM tokens t JOIN departments d ON d.id = t.department_id
-       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) GROUP BY t.priority, t.simulated`,
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1 OR t.demo_visible = 1) GROUP BY t.priority, t.simulated`,
     ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT d.code, SUM(t.status = 'waiting') AS waiting, SUM(t.status = 'done') AS done, COUNT(*) AS total
-       FROM tokens t JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) GROUP BY d.code`,
+       FROM tokens t JOIN departments d ON d.id = t.department_id WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1 OR t.demo_visible = 1) GROUP BY d.code`,
     ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT t.priority, AVG((COALESCE(t.called_at, t.consult_start) - t.created_at) / 60000.0) AS avg_wait_min, COUNT(*) AS n
        FROM tokens t JOIN departments d ON d.id = t.department_id
-       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) AND COALESCE(t.called_at, t.consult_start) IS NOT NULL GROUP BY t.priority`,
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1 OR t.demo_visible = 1) AND COALESCE(t.called_at, t.consult_start) IS NOT NULL GROUP BY t.priority`,
     ).bind(hid, day, demoOnly),
     db.prepare(
       `SELECT SUM(json_extract(data_json, '$.pallor') = 1) AS pallor, SUM(json_extract(data_json, '$.jaundice') = 1) AS jaundice,
@@ -329,7 +334,7 @@ hospital.get('/:hid/impact', requireStaff(), async (c) => {
       `SELECT t.id, t.number, t.department_id, t.simulated, t.priority, t.status, t.created_at,
          COALESCE(t.called_at, t.consult_start) AS called_at, t.consult_start, t.consult_end, n.history_prefilled_useful
        FROM tokens t JOIN departments d ON d.id = t.department_id LEFT JOIN doctor_notes n ON n.token_id = t.id
-       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1)`,
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1 OR t.demo_visible = 1)`,
     ).bind(hid, day, Number(c.get('staff')!.demoOnly)),
     db.prepare('SELECT id, avg_consult_min FROM departments WHERE hospital_id = ?').bind(hid),
   ]);
@@ -349,7 +354,7 @@ hospital.get('/:hid/impact', requireStaff(), async (c) => {
   }));
   return c.json({
     day,
-    model: 'fcfs-one-doctor',
+    model: 'fcfs-same-call-slots',
     simulatedTimeScale: SIM_TIME_SCALE,
     ...measureImpact(visits, (d) => defaults.get(d) ?? 6, SIM_TIME_SCALE),
   });

@@ -2,18 +2,26 @@ import { expect, test } from 'vitest';
 import { consultMinutes, fcfsWaits, measureImpact, summariseWaits, usefulShare, type ImpactVisit } from '../src/lib/impact';
 
 const MIN = 60_000;
-const arrival = (id: string, minute: number, number = 0) => ({ id, arrivedAt: minute * MIN, number });
-
-test('a full first-come line charges each patient for everyone who arrived before them', () => {
-  const waits = fcfsWaits([arrival('a', 0, 1), arrival('b', 0, 2), arrival('c', 0, 3), arrival('d', 0, 4)], 6);
-  expect([...waits.values()]).toEqual([0, 6, 12, 18]);
+const arrival = (id: string, minute: number, number = 0, calledMinute: number | null = null) => ({
+  id, arrivedAt: minute * MIN, number, calledAt: calledMinute === null ? null : calledMinute * MIN,
 });
 
-test('arrivals after the line has cleared are not charged for patients already seen', () => {
-  const waits = fcfsWaits([arrival('late', 30), arrival('early', 0), arrival('next', 2)], 5);
-  expect(waits.get('early')).toBe(0);
-  expect(waits.get('next')).toBe(3);
-  expect(waits.get('late')).toBe(0);
+test('first-come-first-served hands the real call times out in arrival order', () => {
+  // The doctor called at minutes 10, 16 and 22; priority called d (arrived last) first.
+  const waits = fcfsWaits([arrival('a', 0, 1, 16), arrival('b', 1, 2, 22), arrival('c', 2, 3), arrival('d', 3, 4, 10)], 6);
+  expect(Object.fromEntries(waits)).toEqual({ a: 10, b: 15, c: 20, d: 25 });
+});
+
+test('a doctor who starts late costs both lines the same, so the first-come line is not free', () => {
+  // Everyone arrived before the doctor started at minute 30; the old non-stop model said zero wait.
+  const waits = fcfsWaits([arrival('a', 0, 1, 30), arrival('b', 1, 2, 31)], 1);
+  expect(waits.get('a')).toBe(30);
+  expect(waits.get('b')).toBe(30);
+});
+
+test('patients beyond the last real call are charged one consult per place', () => {
+  const waits = fcfsWaits([arrival('a', 0, 1, 5), arrival('b', 0, 2), arrival('c', 0, 3)], 4);
+  expect([waits.get('a'), waits.get('b'), waits.get('c')]).toEqual([5, 9, 13]);
 });
 
 test('measured consult time replaces the department default only from three samples', () => {
@@ -58,12 +66,24 @@ test('impact compares real and simulated queues separately and skips patients wh
     visit({ id: 's1', number: 1, arrivedAt: 0, simulated: true, priority: 'emergency', status: 'called', calledAt: 0.2 * MIN, historyUseful: 0 }),
   ];
   const { real, all } = measureImpact(visits, () => 6, 10);
-  expect(real.priorities.today).toEqual({ n: 1, actualMin: 1, fcfsMin: 15, savedMin: 14 });
-  expect(real.priorities.routine).toEqual({ n: 1, actualMin: 8, fcfsMin: 0, savedMin: -8 });
+  expect(real.priorities.today).toEqual({ n: 1, actualMin: 1, fcfsMin: 17, savedMin: 16 });
+  expect(real.priorities.routine).toEqual({ n: 1, actualMin: 8, fcfsMin: 4, savedMin: -4 });
   expect(real.priorities.emergency.n).toBe(0);
-  expect(real.urgent.savedMin).toBe(14);
+  expect(real.urgent.savedMin).toBe(16);
   expect(real).toMatchObject({ visits: 5, called: 2, simulatedVisits: 0, consultMin: 5, consults: 2, historyUseful: { share: 1, n: 1 } });
   expect(all.includesSimulated).toBe(true);
   expect(all).toMatchObject({ visits: 6, called: 3, simulatedVisits: 1, historyUseful: { share: 0.5, n: 2 } });
-  expect(all.priorities.emergency).toEqual({ n: 1, actualMin: 0.2, fcfsMin: 0, savedMin: -0.2 });
+  expect(all.priorities.emergency).toEqual({ n: 1, actualMin: 0.2, fcfsMin: 0.2, savedMin: 0 });
+});
+
+test('an emergency bypass is compared with the General Medicine line the patient would have joined', () => {
+  const visits = [
+    visit({ id: 'm1', number: 1, arrivedAt: 0, status: 'done', calledAt: 2 * MIN, consultStart: 2 * MIN, consultEnd: 8 * MIN }),
+    visit({ id: 'm2', number: 2, arrivedAt: 1 * MIN, status: 'called', calledAt: 8 * MIN }),
+    visit({ id: 'er', number: 1, department: 'h:emergency', arrivedAt: 3 * MIN, priority: 'emergency', status: 'in_consult', calledAt: 3 * MIN }),
+  ];
+  const { real } = measureImpact(visits, () => 6, 10);
+  // First-come: m1 at 2, m2 at 8, then the emergency one consult (6 min) after the last real call.
+  expect(real.priorities.emergency).toEqual({ n: 1, actualMin: 0, fcfsMin: 11, savedMin: 11 });
+  expect(real.priorities.routine.n).toBe(2);
 });

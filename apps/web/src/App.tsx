@@ -70,6 +70,11 @@ function Loader() {
 
 export function App() {
   const location = useLocation();
+  // A new page starts at the top; moving between scan steps keeps its own scroll handling.
+  const page = location.pathname.startsWith('/scan') ? '/scan' : location.pathname;
+  useEffect(() => {
+    if (!location.hash) window.scrollTo({ top: 0 });
+  }, [page]);
   // Scan steps animate among themselves inside ScanStep; give them one key so the route shell stays put.
   const key = location.pathname.startsWith('/scan') ? '/scan' : location.pathname;
   return (

@@ -24,12 +24,20 @@ misc.post('/feedback', rateLimit('feedback', 10, 3600), async (c) => {
   return c.json({ ok: true }, 201);
 });
 
-/** Public counter for the landing page: real screenings only. */
+/**
+ * Public counter for the landing page: real screenings only, plus the anonymous feedback survey
+ * (rating, "would you use it", self-reported last OPD wait) as live problem-validation evidence.
+ */
 misc.get('/stats/public', async (c) => {
   const row = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS screened, (SELECT AVG(rating) FROM feedback) AS rating, (SELECT COUNT(*) FROM feedback) AS ratings
+    `SELECT COUNT(*) AS screened,
+       (SELECT AVG(rating) FROM feedback) AS rating,
+       (SELECT COUNT(*) FROM feedback) AS ratings,
+       (SELECT AVG(would_use) FROM feedback) AS wouldUse,
+       (SELECT AVG(last_opd_wait_min) FROM feedback WHERE last_opd_wait_min IS NOT NULL) AS lastWaitMin,
+       (SELECT COUNT(*) FROM feedback WHERE last_opd_wait_min IS NOT NULL) AS waits
      FROM sessions s WHERE simulated = 0 AND EXISTS (SELECT 1 FROM triage WHERE session_id = s.id)`,
-  ).first<{ screened: number; rating: number | null; ratings: number }>();
+  ).first<{ screened: number; rating: number | null; ratings: number; wouldUse: number | null; lastWaitMin: number | null; waits: number }>();
   c.header('Cache-Control', 'public, max-age=30');
   return c.json(row);
 });

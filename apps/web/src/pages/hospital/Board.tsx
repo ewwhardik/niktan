@@ -1,5 +1,5 @@
 import { LayoutGroup, motion } from 'motion/react';
-import { Activity, ChartColumn, Clock3, HeartPulse, LogOut, Megaphone, Play, Radio, UserPlus } from 'lucide-react';
+import { Activity, ChartColumn, Clock3, HeartPulse, LogOut, Megaphone, Play, Radio, Smartphone, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { PRIORITY_META, SimBadge } from '../../ui/Chip';
 import { LangToggle } from '../../ui/Layout';
 import { spring } from '../../ui/motion';
+import { ImpactStrip, useImpact } from './Impact';
 import { logout, useStaff } from './staff';
 
 interface Tile {
@@ -20,6 +21,8 @@ interface Tile {
   sex: string;
   waitedMin: number;
   simulated: boolean;
+  /** A citizen's own phone visit, shown on the demo board because they chose to. */
+  live?: boolean;
   heartRate: number | null;
   flags: string[];
   reasons: Reason[];
@@ -39,7 +42,7 @@ function TileCard({ tile, onAction, onOpen }: { tile: Tile; onAction: (a: 'call'
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
       transition={spring.layout}
-      className={`verdict-glow relative overflow-hidden rounded-md bg-surface shadow-1 ${tile.simulated ? 'outline outline-1 outline-dashed outline-sim/50' : ''}`}
+      className={`verdict-glow relative overflow-hidden rounded-md bg-surface shadow-1 ${tile.simulated ? 'outline outline-1 outline-dashed outline-sim/50' : tile.live ? 'ring-2 ring-accent' : ''}`}
       style={{ ['--verdict' as string]: meta.cssVar, ['--glow' as string]: tile.priority === 'emergency' ? 1 : 0 }}
     >
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: meta.cssVar }} />
@@ -48,6 +51,11 @@ function TileCard({ tile, onAction, onOpen }: { tile: Tile; onAction: (a: 'call'
           <span className="tnum text-title-3 font-semibold">#{tile.number}</span>
           <span className="flex items-center gap-1.5">
             {tile.simulated && <SimBadge />}
+            {tile.live && (
+              <span className="inline-flex items-center gap-1 rounded-xs bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-accent-soft-ink">
+                <Smartphone size={11} aria-hidden /> {t('hospital.liveVisit')}
+              </span>
+            )}
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-medium ${meta.chip}`}>
               <meta.icon size={13} aria-hidden /> {t(`card.${tile.priority}`)}
             </span>
@@ -90,6 +98,7 @@ export default function Board() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const staff = useStaff();
+  const impact = useImpact(staff);
   const [columns, setColumns] = useState<Record<string, Tile[]>>({});
   const [updated, setUpdated] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -134,6 +143,17 @@ export default function Board() {
     setBusy(false);
     void load();
   };
+  const canSimulate = !!staff?.demoMode && (staff.role === 'admin' || staff.demoOnly);
+  const simulateButtons = (big = false) => (
+    <>
+      <button disabled={busy} onClick={() => simulate('random')} className={`inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 text-label hover:bg-sunken disabled:opacity-50 ${big ? 'min-h-12 px-4' : 'min-h-11'}`}>
+        <UserPlus size={16} aria-hidden /> {t('hospital.simulate')}
+      </button>
+      <button disabled={busy} onClick={() => simulate('hidden_emergency')} className={`inline-flex items-center gap-2 rounded-md bg-accent px-3 text-label font-medium text-on-accent disabled:opacity-50 ${big ? 'min-h-12 px-4' : 'min-h-11'}`}>
+        <Play size={16} aria-hidden /> {t('hospital.demo')}
+      </button>
+    </>
+  );
 
   const codes = ORDER.filter((c) => columns[c]?.length).concat(Object.keys(columns).filter((c) => !ORDER.includes(c as DepartmentId)) as DepartmentId[]);
   const total = Object.values(columns).reduce((s, c) => s + c.length, 0);
@@ -151,16 +171,7 @@ export default function Board() {
           </span>
           {updated && <time className="tnum text-caption text-text-3" dateTime={new Date(updated).toISOString()}>{new Date(updated).toLocaleTimeString(i18n.language === 'en' ? 'en-IN' : 'hi-IN')}</time>}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {staff?.role === 'admin' && staff.demoMode && (
-              <>
-                <button disabled={busy} onClick={() => simulate('random')} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-label hover:bg-sunken disabled:opacity-50">
-                  <UserPlus size={16} aria-hidden /> {t('hospital.simulate')}
-                </button>
-                <button disabled={busy} onClick={() => simulate('hidden_emergency')} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-3 text-label font-medium text-on-accent disabled:opacity-50">
-                  <Play size={16} aria-hidden /> {t('hospital.demo')}
-                </button>
-              </>
-            )}
+            {canSimulate && codes.length > 0 && simulateButtons()}
             {staff?.role === 'admin' && (
               <button onClick={() => navigate('/hospital/admin')} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-label hover:bg-sunken">
                 <ChartColumn size={16} aria-hidden /> {t('hospital.admin')}
@@ -184,10 +195,13 @@ export default function Board() {
       <main className="mx-auto max-w-[1600px] px-5 py-5">
         {actionFailed && <p role="alert" className="mb-3 text-emergency-text">{t('common.error')}</p>}
         {failed && <button className="min-h-11 text-emergency-text" onClick={() => { setFailed(false); void load(); }}>{t('common.error')} · {t('common.retry')}</button>}
+        <ImpactStrip impact={impact} />
         {codes.length === 0 ? (
           <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-3 text-text-3">
             <HeartPulse size={40} strokeWidth={1.25} aria-hidden />
             <p className="text-body-lg">{updated ? t('hospital.empty') : failed ? t('common.error') : t('common.loading')}</p>
+            {updated && staff?.demoOnly && <p className="max-w-md text-center text-body text-text-2">{t('hospital.emptyDemo')}</p>}
+            {updated && canSimulate && <div className="mt-2 flex flex-wrap justify-center gap-2">{simulateButtons(true)}</div>}
           </div>
         ) : (
           <LayoutGroup>

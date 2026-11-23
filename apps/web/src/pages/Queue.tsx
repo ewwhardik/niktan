@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { BellRing, Clock, Hospital, LogOut, PhoneCall, Ticket, Users } from 'lucide-react';
+import { BellRing, Clock, Hospital, IdCard, LogOut, MonitorSmartphone, PhoneCall, Ticket, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ interface HospitalRow {
   name_hi: string;
   name_en: string;
   district: string;
+  is_demo?: number;
 }
 
 interface TokenInfo {
@@ -51,6 +52,7 @@ export default function Queue() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [showOnBoard, setShowOnBoard] = useState(false);
   const joinRequest = useRef<string | null>(null);
   const lastAhead = useRef<number | null>(null);
 
@@ -89,7 +91,8 @@ export default function Queue() {
     try {
       const sessionId = await scan.sync();
       if (!sessionId) throw new ApiError(0, 'offline');
-      const r = await api.post<TokenInfo>('/api/queue/join', { sessionId, hospitalId, idempotencyKey: joinRequest.current ??= crypto.randomUUID() });
+      const demo = !!hospitals?.find((h) => h.id === hospitalId)?.is_demo;
+      const r = await api.post<TokenInfo>('/api/queue/join', { sessionId, hospitalId, idempotencyKey: joinRequest.current ??= crypto.randomUUID(), showOnDemoBoard: demo && showOnBoard });
       scan.setToken(r.token.id);
       setInfo(r);
       setLastUpdate(Date.now());
@@ -107,7 +110,16 @@ export default function Queue() {
         <TopBar onBack={() => navigate('/card')} title={t('queue.title')} />
         <h1 className="mt-4 text-title-1 font-semibold">{t('queue.pick')}</h1>
         <p className="mt-2 text-body text-text-2">{t('queue.priorityNote')}</p>
-        <motion.ul variants={staggerParent} initial="hidden" animate="show" className="mt-6 flex flex-col gap-3">
+        {hospitals?.some((h) => h.is_demo) && (
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-surface p-4">
+            <input type="checkbox" checked={showOnBoard} onChange={(e) => setShowOnBoard(e.target.checked)} className="mt-1 size-5 shrink-0 accent-[var(--accent)]" />
+            <span>
+              <span className="flex items-center gap-2 text-body-lg font-medium"><MonitorSmartphone size={18} aria-hidden /> {t('queue.showOnBoard')}</span>
+              <span className="mt-1 block text-caption text-text-3">{t('queue.showOnBoardSub')}</span>
+            </span>
+          </label>
+        )}
+        <motion.ul variants={staggerParent} initial="hidden" animate="show" className="mt-4 flex flex-col gap-3">
           {hospitals === null && !error && [0, 1].map((i) => <li key={i} className="skeleton h-20 rounded-lg" />)}
           {hospitals?.map((h) => (
             <motion.li key={h.id} variants={riseChild}>
@@ -198,13 +210,16 @@ export default function Queue() {
 
       {lastUpdate && <p className="text-center text-caption text-text-3">{t('design.updated')} · <time>{new Date(lastUpdate).toLocaleTimeString(i18n.language === 'en' ? 'en-IN' : 'hi-IN')}</time></p>}
       {error && <p className="mt-3 text-emergency-text" role="alert">{error}</p>}
-      {(token.status === 'waiting' || token.status === 'called') && (
-        <div className="mt-auto pb-[max(16px,env(safe-area-inset-bottom))] pt-6">
+      <div className="mt-auto flex flex-col gap-1 pb-[max(16px,env(safe-area-inset-bottom))] pt-6">
+        <Button variant="secondary" icon={IdCard} onClick={() => navigate('/card')}>
+          {t('queue.openCard')}
+        </Button>
+        {(token.status === 'waiting' || token.status === 'called') && (
           <Button variant="ghost" icon={LogOut} className="w-full" onClick={() => setLeaving(true)}>
             {t('queue.leave')}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       <Sheet open={leaving} onClose={() => setLeaving(false)} title={t('queue.leave')}>
         <div className="grid grid-cols-2 gap-3 py-3">

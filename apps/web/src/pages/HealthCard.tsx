@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUpRight, ClipboardList, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, OctagonAlert, PhoneCall, QrCode, Stethoscope, Thermometer, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ClipboardCheck, ClipboardList, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, OctagonAlert, PhoneCall, Plus, QrCode, Stethoscope, Thermometer, Ticket, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -8,9 +8,10 @@ import { departments, symptoms as VOCAB, visionExtraReasons, visionNeedsReferral
 import { pickLang } from '../i18n';
 import { api } from '../lib/api';
 import { haptic, perfTier } from '../lib/perf';
-import { useScan } from '../state/scan';
+import { SCREENING_STEPS, stepsFor, STEP_MINUTES, useScan } from '../state/scan';
 import { snellen6 } from '../tests/vision';
 import { visionExtrasLine } from '../tests/visionSummary';
+import { cataractView, jaundiceView } from '../tests/eyeSummary';
 import { BrandMark } from '../ui/BrandMark';
 import { Button } from '../ui/Button';
 import { PRIORITY_META, StatusChip, type RowStatus } from '../ui/Chip';
@@ -228,8 +229,12 @@ export default function HealthCard() {
 
   const v = view;
   const pallorTone: CalloutTone = v.eye?.pallor == null ? 'none' : v.eye.pallor ? 'check' : 'normal';
-  const eyeFlagged = !!(v.eye?.pallor || v.eye?.jaundice || v.eye?.cataract);
-  const eyeTone: CalloutTone = [v.eye?.pallor, v.eye?.jaundice, v.eye?.cataract].every(flag => flag == null) ? 'none' : eyeFlagged ? 'check' : 'normal';
+  const jaundice = jaundiceView(v.eye, t);
+  const cataract = cataractView(v.eye, v.age, v.vision, t);
+  const riskRow = (r: typeof jaundice): { status: RowStatus; label: string } =>
+    r.level === null ? { status: 'none', label: t('common.notChecked') } : r.level === 'low' ? { status: 'normal', label: r.label } : { status: 'check', label: r.label };
+  const eyeFlagged = !!(v.eye?.pallor || (jaundice.level && jaundice.level !== 'low') || (cataract.level && cataract.level !== 'low'));
+  const eyeTone: CalloutTone = v.eye?.pallor == null && jaundice.level === null && cataract.level === null ? 'none' : eyeFlagged ? 'check' : 'normal';
   const hrTone: CalloutTone = !hr ? 'none' : tr.priority === 'emergency' && tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'alert' : tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'check' : 'normal';
   const visionTone: CalloutTone = visionRefer === null ? 'none' : visionRefer ? 'check' : 'normal';
   const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' || v.hearing.tones?.asymmetry || v.hearing.tones?.highDrop ? 'check' : 'normal';
@@ -245,7 +250,7 @@ export default function HealthCard() {
     heart: hr ? `${Math.round(hr)} bpm · ${t('face.quality')} ${Math.round(100 * (v.vitals?.quality ?? 0))}%` : t('common.notChecked'),
     ear: v.hearing ? [`${v.hearing.srtDb} dB SNR · ${t('hearing.' + v.hearing.result)}`, v.hearing.tones ? (!v.hearing.tones.reliable ? t('hearing.toneUnreliable') : v.hearing.tones.asymmetry ? t('hearing.toneAsym') : v.hearing.tones.highDrop ? t('hearing.toneDrop') : t('hearing.toneOk')) : '', t('hearing.experimental')].filter(Boolean).join(' · ') : t('common.notChecked'),
     vision: v.vision ? [`${t(v.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · ${t('vision.right')} ${v.vision.rightLogMar == null ? '—' : snellen6(v.vision.rightLogMar)} · ${t('vision.left')} ${v.vision.leftLogMar == null ? '—' : snellen6(v.vision.leftLogMar)}`, visionExtrasLine(v.vision, t)].filter(Boolean).join(' · ') : t('common.notChecked'),
-    eye: [ ['card.pallor', v.eye?.pallor], ['card.jaundice', v.eye?.jaundice], ['card.cataract', v.eye?.cataract] ].map(([label, flag]) => `${t(String(label))} · ${flagRow(flag as boolean | null | undefined).label}`).join(' / '),
+    eye: [`${t('card.pallor')} · ${flagRow(v.eye?.pallor).label}`, `${t('card.jaundice')} · ${jaundice.label}`, `${t('card.cataract')} · ${cataract.label}`].join(' / '),
   };
   const heartCallouts: Callout[] = [
     { id: 'aorta', label: t('card.aorta'), tone: 'none', at: anchors.heart.aorta, side: 'left', dy: -18 },
@@ -253,6 +258,11 @@ export default function HealthCard() {
     { id: 'vc', label: t('card.venaCava'), tone: 'none', at: anchors.heart.venaCava, side: 'left', dy: 18 },
   ];
   const checks = [v.vitals, v.eye, v.vision, v.hearing, v.symptoms].filter((x) => x != null).length;
+  const planned = isOwn ? stepsFor(scan.plan).length : 5;
+  const checksTotal = Math.max(planned, checks);
+  // Tests not done yet, offered on the citizen's own card. Symptoms are always part of the check.
+  const addable = isOwn ? SCREENING_STEPS.filter((st) => st.route !== 'symptoms' && view.triage && (v[st.module] === undefined || v[st.module] === null)) : [];
+  const deskGaps = tr.gaps ?? [];
   const scanTime = new Date(scan.startedAt ?? Date.now()).toLocaleTimeString(lang === 'en' ? 'en-IN' : 'hi-IN', { hour: 'numeric', minute: '2-digit' });
   const tiles = [
     { icon: HeartPulse, label: t('card.hr'), value: hr ? String(Math.round(hr)) : '—', unit: hr ? 'BPM' : '', bg: 'bg-[#D8A92B]' },
@@ -310,13 +320,30 @@ export default function HealthCard() {
         </header>
 
         <motion.main variants={staggerParent} initial={tr.priority === 'emergency' ? false : "hidden"} animate="show" className="mt-5 grid gap-4 lg:mt-7 lg:grid-cols-12 lg:gap-5">
-          {/* Verdict */}
-          <section className="lg:col-span-7">
+          {/* Verdict, then the one thing to do next */}
+          <section className="flex flex-col gap-3 lg:col-span-7">
             {hasResults ? <VerdictBand priority={tr.priority} title={verdictTitle} action={verdictAction} /> : <h1 className={`${card} p-6 text-title-2`}>{verdictTitle}</h1>}
             {tr.priority === 'emergency' && (
-              <a href="tel:108" onClick={() => haptic(30)} className="mt-3 flex h-16 items-center justify-center gap-3 rounded-full bg-emergency text-title-3 font-semibold text-emergency-on shadow-3">
+              <a href="tel:108" onClick={() => haptic(30)} className="flex h-16 items-center justify-center gap-3 rounded-full bg-emergency text-title-3 font-semibold text-emergency-on shadow-3">
                 <PhoneCall size={22} aria-hidden /> {t('card.call108')}
               </a>
+            )}
+            {isOwn && tr.priority !== 'emergency' && (
+              <div className={`${card} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5`}>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#f2f2f5]">
+                    <Hospital size={20} aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-caption text-[#6e6e73]">{t('card.nextStep')}</p>
+                    <p className="text-body-lg font-semibold">{scan.tokenId ? t('card.inQueue') : t('card.joinHint', { dept: pickLang(dept, lang) })}</p>
+                  </div>
+                </div>
+                <button onClick={() => navigate('/queue')} className="flex h-14 shrink-0 items-center justify-center gap-2 rounded-full bg-[#1d1d1f] px-6 text-body-lg font-semibold text-white sm:h-12">
+                  {scan.tokenId ? <Ticket size={18} aria-hidden /> : null}
+                  {scan.tokenId ? t('card.viewToken') : t('card.joinQueue')} <ArrowUpRight size={18} aria-hidden />
+                </button>
+              </div>
             )}
           </section>
 
@@ -328,7 +355,7 @@ export default function HealthCard() {
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-[#1d1d1f] sm:size-9">
                     <tile.icon size={16} strokeWidth={2} aria-hidden />
                   </span>
-                  <span className="text-label leading-tight font-medium sm:truncate sm:text-body">{tile.label}</span>
+                  <span className="text-label leading-tight font-medium sm:text-body">{tile.label}</span>
                 </div>
                 <div className="flex items-end justify-between gap-1">
                   <p className="flex items-baseline gap-1">
@@ -341,59 +368,33 @@ export default function HealthCard() {
             ))}
           </motion.section>
 
-          {/* Overall screening: anatomical heart */}
-          <motion.section variants={riseChild} className={`${card} relative overflow-hidden bg-[radial-gradient(60%_50%_at_50%_62%,#ffe3d6_0%,transparent_70%)] lg:col-span-5 lg:row-span-2`}>
-            <div className="relative z-10 flex items-start justify-between p-6 sm:p-7">
-              <div>
-                <p className="text-title-3 text-[#515154]">{t('card.checkYour')}</p>
-                <h2 className="text-[clamp(1.75rem,3vw,2.4rem)] leading-tight font-semibold">{t('card.overall')}</h2>
-              </div>
-              <div className="text-right">
-                <p className="tnum text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-semibold tracking-tight">
-                  {checks}<span className="text-[0.55em] text-[#8e8e93]">/5</span>
-                </p>
-                <span className={`mt-2 inline-block rounded-full px-3 py-1 text-caption font-semibold ${PRIORITY_META[tr.priority].solid}`}>{t('card.checksDone', { n: checks })}</span>
-              </div>
-            </div>
-            <Suspense fallback={<div className="h-[440px] lg:h-[560px]" />}>
-              <AnatomyViewer model="heart" callouts={heartCallouts} bpm={hr} className="-mt-6 h-[440px] w-full lg:h-[560px]" fallback={modelFallback(HeartPulse)} />
-            </Suspense>
-            <p className="absolute right-5 bottom-4 left-5 text-[10px] text-[#8e8e93]">3D anatomy: BodyParts3D © DBCLS, CC BY 4.0</p>
-          </motion.section>
-
-          {/* Body map with the checks */}
-          <motion.section variants={riseChild} className={`${card} relative overflow-hidden lg:col-span-7`}>
-            <div className="relative z-10 flex items-center justify-between p-6 pb-0">
-              <div>
-                <p className="text-label text-[#6e6e73]">{t('card.bodyMapEyebrow')}</p>
-                <h2 className="text-title-2 font-semibold">{t('card.bodyMapTitle')}</h2>
-              </div>
-              <span className="hidden text-caption text-[#6e6e73] [@media(pointer:fine)]:inline">{t('card.dragToRotate')}</span>
-            </div>
-            <Suspense fallback={<div className="h-[460px]" />}>
-              <AnatomyViewer model="body" selectedId={selectedObservation} onSelect={selectObservation} callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
-            </Suspense>
-            <div className="px-5 pb-5">
-              <div className="flex flex-wrap gap-2">{bodyCallouts.map(item =>
-                <button type="button" aria-pressed={item.id === observation.id} key={item.id} onClick={() => selectObservation(item.id)}
-                  className={`min-h-11 rounded-full border px-4 text-label ${item.id === observation.id ? 'border-transparent bg-[#1d1d1f] text-white' : 'border-black/10 bg-white text-[#1d1d1f]'}`}>{item.label}</button>
-              )}</div>
-              <p aria-live="polite" className="mt-3 rounded-md bg-white/80 p-4 text-body"><strong>{observation.label}</strong><br />{observationDetails[observation.id]}</p>
-            </div>
+          {/* Why */}
+          <motion.section variants={riseChild} className={`${card} p-6 lg:col-span-12`}>
+            <h2 className="flex items-center gap-2 text-label font-semibold text-[#515154]">
+              <Stethoscope size={16} aria-hidden /> {t('card.why')}
+            </h2>
+            <ul className="mt-3 grid gap-x-8 gap-y-2 md:grid-cols-2">
+              {tr.reasons.length === 0 && <li className="text-body text-[#6e6e73]">—</li>}
+              {tr.reasons.slice(0, 8).map((r) => (
+                <li key={r.code} className="flex items-start gap-3 text-body-lg">
+                  <ReasonIcon code={r.code} />
+                  <span className="pt-1">{pickLang(r, lang)}</span>
+                </li>
+              ))}
+            </ul>
           </motion.section>
 
           {/* Small cards */}
-          <motion.section variants={riseChild} className="grid gap-4 sm:grid-cols-3 lg:col-span-7">
+          <motion.section variants={riseChild} className="grid gap-4 sm:grid-cols-3 lg:col-span-12">
             <div className={`${card} p-5`}>
               <div className="flex items-center justify-between">
                 <p className="text-body font-medium">{t('card.pallor')}</p>
-                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${v.eye?.pallor ? 'bg-seetoday text-seetoday-on' : 'bg-[#1d1d1f] text-white'}`}>{v.eye?.pallor == null ? '—' : v.eye.pallor ? t('card.checkFlag') : t('card.noFlag')}</span>
+                <StatusChip status={flagRow(v.eye?.pallor).status} label={flagRow(v.eye?.pallor).label} />
               </div>
               <div className="mt-4 flex flex-col gap-2 text-body">
                 {[
-                  { l: t('card.jaundice'), c: flagRow(v.eye?.jaundice) },
-                  { l: t('card.cataract'), c: flagRow(v.eye?.cataract) },
-                  { l: t('card.pallor'), c: flagRow(v.eye?.pallor) },
+                  { l: t('card.jaundice'), c: riskRow(jaundice) },
+                  { l: t('card.cataract'), c: riskRow(cataract) },
                 ].map((x) => (
                   <div key={x.l} className="flex items-center justify-between gap-2">
                     <span className="truncate text-[#515154]">{x.l}</span>
@@ -423,38 +424,77 @@ export default function HealthCard() {
                 )}
               </div>
             </div>
-            <div className={`${card} flex flex-col justify-between gap-4 p-5`}>
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-2xl bg-[#f2f2f5]">
-                  <Hospital size={18} aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-caption text-[#6e6e73]">{t('card.department')}</p>
-                  <p className="truncate text-body font-semibold">{pickLang(dept, lang)}</p>
-                </div>
-              </div>
-              {isOwn && tr.priority !== 'emergency' && (
-                <button onClick={() => navigate('/queue')} className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1d1d1f] text-body font-semibold text-white">
-                  {t('card.joinQueue')} <ArrowUpRight size={16} aria-hidden />
-                </button>
+            <div className={`${card} flex flex-col gap-3 p-5`}>
+              <p className="flex items-center gap-2 text-body font-medium">
+                <ClipboardCheck size={18} className="text-[#6e6e73]" aria-hidden /> {t('card.deskTitle')}
+              </p>
+              {deskGaps.length === 0 ? (
+                <p className="text-body text-[#6e6e73]">{t('card.deskNone')}</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5 text-body text-[#3a3a3c]">
+                  {deskGaps.slice(0, 4).map((g) => <li key={g.code}>• {pickLang(g, lang)}</li>)}
+                </ul>
               )}
             </div>
           </motion.section>
 
-          {/* Why */}
-          <motion.section variants={riseChild} className={`${card} p-6 lg:col-span-12`}>
-            <h2 className="flex items-center gap-2 text-label font-semibold text-[#515154]">
-              <Stethoscope size={16} aria-hidden /> {t('card.why')}
-            </h2>
-            <ul className="mt-3 grid gap-x-8 gap-y-2 md:grid-cols-2">
-              {tr.reasons.length === 0 && <li className="text-body text-[#6e6e73]">—</li>}
-              {tr.reasons.slice(0, 8).map((r) => (
-                <li key={r.code} className="flex items-start gap-3 text-body-lg">
-                  <ReasonIcon code={r.code} />
-                  <span className="pt-1">{pickLang(r, lang)}</span>
-                </li>
-              ))}
-            </ul>
+          {addable.length > 0 && (
+            <motion.section variants={riseChild} className={`${card} p-5 sm:p-6 lg:col-span-12`}>
+              <h2 className="text-title-3 font-semibold">{t('card.addTitle')}</h2>
+              <p className="mt-1 text-body text-[#6e6e73]">{t('card.addSub')}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {addable.map((st) => {
+                  const Icon = { face: HeartPulse, eye: Eye, vision: Glasses, hearing: Ear, symptoms: Mic }[st.route];
+                  return (
+                    <button key={st.route} onClick={() => navigate(`/scan/${st.route}`)} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-body font-medium hover:bg-[#f2f2f5]">
+                      <Plus size={16} aria-hidden /> <Icon size={16} aria-hidden /> {t(`steps.${st.route}`)}
+                      <span className="tnum text-caption text-[#6e6e73]">{t('plan.minutes', { n: Math.max(1, Math.round(STEP_MINUTES[st.route])) })}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.section>
+          )}
+
+          {/* Body map with the checks */}
+          <motion.section variants={riseChild} className={`${card} relative overflow-hidden lg:col-span-7`}>
+            <div className="relative z-10 flex items-center justify-between p-6 pb-0">
+              <div>
+                <p className="text-label text-[#6e6e73]">{t('card.bodyMapEyebrow')}</p>
+                <h2 className="text-title-2 font-semibold">{t('card.bodyMapTitle')}</h2>
+              </div>
+              <span className="hidden text-caption text-[#6e6e73] [@media(pointer:fine)]:inline">{t('card.dragToRotate')}</span>
+            </div>
+            <Suspense fallback={<div className="h-[460px]" />}>
+              <AnatomyViewer model="body" selectedId={selectedObservation} onSelect={selectObservation} callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
+            </Suspense>
+            <div className="px-5 pb-5">
+              <div className="flex flex-wrap gap-2">{bodyCallouts.map(item =>
+                <button type="button" aria-pressed={item.id === observation.id} key={item.id} onClick={() => selectObservation(item.id)}
+                  className={`min-h-11 rounded-full border px-4 text-label ${item.id === observation.id ? 'border-transparent bg-[#1d1d1f] text-white' : 'border-black/10 bg-white text-[#1d1d1f]'}`}>{item.label}</button>
+              )}</div>
+              <p aria-live="polite" className="mt-3 rounded-md bg-white/80 p-4 text-body"><strong>{observation.label}</strong><br />{observationDetails[observation.id]}</p>
+            </div>
+          </motion.section>
+
+          {/* Overall screening: anatomical heart */}
+          <motion.section variants={riseChild} className={`${card} relative overflow-hidden bg-[radial-gradient(60%_50%_at_50%_62%,#ffe3d6_0%,transparent_70%)] lg:col-span-5`}>
+            <div className="relative z-10 flex items-start justify-between p-6 sm:p-7">
+              <div>
+                <p className="text-title-3 text-[#515154]">{t('card.checkYour')}</p>
+                <h2 className="text-[clamp(1.5rem,3vw,2.2rem)] leading-tight font-semibold">{t('card.overall')}</h2>
+              </div>
+              <div className="text-right">
+                <p className="tnum text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-semibold tracking-tight">
+                  {checks}<span className="text-[0.55em] text-[#8e8e93]">/{checksTotal}</span>
+                </p>
+                <span className={`mt-2 inline-block rounded-full px-3 py-1 text-caption font-semibold ${PRIORITY_META[tr.priority].solid}`}>{t('card.checksDone', { n: checks, total: checksTotal })}</span>
+              </div>
+            </div>
+            <Suspense fallback={<div className="h-[440px] lg:h-[560px]" />}>
+              <AnatomyViewer model="heart" callouts={heartCallouts} bpm={hr} className="-mt-6 h-[440px] w-full lg:h-[560px]" fallback={modelFallback(HeartPulse)} />
+            </Suspense>
+            <p className="absolute right-5 bottom-4 left-5 text-[10px] text-[#8e8e93]">3D anatomy: BodyParts3D © DBCLS, CC BY 4.0</p>
           </motion.section>
 
           <motion.div variants={riseChild} className="flex flex-col gap-3 lg:col-span-12">

@@ -102,18 +102,24 @@ export default function SymptomsStep({ next, guide }: StepProps) {
       applyParsed(input, [], {});
       return;
     }
+    // The on-device parser answers at once; the AI reading then refines it, but never holds the
+    // patient for more than a few seconds when a provider is slow.
+    const local = parseSymptoms(input, { age: profile?.age, pregnant: profile?.pregnant });
+    applyParsed(input, local.symptoms, local.redFlags);
     setBusy(true);
+    const controller = new AbortController();
+    const deadline = window.setTimeout(() => controller.abort(), 5000);
     try {
       const r = await api.post<{ symptoms: SymptomEntry[]; redFlags: Partial<Record<RedFlag, boolean>>; summaryHi: string }>('/api/symptoms/structure', {
         text: input,
         age: profile?.age,
         pregnant: profile?.pregnant,
-      });
-      applyParsed(input, r.symptoms, r.redFlags);
+      }, controller.signal);
+      if (parsedText.current === input) applyParsed(input, r.symptoms, r.redFlags);
     } catch {
-      const local = parseSymptoms(input, { age: profile?.age, pregnant: profile?.pregnant });
-      applyParsed(input, local.symptoms, local.redFlags);
+      // Keep the on-device reading.
     } finally {
+      clearTimeout(deadline);
       if (mounted.current) setBusy(false);
     }
   };
