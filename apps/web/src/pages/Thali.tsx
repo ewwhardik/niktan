@@ -7,6 +7,7 @@ import { analyseThali, dishes, type Nutrient, type ThaliItem, type ThaliResult }
 import { pickLang } from '../i18n';
 import { api } from '../lib/api';
 import { haptic } from '../lib/perf';
+import { shrink } from '../lib/photo';
 import { useScan } from '../state/scan';
 import { Button, LinkButton } from '../ui/Button';
 import { NutrientRings } from '../ui/visuals/Infographics';
@@ -17,33 +18,6 @@ import { riseChild, spring, staggerParent } from '../ui/motion';
 type Phase = 'photo' | 'recognising' | 'confirm' | 'result';
 const dishById = new Map(dishes.map((d) => [d.id, d]));
 const SHOWN: Nutrient[] = ['protein', 'iron', 'fibre', 'vitaminC', 'calcium', 'kcal', 'carbs'];
-
-/** Downscales a photo to at most 1024 px so uploads stay small on 3G. */
-async function shrink(file: File, url: string): Promise<Blob> {
-  const bitmap = await globalThis.createImageBitmap?.(file).catch(() => null);
-  const source = bitmap ?? await new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Photo decoding failed'));
-    image.src = url;
-  });
-  const width = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
-  const height = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
-  const scale = Math.min(1, 1024 / Math.max(width, height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(width * scale));
-  canvas.height = Math.max(1, Math.round(height * scale));
-  try {
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Photo rendering failed');
-    context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  } finally {
-    bitmap?.close();
-  }
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('JPEG encoding failed')), 'image/jpeg', 0.82);
-  });
-}
 
 function Bar({ label, share, value, unit }: { label: string; share: number; value: number; unit: string }) {
   const pct = Math.round(share * 100);
