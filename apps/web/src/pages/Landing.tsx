@@ -726,6 +726,9 @@ export function Landing() {
               <a href="https://github.com/ewwhardik" target="_blank" rel="noreferrer" className="lp-link inline-flex min-h-11 items-center">GitHub</a>
               <a href="https://www.linkedin.com/in/ewwhardik" target="_blank" rel="noreferrer" className="lp-link inline-flex min-h-11 items-center">LinkedIn</a>
             </div>
+            <Link to="/review" className="lp-cta mt-5 inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-body-lg font-semibold">
+              <Star size={18} aria-hidden /> {t('review.cta')}
+            </Link>
           </div>
           {(t('home.footCols', { returnObjects: true }) as string[]).map((col, ci) => (
             <div key={col}>
@@ -735,7 +738,7 @@ export function Landing() {
                   ? [[t('home.footHow'), () => document.getElementById('how')?.scrollIntoView()], [t('home.thali'), () => navigate('/thali')], [t('home.rxCta'), () => navigate('/rx')], [t('landing.cta'), start]]
                   : ci === 1
                     ? [[t('home.staff'), () => navigate('/hospital')], [t('home.footBoard'), () => navigate('/hospital/board')]]
-                    : [[t('home.nav.privacy'), () => document.getElementById('privacy')?.scrollIntoView()], [t('home.status'), () => navigate('/status')], [t('home.footFeedback'), () => navigate('/feedback')]]
+                    : [[t('home.nav.privacy'), () => document.getElementById('privacy')?.scrollIntoView()], [t('home.status'), () => navigate('/status')], [t('home.footFeedback'), () => navigate('/feedback')], [t('review.cta'), () => navigate('/review')]]
                 ).map(([label, go]) => (
                   <li key={label as string}><button onClick={go as () => void} className="-my-1.5 min-h-11 text-left hover:text-text">{label as string}</button></li>
                 ))}
