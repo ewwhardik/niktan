@@ -569,3 +569,26 @@ test('the public counter reports the anonymous feedback survey without any sessi
   expect(stats.lastWaitMin).toBeGreaterThan(0);
   expect(stats.wouldUse).toBeGreaterThan(0);
 });
+
+test('team reviews are saved without personal numbers or links and averaged per section', async () => {
+  const send = (body) => post('/reviews', body);
+  expect((await send({ team: 'Code Ninjas', overall: 5, tried: ['pulse', 'eyes', 'thali'], ratings: { ui: 5, ux: 4, pulse: 5, eyes: 4 }, remark: 'Loved it, call 9876543210 or see https://x.io' })).status).toBe(201);
+  expect((await send({ team: 'Byte Me', overall: 4, tried: ['pulse'], ratings: { ui: 3, pulse: 3, board: 5 }, remark: '' })).status).toBe(201);
+  expect((await send({ team: 'X', overall: 5 })).status).toBe(422);
+  expect((await send({ team: 'Valid team', overall: 7 })).status).toBe(422);
+  expect((await send({ team: 'Valid team', overall: 4, ratings: { unknown: 3 } })).status).toBe(422);
+
+  const data = await request('/reviews').then((r) => r.json());
+  expect(data.count).toBeGreaterThanOrEqual(2);
+  const ninjas = data.items.find((i) => i.team === 'Code Ninjas');
+  expect(ninjas.remark).toBe('Loved it, call [phone] or see [link]');
+  expect(data.sections.pulse).toMatchObject({ avg: 4, n: 2 });
+  // Rating a feature marks it tried.
+  expect(data.sections.board).toMatchObject({ avg: 5, n: 1, tried: 1 });
+  expect(data.sections.thali).toMatchObject({ avg: null, n: 0, tried: 1 });
+  expect(data.sections.ui).toMatchObject({ avg: 4, n: 2, tried: null });
+  expect(ninjas.tried).toEqual(['pulse', 'eyes', 'thali']);
+
+  const { token: demoAdmin } = await request('/hospital/login', { method: 'POST', body: { hospitalId, pin: '9090' } }).then((r) => r.json());
+  expect((await call(`/reviews/${ninjas.id}/hide`, { method: 'POST', token: demoAdmin })).status).toBe(403);
+});

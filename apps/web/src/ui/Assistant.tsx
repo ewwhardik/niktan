@@ -91,7 +91,7 @@ export function Assistant() {
     return () => window.removeEventListener('keydown', esc);
   }, [open]);
 
-  if (pathname.startsWith('/scan')) return null;
+  if (pathname.startsWith('/scan') || pathname === '/review/share') return null;
 
   async function send(text: string) {
     const content = text.trim();

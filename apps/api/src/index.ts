@@ -14,6 +14,7 @@ import { lab } from './routes/lab';
 import { hospital } from './routes/hospital';
 import { misc } from './routes/misc';
 import { queue } from './routes/queue';
+import { reviews } from './routes/reviews';
 import { sessions, shared } from './routes/sessions';
 
 const app = new Hono<AppEnv>();
@@ -63,6 +64,7 @@ app.route('/api', rx);
 app.route('/api', meds);
 app.route('/api', lab);
 app.route('/api', misc);
+app.route('/api', reviews);
 app.get('/status', (c) => c.redirect('/api/status'));
 app.get('/', (c) => c.json({ name: 'niktan-api', docs: '/api/status' }));
 

@@ -1,5 +1,7 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, HeartPulse, Languages, Lock, MessageSquareHeart, Siren, Soup, Star, ThumbsUp, Timer, WifiOff, Play } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, HeartPulse, Languages, Lock, MessageSquareHeart, QrCode, Siren, Soup, Star, ThumbsUp, Timer, Users, WifiOff, Play } from 'lucide-react';
+import { REVIEW_EXPERIENCE, REVIEW_FEATURES } from '@niktan/core';
+import { Stars } from '../ui/Stars';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
@@ -270,6 +272,126 @@ function Voices({ stats }: { stats: PublicStats | null }) {
   );
 }
 
+interface TeamReviews {
+  count: number;
+  overall: number | null;
+  sections: Record<string, { avg: number | null; n: number; tried: number | null }>;
+  items: { id: string; team: string; overall: number; ratings: Record<string, number>; tried: string[]; remark: string; createdAt: number }[];
+}
+
+/** Reviews from teams at the event, live: section averages and each team's remark. */
+function TeamReviewsSection() {
+  const { t } = useTranslation();
+  const [data, setData] = useState<TeamReviews | null>(null);
+  // Arriving from the review form (/#reviews): scroll here once the reviews have loaded.
+  const jumped = useRef(false);
+  useEffect(() => {
+    if (!data || jumped.current || window.location.hash !== '#reviews') return;
+    jumped.current = true;
+    requestAnimationFrame(() => document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [data]);
+  useEffect(() => {
+    const load = () => api.get<TeamReviews>('/api/reviews').then(setData).catch(() => undefined);
+    void load();
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const rated = data ? REVIEW_FEATURES.filter((s) => data.sections[s]?.n) : [];
+  return (
+    <section id="reviews" className="relative scroll-mt-24 px-5 pt-24 md:px-10 md:pt-32" aria-labelledby="reviews-title">
+      <Reveal className="mx-auto max-w-[1100px]">
+        <p className="eyebrow">{t('review.eyebrow')}</p>
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
+          <h2 id="reviews-title" className="max-w-3xl text-[clamp(2rem,4.5vw,3.5rem)] leading-[1.05] font-semibold">{t('review.homeTitle')}</h2>
+          {data && data.count > 0 && (
+            <div className="flex items-center gap-4">
+              <span className="tnum text-[clamp(2.5rem,5vw,3.5rem)] leading-none font-semibold">{data.overall?.toFixed(1)}</span>
+              <span className="flex flex-col gap-1">
+                <Stars value={Math.round(data.overall ?? 0)} size={20} label={t('review.overall')} />
+                <span className="inline-flex items-center gap-1.5 text-caption text-text-3"><Users size={14} aria-hidden /> {t('review.teams', { count: data.count })}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {data && data.count > 0 ? (
+          <>
+            <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+              {REVIEW_EXPERIENCE.map((s) => {
+                const sec = data.sections[s];
+                return (
+                  <li key={s} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface px-6 py-5">
+                    <span className="text-body-lg font-medium">{t(`review.section.${s}`)}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="tnum text-title-2 font-semibold">{sec?.avg != null ? sec.avg.toFixed(1) : '—'}</span>
+                      <Stars value={Math.round(sec?.avg ?? 0)} size={16} label={t(`review.section.${s}`)} />
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            {rated.length > 0 && (
+              <>
+                <p className="mt-10 text-label font-semibold text-text-2">{t('review.featureScores')}</p>
+                <ul className="mt-4 grid gap-x-10 gap-y-4 sm:grid-cols-2">
+                  {rated.map((s) => {
+                    const sec = data.sections[s]!;
+                    return (
+                      <li key={s} className="flex items-center gap-4">
+                        <span className="w-32 shrink-0 text-body sm:w-44">{t(`review.section.${s}`)}</span>
+                        <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-sunken">
+                          <span className="block h-full rounded-full bg-[var(--seetoday)]" style={{ width: `${((sec.avg ?? 0) / 5) * 100}%` }} />
+                        </span>
+                        <span className="tnum w-16 shrink-0 text-right text-body font-medium sm:w-20">{sec.avg?.toFixed(1)} <span className="text-caption text-text-3">({sec.n})</span></span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            <ul className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {data.items.slice(0, 9).map((r) => (
+                <li key={r.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-title-3 font-semibold break-words">{r.team}</span>
+                    <Stars value={r.overall} size={16} label={r.team} />
+                  </div>
+                  {r.remark && <p className="text-body text-text-2">“{r.remark}”</p>}
+                  {(r.ratings.ui || r.ratings.ux) && (
+                    <p className="text-caption text-text-3">
+                      {REVIEW_EXPERIENCE.filter((s) => r.ratings[s]).map((s) => `${t(`review.section.${s}`)} ${r.ratings[s]}★`).join(' · ')}
+                    </p>
+                  )}
+                  {r.tried.length > 0 && (
+                    <ul className="mt-auto flex flex-wrap gap-1.5 pt-1" aria-label={t('review.triedTitle')}>
+                      {REVIEW_FEATURES.filter((s) => r.tried.includes(s)).map((s) => (
+                        <li key={s} className="inline-flex items-center gap-1 rounded-full bg-sunken px-2.5 py-1 text-caption">
+                          {t(`review.section.${s}`)}{r.ratings[s] ? <span className="tnum font-semibold"> {r.ratings[s]}★</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-4 max-w-2xl text-body-lg text-text-2">{t('review.homeEmpty')}</p>
+        )}
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link to="/review" className="lp-cta inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-body-lg font-semibold">
+            <Star size={18} aria-hidden /> {t('review.cta')}
+          </Link>
+          <Link to="/review/share" className="inline-flex min-h-12 items-center gap-2 rounded-full border border-border px-6 text-body-lg font-medium hover:bg-sunken">
+            <QrCode size={18} aria-hidden /> {t('review.showQr')}
+          </Link>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 export function Landing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -323,7 +445,7 @@ export function Landing() {
           </motion.div>
           <a href="#film" className="mt-5 inline-flex min-h-11 items-center gap-2.5 rounded-full bg-sunken py-1.5 pr-4 pl-1.5 text-label font-medium transition-colors hover:bg-border">
             <span className="grid size-8 place-items-center rounded-full bg-text text-bg"><Play size={13} fill="currentColor" aria-hidden /></span>
-            {t('film.watch')} <span className="tnum text-text-3">1:26</span>
+            {t('film.watch')} <span className="tnum text-text-3">0:36</span>
           </a>
           <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-body text-text-3">
             {trust.map((x) => (
@@ -568,6 +690,7 @@ export function Landing() {
         </Reveal>
       </section>
 
+      <TeamReviewsSection />
       <Voices stats={stats} />
 
       {/* Closing */}

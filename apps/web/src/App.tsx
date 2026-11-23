@@ -15,6 +15,8 @@ const Thali = lazy(() => import('./pages/Thali'));
 const Prescription = lazy(() => import('./pages/Prescription'));
 const ServiceStatus = lazy(() => import('./pages/ServiceStatus'));
 const Feedback = lazy(() => import('./pages/Feedback'));
+const Review = lazy(() => import('./pages/Review'));
+const ReviewShare = lazy(() => import('./pages/ReviewShare'));
 const HospitalLogin = lazy(() => import('./pages/hospital/Login'));
 const Board = lazy(() => import('./pages/hospital/Board'));
 const TokenDetail = lazy(() => import('./pages/hospital/TokenDetail'));
@@ -100,6 +102,8 @@ export function App() {
               <Route path="/rx" element={<Prescription />} />
               <Route path="/status" element={<ServiceStatus />} />
               <Route path="/feedback" element={<Feedback />} />
+              <Route path="/review" element={<Review />} />
+              <Route path="/review/share" element={<ReviewShare />} />
               <Route path="/hospital" element={<HospitalLogin />} />
               <Route path="/hospital/board" element={<Board />} />
               <Route path="/hospital/token/:id" element={<TokenDetail />} />

@@ -134,3 +134,23 @@ export const Feedback = z.object({
   comment: z.string().max(1000).default(''),
 });
 export type Feedback = z.infer<typeof Feedback>;
+
+/** Experience ratings every reviewing team is asked for (overall is separate and required). */
+export const REVIEW_EXPERIENCE = ['ui', 'ux'] as const;
+/** Features a team may have tried; only the ticked ones get a rating row. */
+export const REVIEW_FEATURES = ['pulse', 'eyes', 'vision', 'hearing', 'symptoms', 'card', 'board', 'thali', 'papers', 'assistant'] as const;
+export const REVIEW_SECTIONS = [...REVIEW_EXPERIENCE, ...REVIEW_FEATURES] as const;
+export type ReviewSection = (typeof REVIEW_SECTIONS)[number];
+export type ReviewFeature = (typeof REVIEW_FEATURES)[number];
+
+/** A team's review from the event: shown publicly on the home page, so no personal details. */
+export const Review = z.object({
+  team: z.string().trim().min(2).max(60),
+  overall: z.number().int().min(1).max(5),
+  /** Features the team says they tried, whether or not they rated them. */
+  tried: z.array(z.enum(REVIEW_FEATURES)).max(REVIEW_FEATURES.length).default([]),
+  /** UI and UX, plus any tried feature the team chose to rate; each 1–5 stars. */
+  ratings: z.record(z.enum(REVIEW_SECTIONS), z.number().int().min(1).max(5)).default({}),
+  remark: z.string().trim().max(400).default(''),
+});
+export type Review = z.infer<typeof Review>;
