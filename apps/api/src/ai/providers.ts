@@ -280,3 +280,45 @@ export const asrProviders: Provider<AsrInput, string>[] = [
     },
   },
 ];
+
+export interface ChatInput {
+  system: string;
+  messages: { role: 'user' | 'assistant'; content: string }[];
+}
+
+/** Free-text conversation for the help assistant: Groq first (as asked for), Workers AI as backup. */
+export const chatProviders: Provider<ChatInput, string>[] = [
+  {
+    name: 'groq',
+    timeoutMs: 12000,
+    available: hasGroqKey,
+    run: async (env, input, signal) => {
+      const request = (key: string) => fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-120b',
+          temperature: 0.3,
+          max_completion_tokens: 700,
+          reasoning_effort: 'low',
+          messages: [{ role: 'system', content: input.system }, ...input.messages],
+        }),
+      });
+      const res = await fetchWithBackupKey(env.GROQ_API_KEY, env.GROQ_API_KEY_2, request);
+      if (!res.ok) throw new Error(`groq ${res.status}`);
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      return data.choices?.[0]?.message?.content?.trim() ?? '';
+    },
+  },
+  {
+    name: 'workers-ai',
+    cloudflareAccount: 'primary',
+    timeoutMs: 12000,
+    available: (env) => !!env.AI,
+    run: async (env, input) => {
+      const out = await env.AI!.run(WORKERS_TEXT_MODEL, { max_tokens: 700, messages: [{ role: 'system', content: input.system }, ...input.messages] });
+      return workersAiText(out).trim();
+    },
+  },
+];
