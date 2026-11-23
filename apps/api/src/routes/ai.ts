@@ -110,13 +110,13 @@ ai.post('/thali/recognize', rateLimit('thali', 15, 3600), async (c) => {
     const parsed = ThaliItems.parse(output);
     const known = new Set(dishes.map((d) => d.id));
     const items = parsed.items
-      .filter((i) => i.count > 0)
       .map((i) => ({
         dishId: known.has(i.dishId) ? i.dishId : 'other',
         label: i.label ?? null,
         count: Math.min(10, Math.round(i.count * 2) / 2),
         confidence: Math.max(0, Math.min(1, i.confidence ?? 0.5)),
-      }));
+      }))
+      .filter((item) => item.count > 0);
     return c.json({ items, noFood: parsed.noFood ?? items.length === 0, provider });
   } catch (err) {
     if (err instanceof AllProvidersFailed) return c.json({ items: [], noFood: false, provider: null, fallback: 'manual' }, 503);

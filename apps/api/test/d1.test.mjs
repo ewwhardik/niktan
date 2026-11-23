@@ -45,6 +45,114 @@ const createSession = async () => {
   return (await response.json()).id;
 };
 
+test('concurrent retries create one screening and preserve its original profile', async () => {
+  const creationKey = '9c'.repeat(16);
+  const responses = await Promise.all([post('/sessions', { ...profile, creationKey }), post('/sessions', { ...profile, creationKey })]);
+  expect(responses.map((response) => response.status)).toEqual([201, 201]);
+  const [first, second] = await Promise.all(responses.map((response) => response.json()));
+  expect(second.id).toBe(first.id);
+  expect((await post('/sessions', { ...profile, age: 75, creationKey })).status).toBe(409);
+  const row = await env.DB.prepare('SELECT id, age FROM sessions WHERE creation_key = ?').bind(creationKey).first();
+  expect(row).toEqual({ id: first.id, age: profile.age });
+});
+
+test('Thali sends the uploaded photo to Workers AI and returns editable catalogue portions', async () => {
+  const run = vi.fn().mockResolvedValue({
+    response: {
+      items: [
+        { dishId: 'roti', count: 1.4, confidence: 0.8 },
+        { dishId: 'roti', count: 0.1 },
+      ],
+      noFood: false,
+    },
+  });
+  const form = new FormData();
+  form.set('photo', new File(['test photo bytes'], 'thali.jpg', { type: 'image/jpeg' }));
+  const response = await app.request('/api/thali/recognize', { method: 'POST', body: form }, { ...env, AI: { run } });
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    items: [{ dishId: 'roti', label: null, count: 1.5, confidence: 0.8 }],
+    noFood: false,
+    provider: 'workers-ai',
+  });
+  expect(run).toHaveBeenCalledWith('@cf/meta/llama-4-scout-17b-16e-instruct', expect.objectContaining({
+    response_format: { type: 'json_object' },
+    messages: expect.arrayContaining([expect.objectContaining({
+      role: 'user',
+      content: expect.arrayContaining([{
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${btoa('test photo bytes')}` },
+      }]),
+    })]),
+  }));
+});
+
+test('Cloudflare quota exhaustion switches to backup models until the next UTC day', async () => {
+  const quotaError = new Error('3036: daily free allocation exhausted');
+  const run = vi.fn()
+    .mockRejectedValueOnce(quotaError)
+    .mockResolvedValueOnce({ response: { items: [{ dishId: 'roti', count: 1 }], noFood: false } });
+  const geminiMeal = Response.json({ candidates: [{
+    content: { parts: [{ text: '{"items":[{"dishId":"roti","count":1}],"noFood":false}' }] },
+  }] });
+  const groqMeal = Response.json({ choices: [{
+    message: { content: '{"items":[{"dishId":"rice","count":1}],"noFood":false}' },
+  }] });
+  const backupMeal = Response.json({
+    success: true,
+    result: { response: { items: [{ dishId: 'rice', count: 1 }], noFood: false } },
+  });
+  const upstream = vi.fn()
+    .mockResolvedValueOnce(backupMeal)
+    .mockResolvedValueOnce(Response.json({ success: false, errors: [{ code: 3036 }] }, { status: 429 }))
+    .mockResolvedValueOnce(geminiMeal)
+    .mockResolvedValueOnce(new Response(null, { status: 429 }))
+    .mockResolvedValueOnce(groqMeal)
+    .mockResolvedValueOnce(Response.json({ text: 'Test transcription' }))
+    .mockResolvedValueOnce(new Response(null, { status: 429 }))
+    .mockResolvedValueOnce(new Response(null, { status: 429 }));
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal('fetch', (url, init) => /^https:\/\/(generativelanguage\.googleapis\.com|api\.groq\.com|api\.cloudflare\.com)\//.test(String(url))
+    ? upstream(url, init)
+    : realFetch(url, init));
+
+  const backupAccount = 'b'.repeat(32);
+  const bindings = {
+    ...env, AI: { run }, GEMINI_API_KEY: 'gemini-test', GROQ_API_KEY: 'groq-test',
+    CLOUDFLARE_AI_BACKUP_ACCOUNT_ID: backupAccount, CLOUDFLARE_AI_BACKUP_TOKEN: 'workers-backup-test',
+  };
+  const upload = (route, field, file) => {
+    const body = new FormData();
+    body.set(field, file);
+    return app.request(route, { method: 'POST', body }, bindings);
+  };
+  const meal = () => upload('/api/thali/recognize', 'photo', new File(['photo'], 'thali.jpg', { type: 'image/jpeg' }));
+
+  try {
+    expect(await meal().then((r) => r.json())).toMatchObject({ provider: 'workers-ai-backup', items: [{ dishId: 'rice' }] });
+    expect(upstream.mock.calls[0][0]).toContain(`/accounts/${backupAccount}/ai/run/`);
+    expect(await meal().then((r) => r.json())).toMatchObject({ provider: 'gemini', items: [{ dishId: 'roti' }] });
+    expect(await meal().then((r) => r.json())).toMatchObject({ provider: 'groq', items: [{ dishId: 'rice' }] });
+
+    const speech = await upload('/api/asr', 'audio', new File(['audio'], 'speech.mp4', { type: 'audio/mp4' }));
+    expect(await speech.json()).toEqual({ provider: 'groq-whisper', text: 'Test transcription' });
+    expect(upstream.mock.calls[5][1].body.get('file').name).toBe('speech.mp4');
+
+    const symptoms = await request('/symptoms/structure', { method: 'POST', body: { text: 'I have a cough' }, bindings });
+    expect(await symptoms.json()).toMatchObject({ source: 'offline-rules', symptoms: [{ code: 'cough' }] });
+    expect(JSON.parse(upstream.mock.calls[4][1].body).model).toBe('qwen/qwen3.8-27b');
+    expect(run).toHaveBeenCalledTimes(1);
+
+    await env.DB.prepare("UPDATE ai_calls SET created_at = created_at - 86400000 WHERE error = 'daily quota exhausted'").run();
+    expect(await meal().then((r) => r.json())).toMatchObject({ provider: 'workers-ai' });
+    expect(run).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.unstubAllGlobals();
+    await env.DB.prepare("DELETE FROM ai_calls WHERE error IN ('daily quota exhausted', 'backup daily quota exhausted')").run();
+  }
+});
+
 test('shared cards redact the owner handle, reflect measurement deletion and expire with the session', async () => {
   const id = await createSession();
   expect(id).toMatch(/^p_[a-f0-9]{32}$/);

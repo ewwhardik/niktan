@@ -30,11 +30,17 @@ async function retriage(env: AppEnv['Bindings'], sessionId: string) {
 
 sessions.post('/', rateLimit('session', 30, 3600), async (c) => {
   const body = await parseBody(c, SessionInput);
-  const id = newId('p');
-  await c.env.DB.prepare('INSERT INTO sessions (id, created_at, age, sex, pregnant, lang) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, now(), body.age, body.sex, body.pregnant && body.sex === 'female' ? 1 : 0, body.lang)
-    .run();
-  return c.json({ id }, 201);
+  const row = await c.env.DB.prepare(
+    `INSERT INTO sessions (id, created_at, age, sex, pregnant, lang, creation_key) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(creation_key) DO UPDATE SET creation_key = excluded.creation_key
+     WHERE sessions.age = excluded.age AND sessions.sex = excluded.sex
+       AND sessions.pregnant = excluded.pregnant AND sessions.lang = excluded.lang
+     RETURNING id`,
+  )
+    .bind(newId('p'), now(), body.age, body.sex, body.pregnant && body.sex === 'female' ? 1 : 0, body.lang, body.creationKey ?? null)
+    .first<{ id: string }>();
+  if (!row) throw new HTTPException(409, { message: 'Session creation key already used' });
+  return c.json(row, 201);
 });
 
 sessions.use('/:id/*', async (c, next) => {

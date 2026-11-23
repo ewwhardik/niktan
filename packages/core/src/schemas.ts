@@ -27,6 +27,7 @@ export const SessionInput = z.object({
   sex: Sex,
   pregnant: z.boolean().default(false),
   lang: Lang.default('hi'),
+  creationKey: z.string().regex(/^[a-f0-9]{32}$/).optional(),
 });
 export type SessionInput = z.infer<typeof SessionInput>;
 

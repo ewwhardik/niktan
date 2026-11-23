@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { Feedback } from '@niktan/core';
 import type { AppEnv } from '../env';
+import { hasBackupWorkersAi } from '../ai/providers';
 import { requireOwnerHandle } from '../lib/auth';
 import { rateLimit } from '../lib/rateLimit';
 import { newId, now, parseBody } from '../lib/util';
@@ -58,9 +59,10 @@ misc.get('/status', async (c) => {
     build: c.env.BUILD_ID ?? null,
     db,
     providers: {
-      gemini: !!c.env.GEMINI_API_KEY,
-      groq: !!c.env.GROQ_API_KEY,
+      gemini: !!(c.env.GEMINI_API_KEY || c.env.GEMINI_API_KEY_2),
+      groq: !!(c.env.GROQ_API_KEY || c.env.GROQ_API_KEY_2),
       workersAi: !!c.env.AI,
+      workersAiBackup: hasBackupWorkersAi(c.env),
     },
     last24h: results,
     demoMode: c.env.DEMO_MODE === 'true',

@@ -6,12 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "niktan"
-# Replace with the id printed by `wrangler d1 create niktan`.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "3a465492-0f83-4cab-a251-5bd37bd2f079"
 migrations_dir = "migrations"
 
 [vars]
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,https://niktan.pages.dev"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,https://niktan.pages.dev,https://niktan.vercel.app"
 DEMO_MODE = "true"
 # Days to keep real screenings (simulated visits: 2 days, thali scans: 7, staff audit: 180).
 RETENTION_DAYS = "30"
@@ -19,8 +18,9 @@ RETENTION_DAYS = "30"
 [triggers]
 crons = ["30 0 * * *"]
 
-# Secrets (set with `wrangler secret put`): STAFF_SECRET, GEMINI_API_KEY, GROQ_API_KEY
+# Secrets: STAFF_SECRET, GEMINI_API_KEY, GROQ_API_KEY
+# Optional backup credentials: GEMINI_API_KEY_2, GROQ_API_KEY_2
+# Optional Workers AI backup account: CLOUDFLARE_AI_BACKUP_ACCOUNT_ID, CLOUDFLARE_AI_BACKUP_TOKEN
 
-# Optional Workers AI binding for a Cloudflare deployment:
-# [ai]
-# binding = "AI"
+[ai]
+binding = "AI"
