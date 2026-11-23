@@ -1,0 +1,21 @@
+{
+  "name": "niktan-film",
+  "private": true,
+  "description": "NikTan launch film, made with Remotion. Kept out of the pnpm workspace so the app's install and deploy stay light.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts NikTanFilm out/niktan-film.mp4 --codec h264 --crf 20",
+    "render:webm": "remotion render src/index.ts NikTanFilm out/niktan-film.webm --codec vp9 --crf 32",
+    "still": "remotion still src/index.ts NikTanFilm out/poster.png --frame 150"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.542",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.542"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

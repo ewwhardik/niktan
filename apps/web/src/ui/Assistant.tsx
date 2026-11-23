@@ -120,8 +120,8 @@ export function Assistant() {
           <motion.button key="fab" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 26 }}
             onClick={() => setOpen(true)} aria-label={t('assistant.open')}
             // Away from the landing page the round icon sits above each screen's bottom button bar.
-            className={`fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-text text-label font-semibold text-bg shadow-3 sm:right-6 ${onLanding ? 'bottom-[calc(84px+env(safe-area-inset-bottom))] pr-4 pl-3.5 sm:bottom-6' : 'bottom-[calc(max(var(--dock-h,0px),env(safe-area-inset-bottom))+12px)] w-12 justify-center lg:bottom-6'}`}>
-            <MessageCircle size={20} aria-hidden /> {onLanding && t('assistant.label')}
+            className={`fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-text text-label font-semibold text-bg shadow-3 sm:right-6 ${onLanding ? 'bottom-[calc(84px+env(safe-area-inset-bottom))] w-12 justify-center sm:bottom-6 sm:w-auto sm:pr-4 sm:pl-3.5' : 'bottom-[calc(max(var(--dock-h,0px),env(safe-area-inset-bottom))+12px)] w-12 justify-center lg:bottom-6'}`}>
+            <MessageCircle size={20} aria-hidden /> {onLanding && <span className="hidden sm:inline">{t('assistant.label')}</span>}
           </motion.button>
         )}
       </AnimatePresence>

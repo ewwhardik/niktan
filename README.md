@@ -353,7 +353,7 @@ Nothing below is redistributed beyond what its licence allows; raw datasets are 
 | BodyParts3D v4.0 (heart and body 3D models) | Health-card anatomy views | © The Database Center for Life Science (DBCLS), dbarchive.biosciencedbc.jp/en/bodyparts3d; modified (decimated, recoloured, normalised) | CC BY 4.0 |
 | MediaPipe FaceLandmarker | Face and iris landmarks in the browser | Google, `@mediapipe/tasks-vision` | Apache 2.0 |
 | Hindi digit and guide audio | Hearing test and voice guidance | Synthesised with eSpeak NG via Echogarden | eSpeak NG is GPL-3.0 software; replace with recorded speech before clinical use |
-| "EDM Detection Mode" (film soundtrack) | Background music of the home-page film, voice-over removed | Kevin MacLeod, incompetech.com | CC BY 4.0 |
+| "EDM Detection Mode" (film soundtrack) | Music of the 36-second home-page launch film (two sections of the track, cut on the beat) | Kevin MacLeod, incompetech.com | CC BY 4.0 |
 | Inter, Noto Sans/Serif Devanagari, Instrument Serif | Typography | Fontsource packages | SIL Open Font License |
 | OPD waiting-time figures | Problem statement | Published Indian OPD time-motion studies, e.g. IJCMPH (ijcmph.com/index.php/ijcmph/article/view/16572); AIIMS Delhi OPD volumes; ABDM Scan & Share press release (PIB, 2026) | Cited, not redistributed |
 
