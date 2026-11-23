@@ -14,7 +14,8 @@ function clean(text: string): string {
   return redact(text).replace(/https?:\/\/\S+|www\.\S+/gi, '[link]').replace(/\s+/g, ' ').trim();
 }
 
-reviews.post('/reviews', rateLimit('review', 6, 3600), async (c) => {
+// Generous per-network limit: at the venue every team may share the same Wi-Fi address.
+reviews.post('/reviews', rateLimit('review', 60, 3600), async (c) => {
   const body = await parseBody(c, Review);
   const team = clean(body.team).slice(0, 60);
   if (team.length < 2) throw new HTTPException(400, { message: 'Team name is required' });

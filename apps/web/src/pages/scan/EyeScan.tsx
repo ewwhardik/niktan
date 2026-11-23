@@ -59,6 +59,8 @@ export default function EyeScan({ next, guide, position }: StepProps) {
   const [cue, setCue] = useState<string | null>(null);
   const [hold, setHold] = useState(0);
   const captureRef = useRef<() => Promise<void>>(async () => undefined);
+  /** Straight-ahead photos that could not read the eyes; after two, move on to the eyelid photo. */
+  const straightMisses = useRef(0);
 
   // Live tracking: brackets lock onto both irises (straight look) or trace the lower lid (lid photo).
   useEffect(() => {
@@ -229,11 +231,13 @@ export default function EyeScan({ next, guide, position }: StepProps) {
           setFlash(false);
         }
         const result = combineHeuristics(frames);
-        if (!result) {
+        if (!result && ++straightMisses.current < 2) {
           setHint(frames.some((f) => !f.eyesOpen) ? 'eye.openWide' : 'face.noFace');
           return;
         }
-        setHeur(result);
+        // Two misses: carry on to the eyelid photo; the jaundice and cataract answers still count.
+        setHeur(result ?? { scleraB: null, referenced: false, eyesAgree: null, pupilOpacity: null, redReflex: false, eyesOpen: false });
+        if (!result) setHint('eye.straightSkipped');
         setPhase('lid');
         return;
       }
@@ -283,6 +287,7 @@ export default function EyeScan({ next, guide, position }: StepProps) {
     setThumb(null);
     setHint('');
     setAnswers({});
+    straightMisses.current = 0;
   }
 
   const age = profile?.age ?? 30;

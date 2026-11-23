@@ -83,7 +83,7 @@ export async function runChain<I, O>(
     } catch (error) {
       const msg = quotaError && isWorkersAiQuotaError(error)
         ? quotaError
-        : ctrl.signal.aborted ? 'timeout' : 'provider request failed';
+        : ctrl.signal.aborted ? 'timeout' : failureClass(error);
       attempts.push({ provider: p.name, error: msg });
       await logCall(env, p.name, kind, false, started, msg);
     } finally {
@@ -91,6 +91,20 @@ export async function runChain<I, O>(
     }
   }
   throw new AllProvidersFailed(attempts);
+}
+
+/**
+ * A short, safe class for a failed call (an HTTP status or a known parse failure), so the status
+ * log says why a provider failed without storing response bodies, prompts or keys.
+ */
+export function failureClass(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  const status = (error as { status?: unknown })?.status;
+  const http = typeof status === 'number' ? status : Number(message.match(/(?:\bHTTP|^[a-z-]+) (\d{3})$/i)?.[1] ?? NaN);
+  if (http >= 100 && http < 600) return `http ${http}`;
+  if (message === 'invalid output' || message === 'no JSON in reply') return message;
+  if (/missing .*credentials/i.test(message)) return 'missing credentials';
+  return 'provider request failed';
 }
 
 /** Pulls the first JSON object out of a model reply that may be wrapped in prose or code fences. */

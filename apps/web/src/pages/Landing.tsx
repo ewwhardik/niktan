@@ -445,7 +445,7 @@ export function Landing() {
           </motion.div>
           <a href="#film" className="mt-5 inline-flex min-h-11 items-center gap-2.5 rounded-full bg-sunken py-1.5 pr-4 pl-1.5 text-label font-medium transition-colors hover:bg-border">
             <span className="grid size-8 place-items-center rounded-full bg-text text-bg"><Play size={13} fill="currentColor" aria-hidden /></span>
-            {t('film.watch')} <span className="tnum text-text-3">0:36</span>
+            {t('film.watch')} <span className="tnum text-text-3">0:46</span>
           </a>
           <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-body text-text-3">
             {trust.map((x) => (

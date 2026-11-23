@@ -12,12 +12,14 @@ Consent describes which inputs stay on the device and which may be sent for proc
 |---|---|---|
 | [<img src="images/live/consent.webp" width="220" alt="Consent screen showing on-device and uploaded data" />](images/live/consent.webp) | [<img src="images/live/profile.webp" width="220" alt="Age and sex fields at the start of screening" />](images/live/profile.webp) | [<img src="images/live/health-card-empty.webp" width="220" alt="Empty Health Card with a screening action" />](images/live/health-card-empty.webp) |
 
-## Five screening steps
+The profile offers **Quick check** (pulse, eyes and symptoms, about 3 minutes) and **Full check** (adds vision and hearing, about 8 minutes). The Health Card can reopen skipped checks and update the priority of a queued visit. Both durations are estimates.
+
+## Screening steps
 
 | Screen | What the user can do |
 |---|---|
 | [<img src="images/live/face-vitals.webp" width="180" alt="Face pulse screening" />](images/live/face-vitals.webp) | **Face pulse.** Position the phone and estimate pulse with its camera. The screen provides framing and lighting guidance. |
-| [<img src="images/live/eye-check.webp" width="180" alt="Eye screening and capture controls" />](images/live/eye-check.webp) | **Eye check.** Follow the capture guidance to screen for conjunctival pallor and review any flags on the Health Card. |
+| [<img src="images/live/eye-check.webp" width="180" alt="Eye screening and capture controls" />](images/live/eye-check.webp) | **Eye check.** Follow the capture guidance to check for pallor, scleral yellowness and visible lens opacity. Symptom questions inform the jaundice and cataract flags. |
 | [<img src="images/live/vision-test.webp" width="180" alt="Vision test distance and calibration controls" />](images/live/vision-test.webp) | **Vision.** Select 40 cm or 2 m, calibrate the display and answer the directional E test. Additional checks cover contrast, red–green colour and uneven dial lines. [See an active vision trial](images/live/vision-trial.webp). |
 | [<img src="images/live/hearing-test.webp" width="180" alt="Hearing test setup and headphone guidance" />](images/live/hearing-test.webp) | **Hearing.** Set a comfortable volume, then follow the Hindi digits-in-noise test and the optional per-ear tone screen. |
 | [<img src="images/live/symptoms.webp" width="180" alt="Symptom entry with voice and manual options" />](images/live/symptoms.webp) | **Symptoms.** Speak, type or choose symptoms. Review the result and confirm any red flags before triage. |
@@ -32,7 +34,7 @@ The Health Card shows the suggested next step, department and screening observat
 
 The Health Card uses adapted BodyParts3D heart and body models © DBCLS, CC BY 4.0. [Anatomy model attribution and modifications](../apps/web/public/models/ATTRIBUTION.txt)
 
-## Thali, prescriptions and help
+## Thali, Health Papers and help
 
 | Start | Review |
 |---|---|
@@ -40,6 +42,10 @@ The Health Card uses adapted BodyParts3D heart and body models © DBCLS, CC BY 4
 | [<img src="images/live/prescription.webp" width="220" alt="Prescription photo capture and upload instructions" />](images/live/prescription.webp) | [<img src="images/live/prescription-results.webp" width="220" alt="Example extracted prescription entries with review cues" />](images/live/prescription-results.webp) |
 
 **NikTan Thali** accepts a meal photo or manually selected dishes. Review portions and see estimated nutrients from the dish catalogue. The **Prescription reader** extracts entries and highlights uncertain text for review against the original. The reader result here uses fictional medicine names. [Open Thali](https://niktan.vercel.app/thali) · [Open Prescription reader](https://niktan.vercel.app/rx)
+
+**Health Papers** also includes Medicine Saver, which matches a medicine’s ingredients, strength and form against the Jan Aushadhi price list, and a lab reader that compares transcribed values with the report’s ranges or a labelled fallback. Each tool includes a demo sample. [Medicine Saver](https://niktan.vercel.app/rx?tool=saver) · [Lab reader](https://niktan.vercel.app/rx?tool=lab)
+
+The home page features the 36-second launch film, post-check survey aggregates and public team reviews. **Rate NikTan** in the footer opens the Hackasol team form. [Review NikTan](https://niktan.vercel.app/review)
 
 **NikTan Sahayak** answers questions about the app and links to relevant screens. Use **Feedback** to rate a visit workflow and **Service status** to check API availability. [Open Feedback](https://niktan.vercel.app/feedback) · [Open Service status](https://niktan.vercel.app/status)
 
@@ -58,6 +64,8 @@ Staff sign in with a hospital PIN. The triage board groups visits by department 
 | Pre-consult card | Admin dashboard |
 |---|---|
 | [![Pre-consult card opened for a synthetic visit](images/live/pre-consult-card.webp)](images/live/pre-consult-card.webp) | [![Dashboard showing aggregate activity for synthetic visits](images/live/staff-dashboard.webp)](images/live/staff-dashboard.webp) |
+
+A patient joining a demo hospital can select **Show my visit on the demo board**. Any demo staff PIN can also seed simulated visits. The board compares call times with arrival order at the same capacity, and the admin dashboard breaks that comparison down by priority.
 
 ## Capture notes
 

@@ -446,7 +446,7 @@ export default function HealthCard() {
                 {addable.map((st) => {
                   const Icon = { face: HeartPulse, eye: Eye, vision: Glasses, hearing: Ear, symptoms: Mic }[st.route];
                   return (
-                    <button key={st.route} onClick={() => navigate(`/scan/${st.route}`)} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-body font-medium hover:bg-[#f2f2f5]">
+                    <button key={st.route} onClick={() => navigate(`/scan/${st.route}?then=card`)} className="inline-flex min-h-12 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-body font-medium hover:bg-[#f2f2f5]">
                       <Plus size={16} aria-hidden /> <Icon size={16} aria-hidden /> {t(`steps.${st.route}`)}
                       <span className="tnum text-caption text-[#6e6e73]">{t('plan.minutes', { n: Math.max(1, Math.round(STEP_MINUTES[st.route])) })}</span>
                     </button>

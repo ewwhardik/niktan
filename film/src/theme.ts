@@ -6,9 +6,10 @@ export const HEIGHT = 1080;
 
 /**
  * Timeline in frames, locked to the music (128.5 BPM: a beat is 14 frames, a bar 56).
- * The first drop lands on DROP1 (track 15.92 s); at SEAM the track jumps to its second drop (45.92 s).
+ * The first drop lands on DROP1 (track 15.92 s); at SEAM the track jumps to its second drop
+ * (45.92 s) and at SEAM2 to its third (75.92 s), which runs to the end of the track (46.2 s in all).
  */
-export const T = { beat: 14, half: 28, bar: 56, drop1: 238, seam: 657, end: 1076 } as const;
+export const T = { beat: 14, half: 28, bar: 56, drop1: 238, seam: 657, seam2: 1076, end: 1386 } as const;
 
 /** Light, airy launch-film palette built on NikTan's ink and triage colours. */
 export const C = {

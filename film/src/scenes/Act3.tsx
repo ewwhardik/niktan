@@ -17,7 +17,7 @@ function Statement({ bg, children, sub, light = false }: { bg: ReactNode; childr
   );
 }
 
-/** Six half-bar statements on the second drop, alternating light and saturated grounds. */
+/** Quick half-bar statements closing the second drop; the last one runs to the seam. */
 export function Statements() {
   const cards: ReactNode[] = [
     <Statement key="a" bg={<Mesh strength={0.28} />} sub="On any phone browser. No app."><Grad>3 minutes.</Grad></Statement>,
@@ -25,12 +25,12 @@ export function Statements() {
     <Statement key="c" bg={<><Mesh strength={0.2} /><WordWall word="private" /></>} sub="Only numbers reach the server.">Face video stays <Em>on the phone.</Em></Statement>,
     <Statement key="d" light bg={<DeepSurface />} sub="Speak in your own words."><span style={{ fontFamily: F.deva }}>हिंदी · छत्तीसगढ़ी · English</span></Statement>,
     <Statement key="e" bg={<Mesh strength={0.22} blobs={[C.heart, C.violet, C.heart]} />} sub="Red flags skip the queue.">Emergency? <span style={{ color: C.heart }}>Call 108.</span></Statement>,
-    <Statement key="f" bg={<Mesh strength={0.26} blobs={[C.amber, C.blue, C.violet]} />} sub="Rule-based triage, not a black box.">Every verdict <Em>says why.</Em></Statement>,
   ];
+  const last = 27;
   return (
     <AbsoluteFill>
       {cards.map((c, i) => (
-        <Sequence key={i} from={i * T.half} durationInFrames={T.half}>{c}</Sequence>
+        <Sequence key={i} from={i * T.half} durationInFrames={i === cards.length - 1 ? last : T.half}>{c}</Sequence>
       ))}
     </AbsoluteFill>
   );
@@ -103,11 +103,12 @@ export function Carousel() {
   );
 }
 
-export function EndCard() {
+export function EndCard({ dur = 142 }: { dur?: number }) {
   const f = useCurrentFrame();
-  const out = interpolate(f, [119, 139], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const out = interpolate(f, [dur - 22, dur], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
-    <AbsoluteFill style={{ opacity: out }}>
+    <AbsoluteFill style={{ background: '#000' }}>
+     <AbsoluteFill style={{ opacity: out }}>
       <Rays />
       <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', fontFamily: F.sans, color: '#fff' }}>
         <Rise at={2} style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -123,6 +124,7 @@ export function EndCard() {
       <div style={{ position: 'absolute', bottom: 48, width: '100%', textAlign: 'center', fontFamily: F.sans, fontSize: 20, color: 'rgba(255,255,255,0.55)', opacity: prog(f, 36, 10) }}>
         Hackasol 5.0 · Open Innovation · Screening, not diagnosis · Music: “EDM Detection Mode” by Kevin MacLeod (incompetech.com), CC BY 4.0
       </div>
+     </AbsoluteFill>
     </AbsoluteFill>
   );
 }

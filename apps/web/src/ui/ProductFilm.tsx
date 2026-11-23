@@ -31,7 +31,7 @@ export function ProductFilm({ inHero = false }: { inHero?: boolean }) {
           <button onClick={play} aria-label={t('film.play')} className="group absolute inset-0 cursor-pointer rounded-[inherit] text-left focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white">
             <span className="absolute bottom-[12%] left-[5.2%] inline-flex items-center gap-2.5 rounded-full bg-[#fff8e9] px-3 py-2 text-xs font-semibold text-[#142e2e] shadow-lg transition-transform group-hover:scale-105 motion-reduce:transition-none sm:px-5 sm:py-3 sm:text-base">
               <Play size={15} fill="currentColor" aria-hidden /> {t('film.watch')}
-              <span className="border-l border-[#28433d]/25 pl-2.5 tabular-nums">0:36</span>
+              <span className="border-l border-[#28433d]/25 pl-2.5 tabular-nums">0:46</span>
             </span>
           </button>
         )}

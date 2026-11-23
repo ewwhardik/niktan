@@ -1,6 +1,6 @@
 {
   "film": {
-    "title": "NikTan in 36 seconds",
+    "title": "NikTan in 46 seconds",
     "play": "Play the NikTan product film",
     "watch": "Watch the film",
     "music": "Music: \"EDM Detection Mode\" by"
@@ -164,7 +164,8 @@
       "darkUrine": "Is your urine dark yellow or brown these days?",
       "cloudyVision": "Is your vision cloudy or foggy, as if through a dirty glass?",
       "nightGlare": "Do lights at night dazzle you or show halos?"
-    }
+    },
+    "straightSkipped": "Couldn't read the whites of your eyes, so that part is skipped. Now gently pull your lower eyelid down and look up, keeping the red inner part in the box."
   },
   "vision": {
     "title": "Vision test",

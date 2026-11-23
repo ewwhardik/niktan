@@ -162,3 +162,15 @@ describe('each route degrades gracefully when every provider is down', () => {
     expect(await res.json()).toMatchObject({ reply: null });
   });
 });
+
+describe('failure classes in the status log', () => {
+  it('keep the HTTP status and known parse failures, nothing else', async () => {
+    const { failureClass } = await import('../src/ai/adapter');
+    expect(failureClass(new Error('Workers AI backup returned HTTP 401'))).toBe('http 401');
+    expect(failureClass(new Error('gemini 503'))).toBe('http 503');
+    expect(failureClass(new Error('groq-whisper 429'))).toBe('http 429');
+    expect(failureClass(new Error('invalid output'))).toBe('invalid output');
+    expect(failureClass(new Error('missing Workers AI backup credentials'))).toBe('missing credentials');
+    expect(failureClass(new Error('secret key sk-123 leaked in body'))).toBe('provider request failed');
+  });
+});

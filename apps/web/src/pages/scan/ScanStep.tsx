@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, SkipForward } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { SCREENING_STEPS, STEP_MINUTES, stepsFor, useScan, type ScreeningStep } from '../../state/scan';
 import { StepRail } from '../../ui/Chamber';
 import { LangToggle } from '../../ui/Layout';
@@ -34,7 +34,9 @@ export default function ScanStep() {
   const { profile, results, plan } = useScan();
   // A step outside the plan (added later from the Health Card) runs on its own and returns to the card.
   const planned = stepsFor(plan).map(({ route }) => route);
-  const extra = step !== undefined && ALL.includes(step) && !planned.includes(step);
+  const [search] = useSearchParams();
+  // Opened from the Health Card ("Add a check" or a retake): run just this step, then go back to the card.
+  const extra = step !== undefined && ALL.includes(step) && (!planned.includes(step) || search.get('then') === 'card');
   const STEPS = extra ? [step] : planned;
   const index = step === undefined ? -1 : STEPS.indexOf(step);
   const prev = useRef(index);
