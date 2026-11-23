@@ -86,6 +86,8 @@ export interface Match {
   /** 1 = same ingredients, strength and form. */
   score: number;
   exact: boolean;
+  /** What is not the same as the medicine asked about; empty for an exact match. */
+  differs?: ('ingredients' | 'strength' | 'form')[];
 }
 
 /**
@@ -103,17 +105,26 @@ export function findGenerics(query: { generic: string; strength?: string | null;
   for (const [code, name, unit, mrp, group] of list) {
     const have = ingredientsOf(name);
     if (!want.every((w) => have.some((h) => h === w || h.startsWith(w) || w.startsWith(h)))) continue;
+    const extra = have.length > want.length;
     let score = 0.55 - 0.12 * Math.max(0, have.length - want.length);
     const hs = strengthsOf(name);
-    const strengthOk = wantStrength.length > 0 && wantStrength.every((s) => hs.some((h) => Math.abs(h - s) < 1e-6));
+    // Same number of strengths and each one present: "10 mg" must not match a 3-salt tablet's 10 mg phenylephrine.
+    const strengthOk = wantStrength.length > 0 && hs.length === wantStrength.length && wantStrength.every((s) => hs.some((h) => Math.abs(h - s) < 1e-6));
     if (wantStrength.length && strengthOk) score += 0.3;
     else if (wantStrength.length && hs.length) score -= 0.15;
     const form = formOf(name);
     if (wantForm && form === wantForm) score += 0.15;
     else if (wantForm && form && form !== wantForm) score -= 0.2;
+    const differs: Match['differs'] = [];
+    if (extra) differs.push('ingredients');
+    if (wantStrength.length && !strengthOk) differs.push('strength');
+    if (wantForm && form !== wantForm) differs.push('form');
     const units = unitsOf(unit);
-    scored.push({ code, name, unit, mrp, group, perUnit: mrp > 0 && units > 1 ? Math.round((mrp / units) * 100) / 100 : null, score: Math.round(score * 100) / 100, exact: score >= 0.99 });
+    scored.push({ code, name, unit, mrp, group, perUnit: mrp > 0 && units > 1 ? Math.round((mrp / units) * 100) / 100 : null, score: Math.round(score * 100) / 100, exact: score >= 0.99, differs });
   }
+  // Combinations with extra salts are not substitutes; show them only when nothing with the same salts exists.
+  const same = scored.filter((m) => !m.differs?.includes('ingredients'));
+  if (same.some((m) => m.score >= min)) scored.splice(0, scored.length, ...same);
   return scored.filter((m) => m.score >= min && m.mrp > 0).sort((a, b) => b.score - a.score || a.mrp - b.mrp).slice(0, limit);
 }
 

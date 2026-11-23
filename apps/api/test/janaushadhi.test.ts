@@ -66,3 +66,18 @@ describe('built-in brand knowledge', async () => {
     expect(ingredientsOf('Metformin Hydrochloride Tablets IP 500 mg')).toEqual(['metformin']);
   });
 });
+
+describe('official Jan Aushadhi list', async () => {
+  const { PRODUCTS } = await import('../src/lib/janaushadhi');
+  const { saltsFor } = await import('../src/lib/brands');
+  it.runIf(PRODUCTS.length > 0)('finds exact generics for common brands', () => {
+    const best = (brand: string, strength: string) => findGenerics({ generic: saltsFor(brand)!, strength, form: 'tablet' })[0];
+    expect(best('Dolo 650', 'Dolo 650')).toMatchObject({ exact: true });
+    expect(best('Dolo 650', 'Dolo 650')!.name).toMatch(/Paracetamol Tablets IP 650/);
+    expect(best('Telma 40', 'Telma 40')!.name).toMatch(/Telmisartan Tablets IP 40/);
+    expect(best('Augmentin 625', '500 mg + 125 mg')!.name).toMatch(/Amoxycillin 500mg and Potassium Clavulanate 125mg/);
+  });
+  it.runIf(PRODUCTS.length > 0)('does not offer a combination as a swap for a single salt', () => {
+    expect(findGenerics({ generic: 'Cetirizine', strength: '10 mg', form: 'tablet' })).toEqual([]);
+  });
+});

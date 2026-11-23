@@ -12,6 +12,7 @@ export interface Generic {
   score: number;
   exact: boolean;
   savingPercent?: number | null;
+  differs?: ('ingredients' | 'strength' | 'form')[];
 }
 
 export interface Dataset {
@@ -40,7 +41,7 @@ export function GenericList({ generics, dataset, compact = false }: { generics: 
                 <p className="mt-0.5 text-caption text-text-3">
                   {t('saver.pack')}: {g.unit || '—'}{g.code ? ` · ${t('saver.code')} ${g.code}` : ''}
                 </p>
-                {!g.exact && <p className="mt-1 text-caption text-seetoday-text">{t('saver.notExact')}</p>}
+                {!g.exact && !!g.differs?.length && <p className="mt-1 text-caption text-seetoday-text">{g.differs.map((d) => t(`saver.differs.${d}`)).join(' · ')}</p>}
               </div>
               <div className="shrink-0 text-right">
                 <p className="tnum text-title-3 font-semibold">{rupees(g.mrp)}</p>

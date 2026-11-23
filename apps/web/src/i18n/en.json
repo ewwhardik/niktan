@@ -937,7 +937,12 @@
     "failed": "Couldn't check prices right now. Try again.",
     "tooMany": "Too many photos from this network. Try again in an hour.",
     "another": "Check another medicine",
-    "disclaimer": "Generic medicines with the same salt and strength work the same way, but never switch without asking your doctor or pharmacist. Prices are the government MRP and may change."
+    "disclaimer": "Generic medicines with the same salt and strength work the same way, but never switch without asking your doctor or pharmacist. Prices are the government MRP and may change.",
+    "differs": {
+      "ingredients": "Has other salts too: not a direct swap",
+      "strength": "Different strength: ask your doctor first",
+      "form": "Different form (e.g. syrup, injection)"
+    }
   },
   "lab": {
     "heading": "Understand your lab report",
