@@ -61,5 +61,5 @@ Open the [production app](https://niktan.vercel.app/) on the phone and the [staf
 
 ### [2:45 – 3:00] The Engineering & Scale Summary
 - *"Everything you saw runs on free-tier serverless infrastructure (Cloudflare Workers + D1) with edge processing on the phone. Personal biometric images NEVER leave the device."*
-- *"Cost per screening at scale? Under 4 paise. It works today, and it will keep working next month because nothing sleeps."*
+- *"Cost per screening at scale? About 2 paise of server cost. It works today, and it will keep working next month because nothing sleeps."*
 - *"NikTan: Empowering citizens, unburdening doctors, and saving lives in the OPD queue. Thank you!"*

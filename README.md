@@ -115,18 +115,18 @@ flowchart TD
         Worker --> D1
     end
 
-    subgraph MultiAI ["Resilient Multi-Provider AI Failover"]
-        Adapter["AI Adapter (Timeout: 8s + Auto-Fallback)"]
-        Gemini["Google Gemini 2.5 Flash / Flash-Lite"]
-        Groq["Groq Whisper-Large-v3-Turbo + gpt-oss"]
-        WAI["Cloudflare Workers AI (Whisper-Turbo)"]
-        BrowserFallback["Client-Side Fallback (Web Speech API)"]
-        
+    subgraph MultiAI ["AI adapter: ordered fallback chain per task (output schema-checked, 8 s default timeout)"]
+        Adapter["runChain: try next provider on error, timeout or invalid output"]
+        ASR["Speech: Workers AI Whisper large-v3-turbo → backup account → Groq Whisper → browser Web Speech"]
+        LLM["Text: Gemini Flash-Lite → Groq gpt-oss-120b → Workers AI Llama 3.3 70B → backup gpt-oss-120b → offline keyword parser"]
+        VIS["Photos: Workers AI Llama 4 Scout → backup account → Gemini Flash-Lite → Groq Qwen vision → manual entry"]
+        CHAT["Assistant: Groq gpt-oss-120b → Gemini → Workers AI → backup"]
+
         Worker --> Adapter
-        Adapter -->|Primary| Gemini
-        Adapter -->|Fallback 1| Groq
-        Adapter -->|Fallback 2| WAI
-        Adapter -->|Offline| BrowserFallback
+        Adapter --> ASR
+        Adapter --> LLM
+        Adapter --> VIS
+        Adapter --> CHAT
     end
 
     subgraph HospitalSystem ["Hospital Portal (/hospital)"]
@@ -174,8 +174,8 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 
 ### M5: Multimodal Voice Symptom Structuring
 - **Push-to-Talk Speech Capture:** Patients speak naturally in Hindi, Chhattisgarhi, or Hinglish ("3 दिन से बुखार है और खाँसी आ रही है").
-- **Multi-Tiered ASR Failover:** Groq Whisper Large-v3-Turbo $\rightarrow$ Cloudflare Workers AI Whisper $\rightarrow$ In-browser Web Speech API (`hi-IN`).
-- **Constrained Medical Structuring:** Structured by LLM (Gemini Flash / Groq) into a strict Zod-validated schema with a closed 40-item bilingual clinical vocabulary (`packages/core/src/data/symptoms.json`).
+- **Multi-Tiered ASR Failover:** Cloudflare Workers AI Whisper Large-v3-Turbo $\rightarrow$ the same model on a backup Cloudflare account $\rightarrow$ Groq Whisper Large-v3-Turbo $\rightarrow$ in-browser Web Speech API (`hi-IN`).
+- **Constrained Medical Structuring:** Structured by an LLM (Gemini Flash-Lite first, then Groq `gpt-oss-120b`, then Workers AI Llama 3.3 70B) into a strict Zod-validated schema with a closed 40-item bilingual clinical vocabulary (`packages/core/src/data/symptoms.json`).
 - **Emergency Safety Double-Confirmation:** Confirms life-threatening red flags (chest pain, acute dyspnea, pregnancy bleeding, seizures) before routing.
 
 ### M6: Deterministic Priority Triage Engine
@@ -197,14 +197,14 @@ One page, three tools, each opened on its own (`/rx`, `/rx?tool=saver`, `/rx?too
 - **Safety:** Never suggests changing a dose or switching a medicine without the doctor or pharmacist; photos are sent only for reading and not stored.
 
 ### M8: NikTan Sahayak, the Help Assistant
-- A chat assistant on every page except the camera steps, powered by **Groq** (`gpt-oss-120b`) with Workers AI as backup. It answers from a curated knowledge base of NikTan's features, results, Thali, Health Papers, hospitals and privacy, replies in English, Hindi or Chhattisgarhi, links to the right page, never diagnoses, and leads with **108** for emergencies. Phone and Aadhaar-like numbers are masked before text leaves the server.
+- A chat assistant on every page except the camera steps, powered by **Groq** (`gpt-oss-120b`), with Gemini and then Workers AI as backups. It answers from a curated knowledge base of NikTan's features, results, Thali, Health Papers, hospitals and privacy, replies in English, Hindi or Chhattisgarhi, links to the right page, never diagnoses, and leads with **108** for emergencies. Phone and Aadhaar-like numbers are masked before text leaves the server.
 
 ---
 
 ## NikTan Thali: Nutrition Engine
 
 NikTan closes the clinical loop by linking screening observations (e.g., conjunctival pallor) with nutritional dietary interventions:
-1. **Computer Vision Dish Recognition:** Meal photos are analyzed via Gemini Flash Vision against a catalogue of **131 dishes from every region of India** (Chhattisgarh home food, South, North, West, East and North-East, street food, fruits and drinks), each with local names for search and recognition. Look-alike rules (dal colours, puri vs bhatura, dosa vs uttapam) and portion cues are in the prompt, and labels the model returns are mapped back to dishes through their local names. Nutrient values come from the Indian Nutrient Databank, with newer dishes estimated from IFCT 2017 ingredients and marked `est` (the INDB data files carry no explicit licence; ask the authors before redistribution).
+1. **Computer Vision Dish Recognition:** Meal photos are read by a vision model (Workers AI Llama 4 Scout first, then Gemini Flash-Lite and a Groq Qwen vision model as fallbacks) against a catalogue of **131 dishes from every region of India** (Chhattisgarh home food, South, North, West, East and North-East, street food, fruits and drinks), each with local names for search and recognition. Look-alike rules (dal colours, puri vs bhatura, dosa vs uttapam) and portion cues are in the prompt, and labels the model returns are mapped back to dishes through their local names. Nutrient values come from the Indian Nutrient Databank, with newer dishes estimated from IFCT 2017 ingredients and marked `est` (the INDB data files carry no explicit licence; ask the authors before redistribution).
 2. **Deterministic Nutritional Calculation:** Computes macronutrients and micronutrients (protein, iron, calcium, vitamin C, dietary fiber) derived from the **Indian Nutrient Databank (INDB)** and ICMR-NIN IFCT 2017.
 3. **ICMR-NIN RDA 2020 Targets:** Compares meals against age- and sex-adjusted reference daily intakes.
 4. **Culturally Grounded Central Indian Swaps:** Recommends hyper-local, affordable alternatives:
@@ -300,13 +300,15 @@ Because all biometric processing occurs on the citizen's phone, server operating
 |---|---|---|---|
 | **Cloudflare Workers** (API) | ~1.5M requests | ₹425 | $5.00 |
 | **Cloudflare D1** (SQLite) | ~1M writes / 15M reads | Included in $5 Workers tier | Included |
-| **Groq Whisper Large-v3-Turbo** | ~50k voice sessions | ₹690 | $8.25 |
-| **Google Gemini 2.5 Flash** | ~80k structuring calls | ₹550 | $6.60 |
-| **Gemini Flash Vision** | ~30k thali scans | ₹325 | $3.90 |
-| **Cloudflare Workers AI** | Overflow failovers | ₹200 | $2.40 |
-| **TOTAL** | **100,000 Citizens** | **~₹2,190 – ₹2,900 / mo** | **~$26 – $35 / mo** |
+| **Speech to text** (Whisper Large-v3-Turbo, priced at Groq's paid rate) | ~50k voice sessions | ₹690 | $8.25 |
+| **Symptom structuring** (Gemini Flash-Lite class, paid rate) | ~80k structuring calls | ₹550 | $6.60 |
+| **Photo reading** (thali, priced at Gemini paid rate) | ~30k thali scans | ₹325 | $3.90 |
+| **Cloudflare Workers AI** | Beyond the free daily allocation | ₹200 | $2.40 |
+| **TOTAL** | **100,000 Citizens** | **~₹2,190 / mo** | **~$26 / mo** |
 
-**Cost per screening:** **₹0.038 (under 4 paise)**. Compare this to ₹50–200 for a single lab Hb test. Full economic details: [`docs/cost.md`](docs/cost.md).
+AI lines are priced at paid rates as an upper estimate. In the code, speech and photo reading try Cloudflare Workers AI first, so its free allocation is used before any paid provider.
+
+**Cost per screening:** **about ₹0.022 (about 2 paise)**. Compare this to ₹50–200 for a single lab Hb test. Full economic details: [`docs/cost.md`](docs/cost.md).
 
 ---
 
@@ -363,4 +365,4 @@ All product design, engineering, the rPPG and anaemia models, the triage engine,
 
 - **Event:** Hackasol 5.0, IIIT Naya Raipur, Chhattisgarh.
 - **Track:** Open Innovation (OI-01: Build for Real-World Impact).
-- **Core Stack:** React 18, Vite, TypeScript, Tailwind CSS, MediaPipe Tasks Vision, WebAudio API, Hono, Cloudflare Workers, Cloudflare D1, Google Gemini API, Groq, and Workers AI.
+- **Core Stack:** React 18, Vite, TypeScript, Tailwind CSS, MediaPipe Tasks Vision, WebAudio API, Hono, Cloudflare Workers, Cloudflare D1, Cloudflare Workers AI, Google Gemini API and Groq.

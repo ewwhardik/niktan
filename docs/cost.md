@@ -27,13 +27,15 @@ Assuming a district-wide deployment across **1 District Hospital + 4 Community H
 | **Cloudflare Workers** (API) | ~1,500,000 requests (15 req/session) | $5/month base (includes 10M requests) | ₹425 | $5.00 |
 | **Cloudflare D1** (Database) | ~1,000,000 writes / 15M reads | Included in $5 Workers Paid tier | Included | Included |
 | **Cloudflare Pages** (PWA Hosting) | Static asset CDN egress | Free unlimited egress | ₹0 | $0.00 |
-| **Groq Whisper Large-v3-Turbo** (Voice ASR) | ~50,000 voice sessions (avg 15s audio = 750,000s) | $0.04 / hour of audio ($0.000011/sec) | ₹690 | $8.25 |
-| **Google Gemini 2.5 Flash** (Symptom Structuring) | ~80,000 calls (avg 500 prompt tokens + 150 output tokens) | $0.075 / 1M input, $0.30 / 1M output | ₹550 | $6.60 |
-| **Gemini Flash Vision** (Thali Recognition) | ~30,000 meal photos | $0.00013 per image call | ₹325 | $3.90 |
-| **Cloudflare Workers AI** (Failover Fallback) | Overflow neuron consumption | $0.011 / 1k neurons | ₹200 | $2.40 |
+| **Whisper Large-v3-Turbo** (Voice ASR, priced at Groq's paid rate) | ~50,000 voice sessions (avg 15s audio = 750,000s) | $0.04 / hour of audio ($0.000011/sec) | ₹690 | $8.25 |
+| **Gemini Flash-Lite class** (Symptom Structuring, paid rate) | ~80,000 calls (avg 500 prompt tokens + 150 output tokens) | $0.075 / 1M input, $0.30 / 1M output | ₹550 | $6.60 |
+| **Photo reading** (Thali Recognition, priced at Gemini's paid rate) | ~30,000 meal photos | $0.00013 per image call | ₹325 | $3.90 |
+| **Cloudflare Workers AI** (beyond the free daily allocation) | Overflow neuron consumption | $0.011 / 1k neurons | ₹200 | $2.40 |
 | **Logging & Monitoring** | Sentry / Cloudflare Analytics free tiers | Free tier | ₹0 | $0.00 |
 | **TOTAL MONTHLY OPERATING COST** | **100,000 Citizens Screened** | — | **₹2,190** | **$26.15** |
 
+> The AI lines are an upper estimate at paid rates. In the code, speech and photo reading try Cloudflare Workers AI first (Whisper large-v3-turbo, Llama 4 Scout), so its free allocation is used before Gemini or Groq; text structuring tries Gemini Flash-Lite first.
+>
 > AI prices (Groq, Google Gemini, Cloudflare Workers AI) must be re-checked on the providers' pricing pages before this plan is used, because they change over time.
 
 ---

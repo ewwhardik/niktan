@@ -43,18 +43,18 @@ flowchart TD
         Worker --> D1
     end
 
-    subgraph AIAdapters ["Multi-Provider Resilient AI Failover"]
-        Adapter["AI Adapter (tries providers in order; 8s timeout each)"]
-        Gemini["Google Gemini 2.5 Flash / Flash-Lite"]
-        Groq["Groq (Whisper-Large-v3-Turbo + gpt-oss-120b)"]
-        WAI["Cloudflare Workers AI (Whisper-Turbo + Gemma)"]
-        ClientFallback["Client-Side Fallback (Web Speech + Manual Chips)"]
+    subgraph AIAdapters ["AI adapter: ordered fallback chain per task (output schema-checked, 8 s default timeout)"]
+        Adapter["runChain: try next provider on error, timeout or invalid output"]
+        ASR["Speech: Workers AI Whisper large-v3-turbo → backup account → Groq Whisper → browser Web Speech"]
+        LLM["Text: Gemini Flash-Lite → Groq gpt-oss-120b → Workers AI Llama 3.3 70B → backup gpt-oss-120b → offline keyword parser"]
+        VIS["Photos: Workers AI Llama 4 Scout → backup account → Gemini Flash-Lite → Groq Qwen vision → manual entry"]
+        CHAT["Assistant: Groq gpt-oss-120b → Gemini → Workers AI → backup"]
 
         Worker --> Adapter
-        Adapter -->|Primary| Gemini
-        Adapter -->|Failover 1| Groq
-        Adapter -->|Failover 2| WAI
-        Adapter -->|Network Outage| ClientFallback
+        Adapter --> ASR
+        Adapter --> LLM
+        Adapter --> VIS
+        Adapter --> CHAT
     end
 
     subgraph StaffPortal ["Hospital OPD System (/hospital)"]
@@ -72,7 +72,9 @@ flowchart TD
 
 ---
 
-**Data flow note:** voice recordings and meal photos ARE sent to AI providers (Groq / Gemini / Workers AI) when online; face video and eye photos never leave the phone.
+**Data flow note:** voice recordings and meal photos ARE sent to AI providers (Workers AI / Gemini / Groq) when online; face video and eye photos never leave the phone.
+
+**How a provider is chosen** (`apps/api/src/ai/adapter.ts`, `providers.ts`): each task has an ordered list. Providers without credentials are skipped; each call has a timeout (8 s by default, 18–28 s for photos); the answer must pass the task's Zod schema. An error, timeout or invalid answer moves on to the next provider, and when all fail the app uses a non-AI path (keyword parser, symptom chips, manual entry). Speech and photos start with Cloudflare Workers AI so its free allocation is used first. Prescriptions are read by two model families in parallel and merged line by line; lab flags are computed in code, not by the model. Readings are cached for an hour by a hash of the input. The backup Workers AI account only helps when `CLOUDFLARE_AI_BACKUP_ACCOUNT_ID` and `CLOUDFLARE_AI_BACKUP_TOKEN` are valid; check them on `/status`.
 
 ---
 
@@ -95,7 +97,7 @@ sequenceDiagram
     PWA->>PWA: Vision (Tumbling-E) & Hearing (Hindi DIN test)
     Citizen->>PWA: Push-to-Talk Speech ("सीने में दर्द और बुखार")
     PWA->>API: POST /api/asr (Audio Blob)
-    API->>AI: Groq Whisper-Turbo -> Gemini Structuring
+    API->>AI: Whisper large-v3-turbo (Workers AI, then Groq) -> LLM structuring (Gemini, then Groq, then Workers AI)
     AI-->>API: Symptom JSON {chest_pain: true, fever: true}
     API-->>PWA: Present Understood Symptoms + Red-Flag Confirmation
     Citizen->>PWA: Confirm Symptoms
