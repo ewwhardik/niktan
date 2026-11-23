@@ -102,6 +102,18 @@ describe('every provider in every chain takes over when the ones before it fail'
   });
 });
 
+describe('prescription inputs', () => {
+  it.each(['text', 'photo'])('returns written advice without a medicine for %s', async kind => {
+    currentText = JSON.stringify({ medicines: [], advice: ['Review Monday'], unreadable: ['Last line'] });
+    const body = new FormData();
+    if (kind === 'text') body.set('text', 'Review Monday');
+    else body.set('photo', new File([new Uint8Array(128 * 1024)], 'page.jpg', { type: 'image/jpeg' }));
+    const res = await app.request('/api/rx/read', { method: 'POST', body }, env());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ medicines: [], advice: ['Review Monday'], unreadable: ['Last line'], notPrescription: false });
+  });
+});
+
 describe('each route degrades gracefully when every provider is down', () => {
   const all: Name[] = ['gemini', 'groq', 'groq-whisper', 'workers-ai', 'workers-ai-backup'];
   const post = (path: string, body: BodyInit, json = false) =>

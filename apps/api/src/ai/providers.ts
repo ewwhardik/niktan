@@ -2,6 +2,7 @@ import type { Env } from '../env';
 import { extractJson, type Provider } from './adapter';
 
 export interface LlmInput {
+  maxTokens?: number;
   system: string;
   user: string;
 }
@@ -152,9 +153,9 @@ function workersAiText(out: unknown): string {
 
 const workersAiJson = { temperature: 0, max_tokens: 768, response_format: { type: 'json_object' as const } };
 
-function workersAiPrompt<Content extends string | ReturnType<typeof visionContent>>(system: string, content: Content) {
+function workersAiPrompt<Content extends string | ReturnType<typeof visionContent>>(system: string, content: Content, maxTokens = workersAiJson.max_tokens) {
   return {
-    ...workersAiJson,
+    ...workersAiJson, max_tokens: maxTokens,
     messages: [{ role: 'system', content: system }, { role: 'user', content }],
   };
 }
@@ -182,7 +183,7 @@ export const llmProviders: Provider<LlmInput, unknown>[] = [
     cloudflareAccount: 'primary',
     available: (env) => !!env.AI,
     run: async (env, input) => {
-      const out = await env.AI!.run(WORKERS_TEXT_MODEL, workersAiPrompt(input.system, input.user));
+      const out = await env.AI!.run(WORKERS_TEXT_MODEL, workersAiPrompt(input.system, input.user, input.maxTokens));
       return extractJson(workersAiText(out));
     },
   },
@@ -191,9 +192,9 @@ export const llmProviders: Provider<LlmInput, unknown>[] = [
     cloudflareAccount: 'backup',
     available: hasBackupWorkersAi,
     run: async (env, input, signal) => {
-      const { messages, response_format } = workersAiPrompt(input.system, input.user);
+      const { messages, response_format } = workersAiPrompt(input.system, input.user, input.maxTokens);
       const out = await backupWorkersAi(env, '@cf/openai/gpt-oss-120b', {
-        messages, response_format, max_completion_tokens: 768, reasoning_effort: 'low',
+        messages, response_format, max_completion_tokens: input.maxTokens ?? 768, reasoning_effort: 'low',
       }, signal);
       return extractJson(workersAiText(out));
     },
@@ -207,7 +208,7 @@ export const visionProviders: Provider<VisionInput, unknown>[] = [
     timeoutMs: 18000,
     available: (env) => !!env.AI,
     run: async (env, input) => {
-      const out = await env.AI!.run(WORKERS_VISION_MODEL, workersAiPrompt(input.system, visionContent(input)));
+      const out = await env.AI!.run(WORKERS_VISION_MODEL, workersAiPrompt(input.system, visionContent(input), input.maxTokens));
       return extractJson(workersAiText(out));
     },
   },
@@ -218,7 +219,7 @@ export const visionProviders: Provider<VisionInput, unknown>[] = [
     timeoutMs: 28000,
     available: hasBackupWorkersAi,
     run: async (env, input, signal) => {
-      const out = await backupWorkersAi(env, WORKERS_VISION_MODEL, workersAiPrompt(input.system, visionContent(input)), signal);
+      const out = await backupWorkersAi(env, WORKERS_VISION_MODEL, workersAiPrompt(input.system, visionContent(input), input.maxTokens), signal);
       return extractJson(workersAiText(out));
     },
   },

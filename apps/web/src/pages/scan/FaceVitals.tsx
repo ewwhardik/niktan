@@ -40,7 +40,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
   const reduceMotion = useReducedMotion();
   const [progress, setProgress] = useState(0);
   const [liveHr, setLiveHr] = useState<number | null>(null);
-  const [result, setResult] = useState<{ hr: number | null; rr: number | null; quality: number; spread: number | null } | null>(null);
+  const [result, setResult] = useState<{ hr: number | null; rr: number | null; quality: number; spread: number | null; low: boolean } | null>(null);
+  const [lowLive, setLowLive] = useState(false);
   const feed = useRef<PulseFeed>(emptyFeed());
   const rate = useRef(new RateFilter());
   const heart = useRef<SVGSVGElement>(null);
@@ -106,7 +107,11 @@ export default function FaceVitals({ next, guide }: StepProps) {
     cam.stop();
     // v2 (multi-region fusion) is primary; v1 on the averaged trace is the fallback.
     const v2 = estimateMulti(multi.current, { rejectedTimes: rejectedTimes.current });
-    const reading = v2.heartRate !== null ? v2 : estimate(samples.current, { rejectedTimes: rejectedTimes.current });
+    const v1 = v2.heartRate !== null ? null : estimate(samples.current, { rejectedTimes: rejectedTimes.current });
+    // Strong signal: v2, else v1. Otherwise show v2's best estimate as low confidence; its quality
+    // stays below 0.5, so triage ignores it and the desk is asked to take the pulse.
+    const low = v2.heartRate === null && (v1?.heartRate ?? null) === null && v2.estimate !== null && v2.quality >= 0.2;
+    const reading = v2.heartRate !== null ? v2 : v1!.heartRate !== null ? v1! : { ...v2, heartRate: low ? v2.estimate : null };
     const track = reading === v2 ? v2.track : [];
     if (DEBUG) {
       const d = diag.current;
@@ -128,6 +133,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     }
     setResult({
       spread: track.length >= 3 ? Math.round(Math.max(...track) - Math.min(...track)) : null,
+      low,
       hr: reading.heartRate === null ? null : Math.round(reading.heartRate),
       rr: reading.breathingRate === null ? null : Math.round(reading.breathingRate),
       quality: Math.round(reading.quality * 100) / 100,
@@ -283,6 +289,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
         if (DEBUG) diag.current.live.push({ t: Math.round(performance.now() - diag.current.started), hr: data.heartRate, q: Math.round(data.quality * 100) / 100, beats: data.beats.length });
         feed.current = { ...feed.current, wave: data.wave, waveEnd: data.waveEnd, beats: data.beats, bpm: smoothed };
         setLiveHr(smoothed === null ? null : Math.round(smoothed));
+        setLowLive(!!data.lowConfidence);
       };
       worker.onerror = () => { worker?.terminate(); worker = null; };
     } catch {
@@ -543,7 +550,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
                     <LiveRate value={liveHr} />
                     <span className="serif text-title-3 text-white/60 italic">bpm</span>
                   </div>
-                  <p className="mono text-[10px] tracking-[0.16em] text-white/45 uppercase">{liveHr ? 'beat-locked' : 'acquiring'}</p>
+                  <p className={`mono text-[10px] tracking-[0.16em] uppercase ${lowLive ? 'text-[#F7B23B]' : 'text-white/45'}`}>{liveHr ? (lowLive ? t('face.lowLive') : 'beat-locked') : 'acquiring'}</p>
                 </div>
               </div>
               <span className="mono hidden text-[10px] tracking-[0.16em] text-white/40 uppercase sm:block">ppg · 30 hz</span>
@@ -615,7 +622,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
                     {t('face.breathing')}: <span className="tnum font-semibold text-text">{result.rr}</span>/min
                   </p>
                 )}
-                {result.quality < 0.5 && <p className="text-body text-seetoday-text">{t('face.lowQuality')}</p>}
+                {result.quality < 0.5 && <p className="rounded-2xl bg-seetoday-tint px-4 py-3 text-body text-seetoday-ink">{t(result.low ? 'face.lowConfidence' : 'face.lowQuality')}</p>}
               </>
             ) : (
               <p className="text-body-lg text-text-2">{t('face.lowQuality')}</p>

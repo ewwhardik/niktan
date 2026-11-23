@@ -5,16 +5,16 @@ const med = (name: string, extra: Record<string, unknown> = {}) => ({ name, conf
 
 describe('prescription reading merge', () => {
   it('normalises names and scores spelling closeness', () => {
-    expect(nameKey('Tab. Dolo 650')).toBe('dolo');
+    expect(nameKey('Tab. Dolo 650')).toBe('dolo650');
     expect(similarity('azithral', 'azithral')).toBe(1);
     expect(similarity('azithral', 'azitral')).toBeGreaterThan(0.8);
     expect(similarity('dolo', 'pand')).toBeLessThan(0.5);
   });
 
   it('confirms medicines both readers found', () => {
-    const r = mergeReadings({ medicines: [med('Tab Dolo 650', { generic: 'paracetamol' })], advice: ['CBC'] }, { medicines: [med('Dolo 650')], advice: ['CBC test'] });
+    const r = mergeReadings({ medicines: [med('Tab Dolo 650', { generic: 'paracetamol' })], advice: ['CBC'] }, { medicines: [med('Dolo 650', { generic: 'paracetamol' })], advice: ['CBC test'] });
     expect(r.medicines[0]).toMatchObject({ agreed: true, unclear: false });
-    expect(r.advice).toEqual(['CBC']);
+    expect(r.advice).toEqual(['CBC', 'CBC test']);
   });
 
   it('offers the other reading when the two readers spell a name differently', () => {
@@ -39,6 +39,21 @@ describe('prescription reading merge', () => {
     expect(r.medicines).toHaveLength(1);
     expect(r.medicines[0]).toMatchObject({ agreed: false, unclear: true, duration: '7 days' });
     expect(r.medicines[0]!.alternatives).toContain('Pantop-D');
+  });
+
+  it('accepts a written generic name repeated in the optional ingredient field', () => {
+    const r = mergeReadings({ medicines: [med('Paracetamol')] }, { medicines: [med('Paracetamol', { generic: 'paracetamol' })] });
+    expect(r.medicines[0]).toMatchObject({ generic: 'Paracetamol', unclear: false, conflicts: [] });
+  });
+
+  it('withholds a conflicting strength even if the medicine names match', () => {
+    const r = mergeReadings({ medicines: [med('दवा', { strength: '0.5 mg' })] }, { medicines: [med('दवा', { strength: '5 mg' })] });
+    expect(r.medicines[0]).toMatchObject({ strength: null, unclear: true, conflicts: ['strength'] });
+    expect(nameKey('दवा')).toBe('दवा');
+  });
+
+  it('keeps different strengths in written names distinct', () => {
+    expect(nameKey('Dolo 650')).not.toBe(nameKey('Dolo 500'));
   });
 
   it('leaves agreement unknown when there was only one reader', () => {

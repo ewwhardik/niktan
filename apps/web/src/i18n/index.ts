@@ -12,6 +12,11 @@ export const LANGS: { id: Lang; label: string }[] = [
   { id: 'hne', label: 'छत्तीसगढ़ी' },
 ];
 
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng;
+  save('niktan.lang', lng);
+});
+
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, hi: { translation: hi }, hne: { translation: hne } },
   lng: load<Lang>('niktan.lang', 'en'),
@@ -19,11 +24,6 @@ void i18n.use(initReactI18next).init({
   fallbackLng: { hne: ['hi', 'en'], hi: ['en'], default: ['en'] },
   interpolation: { escapeValue: false },
   returnNull: false,
-});
-
-i18n.on('languageChanged', (lng) => {
-  save('niktan.lang', lng);
-  document.documentElement.lang = lng === 'en' ? 'en' : 'hi';
 });
 
 /** Picks the right side of a bilingual {hi, en} record from core data. */

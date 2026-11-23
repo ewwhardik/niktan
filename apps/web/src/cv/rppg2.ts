@@ -334,6 +334,11 @@ export function detectBeats(pulse: Float64Array, fs: number, bpm: number): { tim
 }
 
 export interface MultiResult extends RppgResult {
+  /**
+   * Best estimate even when the signal is below the acceptance gate (null only with no usable
+   * window). Shown to the person as low confidence; triage ignores readings with quality < 0.5.
+   */
+  estimate: number | null;
   /** Beat times on the input clock, from the most recent window. */
   beats: number[];
   /** Narrow-band pulse for display, ending at `waveEnd` on the input clock. */
@@ -396,7 +401,7 @@ export function estimateMulti(
   samples: MultiSample[],
   { motion = 0, rejectedTimes = [], windowSeconds = WINDOW_SECONDS }: { motion?: number; rejectedTimes?: number[]; windowSeconds?: number } = {},
 ): MultiResult {
-  const empty: MultiResult = { heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0), beats: [], wave: new Float64Array(0), waveEnd: 0, track: [] };
+  const empty: MultiResult = { estimate: null, heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0), beats: [], wave: new Float64Array(0), waveEnd: 0, track: [] };
   const unique = samples.filter((s, i) => i === 0 || s.t > samples[i - 1]!.t);
   if (unique.length < 2) return empty;
   const start = Math.min(unique[0]!.t, rejectedTimes[0] ?? Infinity);
@@ -426,6 +431,7 @@ export function estimateMulti(
     // Tried: accepting weaker signals when the track looked steady. Viterbi smoothing makes noise look
     // steady too (a pure-noise test read 82 bpm), so the 0 dB gate stays.
     heartRate: coverage >= 0.5 && quality >= 0.5 ? median(path) : null,
+    estimate: median(path),
     breathingRate: null,
     snrDb,
     quality,

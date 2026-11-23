@@ -8,7 +8,7 @@ import { observe } from './lib/observe';
 import { runRetention } from './lib/retention';
 import { ai } from './routes/ai';
 import { assistant } from './routes/assistant';
-import { rx } from './routes/rx';
+import { rx, MAX_IMAGE_BYTES } from './routes/rx';
 import { hospital } from './routes/hospital';
 import { misc } from './routes/misc';
 import { queue } from './routes/queue';
@@ -39,7 +39,7 @@ app.use('/api/*', async (c, next) => {
 });
 
 // Every JSON endpoint is small. Uploads read their multipart body themselves and enforce their own caps.
-const UPLOADS = new Set(['/api/asr', '/api/thali/recognize']);
+const UPLOADS = new Set(['/api/asr', '/api/thali/recognize', '/api/rx/read']);
 const jsonLimit = bodyLimit({
   maxSize: 64 * 1024,
   onError: () => {
@@ -47,6 +47,9 @@ const jsonLimit = bodyLimit({
   },
 });
 app.use('/api/*', (c, next) => (UPLOADS.has(c.req.path) ? next() : jsonLimit(c, next)));
+
+// Allow the image plus multipart headers, while bounding the body before parsing it.
+app.use('/api/rx/read', bodyLimit({ maxSize: MAX_IMAGE_BYTES + 64 * 1024 }));
 
 app.route('/api/shared', shared);
 app.route('/api/sessions', sessions);

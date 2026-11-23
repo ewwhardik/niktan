@@ -45,7 +45,7 @@ export default function Feedback() {
 
   return (
     <Screen>
-      <TopBar onBack={() => navigate(-1)} title={t('feedback.title')} />
+      <TopBar onBack={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true })} title={t('feedback.title')} />
       <h1 className="mt-4 text-title-1 font-semibold">{t('feedback.rating')}</h1>
       <div className="mt-4 flex justify-between" role="radiogroup" aria-label={t('feedback.rating')}>
         {[1, 2, 3, 4, 5].map((n) => (

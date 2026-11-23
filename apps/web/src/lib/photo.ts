@@ -16,6 +16,8 @@ export async function shrink(file: File, url: string, maxSide = 1024, quality = 
   try {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Photo rendering failed');
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
   } finally {
     bitmap?.close();

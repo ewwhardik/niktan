@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Moon, Pill, RefreshCw, Sun, Sunrise } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Pill, RefreshCw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
@@ -18,6 +18,8 @@ interface Medicine {
   frequency?: string | null;
   timing?: string | null;
   duration?: string | null;
+  source?: string;
+  conflicts?: string[];
   confidence: number;
   unclear: boolean;
 }
@@ -26,6 +28,8 @@ interface Reading {
   notPrescription: boolean;
   medicines: Medicine[];
   advice: string[];
+  adviceNeedsReview?: boolean;
+  unreadable?: string[];
 }
 
 interface Info {
@@ -38,41 +42,7 @@ interface Info {
   sources: { name: string; url: string }[];
 }
 
-type Phase = 'photo' | 'reading' | 'result' | 'error';
-
-/** Morning, afternoon and night doses from a "1-0-1" style pattern, if the reading has one. */
-function slots(m: Medicine): number[] | null {
-  const pattern = `${m.frequency ?? ''} ${m.dose ?? ''}`.match(/\b(\d(?:\/\d)?)\s*-\s*(\d(?:\/\d)?)\s*-\s*(\d(?:\/\d)?)\b/);
-  if (pattern) return pattern.slice(1, 4).map((v) => (v!.includes('/') ? 0.5 : Number(v)));
-  const f = (m.frequency ?? '').toLowerCase();
-  if (/\b(od|once a day)\b/.test(f)) return [1, 0, 0];
-  if (/\b(bd|bid|twice a day)\b/.test(f)) return [1, 0, 1];
-  if (/\b(tds|tid|three times)\b/.test(f)) return [1, 1, 1];
-  if (/\b(hs|bedtime)\b/.test(f)) return [0, 0, 1];
-  return null;
-}
-
-function Schedule({ m }: { m: Medicine }) {
-  const { t } = useTranslation();
-  const s = slots(m);
-  if (!s) return null;
-  const parts = [
-    { icon: Sunrise, label: t('rx.morning') },
-    { icon: Sun, label: t('rx.afternoon') },
-    { icon: Moon, label: t('rx.night') },
-  ];
-  return (
-    <div className="mt-3 grid grid-cols-3 gap-1.5" aria-label={t('rx.schedule')}>
-      {parts.map((p, i) => (
-        <div key={p.label} className={`flex flex-col items-center gap-1 rounded-xl py-2 ${s[i] ? 'bg-text text-bg' : 'bg-sunken text-text-3'}`}>
-          <p.icon size={16} aria-hidden />
-          <span className="text-caption">{p.label}</span>
-          <span className="tnum text-label font-semibold">{s[i] ? (s[i] === 0.5 ? '½' : s[i]) : '—'}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type Phase = 'photo' | 'review' | 'reading' | 'result' | 'error';
 
 function MedicineCard({ m, index }: { m: Medicine; index: number }) {
   const { t } = useTranslation();
@@ -80,7 +50,7 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
   const [info, setInfo] = useState<Info | null | 'loading' | 'error'>(null);
   async function toggle() {
     setOpen((v) => !v);
-    if (info) return;
+    if (open || (info && info !== 'error')) return;
     setInfo('loading');
     try {
       const query = m.generic || m.name.replace(/^(tab|cap|syp|inj|oint|drops?)\.?\s+/i, '');
@@ -89,16 +59,15 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
       setInfo('error');
     }
   }
-  const facts = [m.strength, m.form, m.dose].filter(Boolean).join(' · ');
+
   return (
     <motion.li variants={riseChild} className="overflow-hidden rounded-[24px] bg-surface shadow-1 ring-1 ring-border">
       <div className="p-5">
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-sunken text-label font-semibold">{index + 1}</span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 break-words">
             <p className="text-title-3 font-semibold">{m.name}</p>
-            {m.generic && <p className="text-body text-text-2">{m.generic}</p>}
-            {facts && <p className="mt-0.5 text-caption text-text-3">{facts}</p>}
+            {m.generic && !m.conflicts?.includes('generic') && <p className="text-body text-text-2">{m.generic}</p>}
           </div>
           {m.unclear && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-seetoday-tint px-2.5 py-1 text-caption font-medium text-seetoday-ink">
@@ -106,59 +75,69 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
             </span>
           )}
         </div>
-        <Schedule m={m} />
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {[m.frequency, m.timing, m.duration].filter(Boolean).map((v) => (
-            <span key={v} className="rounded-full bg-sunken px-2.5 py-1 text-caption text-text-2">{v}</span>
-          ))}
-        </div>
-      </div>
-      <button onClick={() => void toggle()} aria-expanded={open} className="flex w-full items-center justify-between border-t border-border px-5 py-3.5 text-left text-label font-medium text-[#0071e3] dark:text-[#2997ff]">
-        {t('rx.about')}
-        <motion.span animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={18} aria-hidden /></motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-            <div className="flex flex-col gap-3 px-5 pb-5 text-body">
-              {info === 'loading' && <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-4 rounded" style={{ width: `${90 - i * 18}%` }} />)}</div>}
-              {info === 'error' && <p className="text-text-2">{t('rx.infoError')}</p>}
-              {info && typeof info === 'object' && (
-                <>
-                  {info.ingredient && <p className="text-caption text-text-3">{t('rx.ingredient')}: {info.ingredient}</p>}
-                  {!info.found && <p className="text-text-2">{t('rx.notFound')}</p>}
-                  {[
-                    [t('rx.uses'), info.uses],
-                    [t('rx.warnings'), info.warnings],
-                    [t('rx.doNotUse'), info.doNotUse],
-                    [t('rx.sideEffects'), info.sideEffects],
-                  ].filter(([, v]) => v).map(([label, value]) => (
-                    <div key={label}>
-                      <p className="text-label font-semibold">{label}</p>
-                      <p className="mt-0.5 text-text-2">{value}</p>
-                    </div>
-                  ))}
-                  {!!info.sources.length && (
-                    <p className="flex flex-wrap gap-x-3 gap-y-1 text-caption text-text-3">
-                      {t('rx.source')}:{' '}
-                      {info.sources.map((s) => (
-                        <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-2">{s.name} <ExternalLink size={11} aria-hidden /></a>
-                      ))}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          </motion.div>
+        {m.source && <blockquote className="mt-3 border-l-2 border-border pl-3 text-body text-text-2" dir="auto">{m.source}</blockquote>}
+        {m.unclear && (
+          <p className="mt-3 rounded-xl bg-seetoday-tint p-3 text-body text-seetoday-ink">
+            {t('rx.confirmLine')} {m.conflicts?.map(k => t(`rx.fields.${k}`)).join(', ')}
+          </p>
         )}
-      </AnimatePresence>
+        <dl className="mt-4 grid grid-cols-2 gap-3">
+          {(['strength', 'form', 'dose', 'frequency', 'timing', 'duration'] as const).map(k => (
+            <div key={k}>
+              <dt className="text-caption text-text-3">{t(`rx.fields.${k}`)}</dt>
+              <dd className="text-body">{m.conflicts?.includes(k) ? t('rx.check') : m[k] || t('rx.unspecified')}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      {!m.unclear && <>
+        <button onClick={() => void toggle()} aria-expanded={open} className="flex w-full items-center justify-between border-t border-border px-5 py-3.5 text-left text-label font-medium text-[#0071e3] dark:text-[#2997ff]">
+          {t('rx.about')}
+          <motion.span animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={18} aria-hidden /></motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+              <div className="flex flex-col gap-3 px-5 pb-5 text-body">
+                {info === 'loading' && <div className="flex flex-col gap-2">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-4 rounded" style={{ width: `${90 - i * 18}%` }} />)}</div>}
+                {info === 'error' && <p className="text-text-2">{t('rx.infoError')}</p>}
+                {info && typeof info === 'object' && (
+                  <>
+                    {info.ingredient && <p className="text-caption text-text-3">{t('rx.ingredient')}: {info.ingredient}</p>}
+                    {!info.found && <p className="text-text-2">{t('rx.notFound')}</p>}
+                    {[
+                      [t('rx.uses'), info.uses],
+                      [t('rx.warnings'), info.warnings],
+                      [t('rx.doNotUse'), info.doNotUse],
+                      [t('rx.sideEffects'), info.sideEffects],
+                    ].filter(([, v]) => v).map(([label, value]) => (
+                      <div key={label}>
+                        <p className="text-label font-semibold">{label}</p>
+                        <p className="mt-0.5 text-text-2">{value}</p>
+                      </div>
+                    ))}
+                    {!!info.sources.length && (
+                      <p className="flex flex-wrap gap-x-3 gap-y-1 text-caption text-text-3">
+                        {t('rx.source')}:{' '}
+                        {info.sources.map((s) => (
+                          <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-2">{s.name} <ExternalLink size={11} aria-hidden /></a>
+                        ))}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>}
     </motion.li>
   );
 }
 
 /** Reads a photographed prescription, handwriting included, and explains each medicine. */
 export default function Prescription() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const camInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -167,30 +146,75 @@ export default function Prescription() {
   const [reading, setReading] = useState<Reading | null>(null);
   const [error, setError] = useState<string>('');
 
-  async function onFile(input: HTMLInputElement) {
-    const file = input.files?.[0];
+  const [file, setFile] = useState<File | null>(null);
+  const [text, setText] = useState('');
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => () => pending.current?.abort(), []);
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo); }, [photo]);
+
+  function reset() {
+    pending.current?.abort();
+    setPhoto(null);
+    setFile(null);
+    setText('');
+    setError('');
+    setReading(null);
+    setPhase('photo');
+  }
+
+  function onFile(input: HTMLInputElement) {
+    const next = input.files?.[0];
     input.value = '';
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPhoto(url);
+    if (!next) return;
+    setFile(next);
+    setPhoto(URL.createObjectURL(next));
+    setText('');
+    setPhase('review');
+  }
+
+  async function read() {
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
     setPhase('reading');
+    const form = new FormData();
+    form.set('language', i18n.language);
     try {
-      // Handwriting needs more pixels than a food photo.
-      const blob = await shrink(file, url, 1800, 0.88);
-      const form = new FormData();
-      form.append('photo', blob, 'prescription.jpg');
-      const res = await api.post<Reading>('/api/rx/read', form);
+      if (file && photo) {
+        const blob = await shrink(file, photo, 2400, 0.92);
+        form.set('photo', blob, 'prescription.jpg');
+      } else form.set('text', text.trim());
+      if (controller.signal.aborted) return;
+      const res = await api.post<Reading>('/api/rx/read', form, controller.signal);
+      if (controller.signal.aborted) return;
       setReading(res);
       setPhase('result');
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 429 ? t('rx.tooMany') : t('rx.failed'));
+      if (controller.signal.aborted) return;
+      let message = 'rx.decode';
+      if (e instanceof ApiError) {
+        message = 'rx.failed';
+        if (e.status === 429) message = 'rx.tooMany';
+        if (e.status === 413) message = 'rx.tooLarge';
+      }
+      setError(t(message));
       setPhase('error');
     }
   }
 
+  function back() {
+    if (phase === 'photo') {
+      if (window.history.state?.idx > 0) navigate(-1);
+      else navigate('/', { replace: true });
+    } else if (phase === 'reading' || phase === 'error' || phase === 'result') {
+      pending.current?.abort();
+      setPhase('review');
+    } else reset();
+  }
+
   return (
     <Screen>
-      <TopBar onBack={() => (phase === 'photo' ? navigate(-1) : setPhase('photo'))} title={t('rx.title')} />
+      <TopBar onBack={back} title={t('rx.title')} />
       <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onFile(e.currentTarget)} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.currentTarget)} />
 
@@ -210,26 +234,21 @@ export default function Prescription() {
           </motion.div>
         )}
 
-        {(phase === 'reading' || phase === 'error') && photo && (
-          <motion.div key="reading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-1 flex-col gap-4 pt-4">
-            <div className="relative overflow-hidden rounded-[24px] bg-sunken shadow-2">
-              <img src={photo} alt={t('rx.photoAlt')} className="max-h-[56svh] w-full object-contain" />
-              {phase === 'reading' && (
-                <div className="absolute inset-0 flex items-end justify-center bg-black/25 pb-5">
-                  <motion.div className="absolute inset-x-0 h-[2px] bg-[#0071e3]" animate={{ top: ['6%', '94%', '6%'] }} transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }} />
-                  <span className="rounded-full bg-black/70 px-4 py-2 text-label font-medium text-white backdrop-blur">{t('rx.reading')}</span>
-                </div>
-              )}
-            </div>
-            {phase === 'error' && <p role="alert" className="rounded-2xl bg-seetoday-tint px-4 py-3 text-body text-seetoday-ink">{error}</p>}
+        {['review', 'reading', 'error'].includes(phase) && (
+          <motion.div key="review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-1 flex-col gap-4 pt-4">
+            <h1 className="text-title-1 font-semibold">{t(photo ? 'rx.reviewPhoto' : 'rx.paste')}</h1>
+            {photo ? <img src={photo} alt={t('rx.photoAlt')} className="max-h-[50svh] w-full rounded-2xl bg-sunken object-contain" /> :
+              <textarea autoFocus aria-label={t('rx.paste')} maxLength={12000} rows={8} disabled={phase === 'reading'} value={text} onChange={e => setText(e.target.value)} className="rounded-2xl border border-border bg-surface p-4 text-body" />}
+            {phase === 'reading' ? <p role="status">{t('rx.reading')}</p> : <p className="text-body text-text-2">{t('rx.share')}</p>}
+            {phase === 'error' && <p role="alert" className="rounded-2xl bg-seetoday-tint p-4 text-body text-seetoday-ink">{error}</p>}
           </motion.div>
         )}
 
         {phase === 'result' && reading && (
           <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-5 pt-4">
-            {reading.notPrescription || !reading.medicines.length ? (
-              <p className="rounded-2xl bg-seetoday-tint px-4 py-3 text-body-lg text-seetoday-ink">{t('rx.none')}</p>
-            ) : (
+            {reading.notPrescription || (!reading.medicines.length && !reading.advice.length) ? (
+              <p className="rounded-2xl bg-seetoday-tint px-4 py-3 text-body-lg text-seetoday-ink">{t(reading.notPrescription ? 'rx.unrelated' : 'rx.none')}</p>
+            ) : reading.medicines.length > 0 && (
               <>
                 <div>
                   <h1 className="text-title-1 font-semibold">{t('rx.found', { count: reading.medicines.length })}</h1>
@@ -243,11 +262,16 @@ export default function Prescription() {
             {!!reading.advice.length && (
               <div className="rounded-[24px] bg-sunken p-5">
                 <p className="text-label font-semibold">{t('rx.advice')}</p>
+                {reading.adviceNeedsReview && <p className="mt-2 text-label font-medium text-seetoday-ink">{t('rx.reviewAdvice')}</p>}
                 <ul className="mt-2 flex flex-col gap-1.5 text-body text-text-2">
                   {reading.advice.map((a) => <li key={a}>• {a}</li>)}
                 </ul>
               </div>
             )}
+            {!!reading.unreadable?.length && <section className="rounded-2xl bg-seetoday-tint p-4"><h2 className="font-semibold">{t('rx.unclearLines')}</h2><ul>{reading.unreadable.map((line, i) => <li key={i}>{line}</li>)}</ul></section>}
+            <details className="rounded-2xl border border-border p-4"><summary className="cursor-pointer font-medium">{t('rx.original')}</summary>
+              {photo ? <img src={photo} alt={t('rx.photoAlt')} className="mt-3 w-full" /> : <p className="mt-3 whitespace-pre-wrap break-words">{text}</p>}
+            </details>
             <p className="text-caption text-text-3">{t('rx.disclaimer')}</p>
           </motion.div>
         )}
@@ -260,9 +284,15 @@ export default function Prescription() {
           <>
             <Button icon={Camera} onClick={() => camInput.current?.click()}>{t('rx.take')}</Button>
             <LinkButton onClick={() => fileInput.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('rx.choose')}</LinkButton>
+            <LinkButton onClick={() => setPhase('review')}>{t('rx.paste')}</LinkButton>
+          </>
+        ) : phase === 'review' || phase === 'error' ? (
+          <>
+            <Button disabled={!file && !text.trim()} onClick={() => void read()}>{t('rx.read')}</Button>
+            <LinkButton onClick={reset}>{t('rx.change')}</LinkButton>
           </>
         ) : (
-          <Button variant="secondary" icon={RefreshCw} onClick={() => setPhase('photo')}>{t('rx.another')}</Button>
+          <Button variant="secondary" icon={RefreshCw} onClick={reset}>{t('rx.another')}</Button>
         )}
       </Dock>
     </Screen>

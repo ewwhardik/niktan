@@ -106,7 +106,9 @@
     "feel": "Feel that? Your phone taps at your estimated heart rate.",
     "stability": "Reading held steady within {{n}} bpm across the scan.",
     "soundOn": "Heartbeat sound on",
-    "soundOff": "Silent scan"
+    "soundOff": "Silent scan",
+    "lowLive": "low confidence",
+    "lowConfidence": "Low confidence: your pulse was found but the signal was weak, so this number is an estimate and will not change your priority. For a firmer reading, retake facing a window or bright lamp and keep very still."
   },
   "eye": {
     "title": "Eye check",
@@ -650,9 +652,11 @@
     "disclaimer": "AI answers can be wrong. NikTan does not diagnose."
   },
   "rx": {
+    "tooLarge": "This image is too large. Crop to the prescription or paste its text.",
+    "reviewAdvice": "The readings differ. Confirm these instructions against the original.",
     "title": "Prescription reader",
-    "heading": "Read any prescription, even the handwriting",
-    "intro": "Take a photo of your doctor's prescription. NikTan reads each medicine and when to take it, and explains what it is for.",
+    "heading": "Understand your prescription",
+    "intro": "Choose a photo or paste the wording to see the medicines, directions and follow-up instructions.",
     "tips": [
       "Lay the paper flat in good light, the whole page in view",
       "Hold steady so the handwriting is sharp",
@@ -681,10 +685,30 @@
     "infoError": "Couldn't load medicine information. Try again later.",
     "advice": "Doctor's advice",
     "none": "No medicines could be read. Try a sharper photo of the whole prescription, or ask your pharmacist.",
-    "failed": "Couldn't read this photo right now. Check your connection and try again.",
+    "failed": "The reader is unavailable. Check your connection and try again.",
     "tooMany": "Too many prescriptions read from this network. Try again in an hour.",
     "another": "Read another prescription",
-    "disclaimer": "Reading handwriting can go wrong. Never change a dose or stop a medicine because of this page; follow your doctor and pharmacist. Medicine information comes from public US databases (NLM RxNorm, openFDA) and may differ from Indian labels. The photo is sent to an AI service to read it and is not stored."
+    "disclaimer": "Reading handwriting can go wrong. Never change a dose or stop a medicine because of this page; follow your doctor and pharmacist. Medicine information comes from public US databases (NLM RxNorm, openFDA) and may differ from Indian labels. The photo is sent to an AI service to read it and is not stored.",
+    "confirmLine": "Ask your pharmacist to confirm this line.",
+    "unspecified": "Not clear from the reading",
+    "decode": "This image could not be opened. Choose a JPEG or PNG, or paste the text.",
+    "reviewPhoto": "Check that the whole page is legible",
+    "paste": "Paste prescription text",
+    "share": "Selecting Read prescription sends this content to an AI service. You can remove personal details first.",
+    "unclearLines": "Lines to check with your pharmacist",
+    "original": "Compare with your original",
+    "read": "Read prescription",
+    "change": "Choose another input",
+    "unrelated": "This does not look like a prescription. Check the original you selected.",
+    "fields": {
+      "generic": "Ingredient",
+      "strength": "Strength",
+      "form": "Form",
+      "dose": "Amount per dose",
+      "frequency": "How often",
+      "timing": "When to take it",
+      "duration": "For how long"
+    }
   },
   "scan": {
     "stepOf": "Step {{n}} of {{total}} · {{name}} · about {{min}} min left",
