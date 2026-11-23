@@ -135,3 +135,48 @@
   --sim-tint: #232325;
   --shadow-color: 0 0 0;
 }
+
+/* Forces the light set inside a subtree, e.g. the airy health-card dashboard in OS dark mode. */
+.paper {
+  color-scheme: light;
+  --bg: #F5F5F7;
+  --bg-elevated: #FBFBFD;
+  --surface: #FFFFFF;
+  --surface-sunken: #EDEDF0;
+  --surface-raised: #FFFFFF;
+  --border: #E3E3E8;
+  --border-strong: #8E8E93;
+  --scrim: rgb(0 0 0 / 0.42);
+  --text: #1D1D1F;
+  --text-2: #515154;
+  --text-3: #6E6E73;
+  --text-on-accent: #FFFFFF;
+  --accent: #1D1D1F;
+  --accent-hover: #000000;
+  --accent-press: #3A3A3C;
+  --accent-soft: #E8E8ED;
+  --accent-soft-ink: #1D1D1F;
+  --accent-text: #1D1D1F;
+  --focus-ring: #0071E3;
+  --signal: #0A84FF;
+  --signal-2: #30D5C8;
+  --emergency: #C81E1E;
+  --emergency-on: #FFFFFF;
+  --emergency-tint: #FDEDEC;
+  --emergency-ink: #9B1515;
+  --emergency-text: #C81E1E;
+  --seetoday: #F5A524;
+  --seetoday-on: #231500;
+  --seetoday-edge: #B54708;
+  --seetoday-tint: #FFF3DA;
+  --seetoday-ink: #7A3E00;
+  --seetoday-text: #B54708;
+  --routine: #08776F;
+  --routine-on: #FFFFFF;
+  --routine-tint: #E2F4F0;
+  --routine-ink: #0A5A53;
+  --routine-text: #08776F;
+  --sim: #6E6E73;
+  --sim-tint: #EDEDF0;
+  --shadow-color: 0 0 0;
+}

@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { Ear, Eye, Glasses, HeartPulse, Hospital, Mic, PhoneCall, QrCode, Soup, Stethoscope, Trash2, Volume2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpRight, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, PhoneCall, QrCode, Stethoscope, Trash2, Volume2 } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -13,6 +13,10 @@ import { snellen6 } from '../tests/vision';
 import { Button } from '../ui/Button';
 import { PRIORITY_META, StatusChip, type RowStatus } from '../ui/Chip';
 import { Disclaimer, Screen, TopBar } from '../ui/Layout';
+import type { Callout, CalloutTone } from '../ui/three/AnatomyViewer';
+import { anchors } from '../ui/three/anchors';
+
+const AnatomyViewer = lazy(() => import('../ui/three/AnatomyViewer'));
 import { Sheet } from '../ui/Sheet';
 import { ease, riseChild, springs, staggerParent } from '../ui/motion';
 
@@ -215,111 +219,233 @@ export default function HealthCard() {
     }
   }
 
+  const v = view;
+  const pallorTone: CalloutTone = v.eye?.pallor == null ? 'none' : v.eye.pallor ? 'check' : 'normal';
+  const eyeFlagged = !!(v.eye?.pallor || v.eye?.jaundice || v.eye?.cataract);
+  const eyeTone: CalloutTone = v.eye == null ? 'none' : eyeFlagged ? 'check' : 'normal';
+  const hrTone: CalloutTone = !hr ? 'none' : tr.priority === 'emergency' && tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'alert' : tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'check' : 'normal';
+  const visionTone: CalloutTone = visionRefer === null ? 'none' : visionRefer ? 'check' : 'normal';
+  const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' ? 'check' : 'normal';
+  const visionValue = v.vision ? `${v.vision.rightLogMar !== null ? snellen6(v.vision.rightLogMar) : '—'} · ${v.vision.leftLogMar !== null ? snellen6(v.vision.leftLogMar) : '—'}` : undefined;
+  const bodyCallouts: Callout[] = [
+    { id: 'eye', label: t('card.eyeFlags'), tone: eyeTone, at: anchors.body.eyes, side: 'left' },
+    { id: 'vision', label: t('card.visionRow'), value: visionValue, tone: visionTone, at: anchors.body.eyesRight, side: 'right' },
+    { id: 'ear', label: t('card.hearingRow'), tone: hearingTone, at: anchors.body.ear, side: 'left' },
+    { id: 'heart', label: t('card.hr'), value: hr ? `${Math.round(hr)} bpm` : undefined, tone: hrTone, at: anchors.body.heart, side: 'right' },
+  ];
+  const heartCallouts: Callout[] = [
+    { id: 'aorta', label: t('card.aorta'), tone: 'none', at: anchors.heart.aorta, side: 'left' },
+    { id: 'pa', label: t('card.pulmonary'), tone: 'none', at: anchors.heart.pulmonary, side: 'right' },
+    { id: 'vc', label: t('card.venaCava'), tone: 'none', at: anchors.heart.venaCava, side: 'left' },
+  ];
+  const checks = [v.vitals, v.eye, v.vision, v.hearing, v.symptoms].filter((x) => x != null).length;
+  const completion = Math.round((checks / 5) * 100);
+  const scanTime = new Date(scan.startedAt ?? Date.now()).toLocaleTimeString(lang === 'en' ? 'en-IN' : 'hi-IN', { hour: 'numeric', minute: '2-digit' });
+  const tiles = [
+    { icon: HeartPulse, label: t('card.hr'), value: hr ? String(Math.round(hr)) : '—', unit: hr ? 'BPM' : '', bg: 'bg-[#D8A92B]' },
+    { icon: Glasses, label: t('card.visionRow'), value: v.vision?.rightLogMar != null ? snellen6(v.vision.rightLogMar) : '—', unit: v.vision ? 'R' : '', bg: 'bg-[#2FA3C1]' },
+    { icon: Ear, label: t('card.hearingRow'), value: v.hearing ? String(v.hearing.srtDb) : '—', unit: v.hearing ? 'dB' : '', bg: 'bg-[#1FB25F]' },
+  ];
+  const nav = [
+    { label: t('card.title'), to: '/card', active: true },
+    { label: t('queue.title'), to: '/queue' },
+    { label: t('thali.title'), to: '/thali' },
+    { label: t('feedback.title'), to: '/feedback' },
+  ];
+  const card = 'rounded-[28px] bg-white/80 shadow-[0_1px_0_rgba(255,255,255,.9)_inset,0_20px_50px_-30px_rgba(30,40,80,.35)] ring-1 ring-black/[0.04] dark:bg-white/[0.04] dark:ring-white/10';
+  const modelFallback = (Icon: typeof HeartPulse) => (
+    <div className="flex size-full items-center justify-center text-[#c62a2a]/30">
+      <Icon size={96} strokeWidth={0.8} aria-hidden />
+    </div>
+  );
+
   return (
-    <Screen className="pb-10">
-      <TopBar onBack={() => navigate(isOwn ? '/scan/symptoms' : '/')} title={t('card.title')} />
-
-      <div className="mt-2">
-        {hasResults ? <VerdictBand priority={tr.priority} title={verdictTitle} action={verdictAction} /> : <h1 className="rounded-lg bg-sunken p-5 text-title-2">{verdictTitle}</h1>}
-      </div>
-
-      {tr.priority === 'emergency' && (
-        <motion.a href="tel:108" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springs.verdictUrgent, delay: 0.7 }} onClick={() => haptic(30)} className="cta-emergency mt-4 flex h-16 items-center justify-center gap-3 rounded-md bg-emergency text-title-2 font-semibold text-emergency-on shadow-3">
-          <PhoneCall size={24} aria-hidden /> {t('card.call108')}
-        </motion.a>
-      )}
-
-      <motion.div variants={staggerParent} initial="hidden" animate="show" transition={{ delayChildren: 0.8 }} className="mt-5 flex flex-col gap-4">
-        {tr.reasons.length > 0 && (
-          <motion.section variants={riseChild} className="rounded-lg bg-surface p-5 shadow-1">
-            <h2 className="flex items-center gap-2 text-label font-medium text-text-2">
-              <Stethoscope size={18} aria-hidden /> {t('card.why')}
-            </h2>
-            <ul className="mt-3 flex flex-col gap-2">
-              {tr.reasons.slice(0, 6).map((r) => (
-                <li key={r.code} className="flex items-start gap-2.5 text-body-lg">
-                  <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-text-3" />
-                  {pickLang(r, lang)}
-                </li>
-              ))}
-            </ul>
-          </motion.section>
-        )}
-
-        <motion.section variants={riseChild} className="divide-y divide-border rounded-lg bg-surface shadow-1">
-          {rows.map((r) => (
-            <div key={r.label} className="flex min-h-16 items-center gap-3 px-4 py-3">
-              <r.icon size={22} strokeWidth={1.75} className="shrink-0 text-text-3" aria-hidden />
-              <span className="min-w-0 flex-1 text-body-lg">{r.label}</span>
-              {r.value && (
-                <span className="tnum text-title-3 font-semibold">
-                  {r.value}
-                  {r.unit && <span className="ml-1 text-caption font-normal text-text-3">{r.unit}</span>}
-                </span>
-              )}
-              <StatusChip status={r.chip.status} label={r.chip.label} />
+    <div className="min-h-dvh bg-[radial-gradient(90%_60%_at_100%_0%,#dfe7ff_0%,transparent_60%),radial-gradient(70%_60%_at_0%_100%,#fde9dc_0%,transparent_60%)] bg-[#eef0f6] px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] text-[#1d1d1f] sm:px-6 lg:px-10 lg:py-10 paper">
+      <div className="mx-auto max-w-[1360px] rounded-[40px] bg-white/45 p-3 ring-1 ring-white/80 backdrop-blur-xl sm:p-5 lg:p-7">
+        {/* Header */}
+        <header className="flex flex-wrap items-center gap-3">
+          <button onClick={() => navigate('/')} className="flex items-center gap-2.5" aria-label="NikTan">
+            <span className="flex size-11 items-center justify-center rounded-full bg-[#1d1d1f] text-white">
+              <HeartPulse size={20} aria-hidden />
+            </span>
+            <span className="text-title-2 font-semibold">NikTan</span>
+          </button>
+          <nav className="order-3 -mx-1 flex w-full gap-1.5 overflow-x-auto rounded-full bg-white/70 p-1 no-scrollbar ring-1 ring-black/[0.04] lg:order-none lg:mx-auto lg:w-auto">
+            {nav.map((n) => (
+              <button key={n.to} onClick={() => !n.active && navigate(n.to)} className={`h-11 shrink-0 rounded-full px-5 text-body font-medium transition-colors ${n.active ? 'bg-[#1d1d1f] text-white' : 'text-[#3a3a3c] hover:bg-black/5'}`}>
+                {n.label}
+              </button>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <div className="hidden items-center gap-2.5 rounded-full bg-white/70 py-1 pr-4 pl-1 ring-1 ring-black/[0.04] sm:flex">
+              <span className="flex size-9 items-center justify-center rounded-full bg-[#e8e8ed] text-caption font-semibold">{v.age}</span>
+              <span className="leading-tight">
+                <span className="block text-[11px] text-[#6e6e73]">{t('card.patient')}</span>
+                <span className="block text-label font-semibold">{t(`info.${v.sex}`)} · {v.age}</span>
+              </span>
             </div>
-          ))}
-          <div className="flex items-start gap-3 px-4 py-3">
-            <Mic size={22} strokeWidth={1.75} className="mt-0.5 shrink-0 text-text-3" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <span className="text-body-lg">{t('card.symptomsRow')}</span>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {(view.symptoms?.symptoms ?? []).length === 0 ? (
-                  <span className="text-caption text-text-3">{view.symptoms ? t('symptoms.nothing') : t('common.notChecked')}</span>
+            <button onClick={() => { setSpeechFailed(false); speak(summaryText(), lang, () => setSpeechFailed(true)); }} aria-label={t('common.listen')} className="flex size-11 items-center justify-center rounded-full bg-white/70 ring-1 ring-black/[0.04] hover:bg-white">
+              <Volume2 size={18} />
+            </button>
+            {isOwn && (
+              <button onClick={openShare} disabled={busy} aria-label={t('card.share')} className="flex size-11 items-center justify-center rounded-full bg-white/70 ring-1 ring-black/[0.04] hover:bg-white disabled:opacity-50">
+                <QrCode size={18} />
+              </button>
+            )}
+          </div>
+        </header>
+
+        <motion.main variants={staggerParent} initial="hidden" animate="show" className="mt-5 grid gap-4 lg:mt-7 lg:grid-cols-12 lg:gap-5">
+          {/* Vital tiles */}
+          <motion.section variants={riseChild} className="grid grid-cols-3 gap-2.5 sm:gap-4 lg:col-span-5">
+            {tiles.map((tile) => (
+              <div key={tile.label} className={`${tile.bg} flex min-h-[120px] flex-col justify-between rounded-[22px] p-3.5 text-white shadow-[0_14px_30px_-18px_rgba(0,0,0,.45)] sm:p-5`}>
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-black/70 sm:size-9">
+                    <tile.icon size={16} strokeWidth={2} aria-hidden />
+                  </span>
+                  <span className="truncate text-label font-medium sm:text-body">{tile.label}</span>
+                </div>
+                <div className="flex items-end justify-between gap-1">
+                  <p className="flex items-baseline gap-1">
+                    <span className="tnum text-[1.6rem] leading-none font-semibold sm:text-[2rem]">{tile.value}</span>
+                    {tile.unit && <span className="text-[11px] font-medium opacity-85">{tile.unit}</span>}
+                  </p>
+                  <span className="tnum hidden text-caption opacity-85 xl:block">{scanTime}</span>
+                </div>
+              </div>
+            ))}
+          </motion.section>
+
+          {/* Verdict */}
+          <motion.section variants={riseChild} className="lg:col-span-7">
+            {hasResults ? <VerdictBand priority={tr.priority} title={verdictTitle} action={verdictAction} /> : <h1 className={`${card} p-6 text-title-2`}>{verdictTitle}</h1>}
+            {tr.priority === 'emergency' && (
+              <motion.a href="tel:108" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springs.verdictUrgent, delay: 0.7 }} onClick={() => haptic(30)} className="cta-emergency mt-3 flex h-16 items-center justify-center gap-3 rounded-full bg-emergency text-title-3 font-semibold text-emergency-on shadow-3">
+                <PhoneCall size={22} aria-hidden /> {t('card.call108')}
+              </motion.a>
+            )}
+          </motion.section>
+
+          {/* Overall screening: anatomical heart */}
+          <motion.section variants={riseChild} className={`${card} relative overflow-hidden bg-[radial-gradient(60%_50%_at_50%_62%,#ffe3d6_0%,transparent_70%)] lg:col-span-5 lg:row-span-2`}>
+            <div className="relative z-10 flex items-start justify-between p-6 sm:p-7">
+              <div>
+                <p className="text-title-3 text-[#515154]">{t('card.checkYour')}</p>
+                <h2 className="text-[clamp(1.75rem,3vw,2.4rem)] leading-tight font-semibold">{t('card.overall')}</h2>
+              </div>
+              <div className="text-right">
+                <p className="tnum text-[clamp(2rem,3.5vw,2.75rem)] leading-none font-semibold tracking-tight">{completion}%</p>
+                <span className={`mt-2 inline-block rounded-full px-3 py-1 text-caption font-semibold ${PRIORITY_META[tr.priority].solid}`}>{t('card.checksDone', { n: checks })}</span>
+              </div>
+            </div>
+            <Suspense fallback={<div className="h-[440px] lg:h-[560px]" />}>
+              <AnatomyViewer model="heart" callouts={heartCallouts} bpm={hr ?? 66} className="-mt-6 h-[440px] w-full lg:h-[560px]" fallback={modelFallback(HeartPulse)} />
+            </Suspense>
+          </motion.section>
+
+          {/* Body map with the checks */}
+          <motion.section variants={riseChild} className={`${card} relative overflow-hidden lg:col-span-7`}>
+            <div className="relative z-10 flex items-center justify-between p-6 pb-0">
+              <div>
+                <p className="text-label text-[#6e6e73]">{t('card.bodyMapEyebrow')}</p>
+                <h2 className="text-title-2 font-semibold">{t('card.bodyMapTitle')}</h2>
+              </div>
+              <span className="text-caption text-[#6e6e73]">{t('card.dragToRotate')}</span>
+            </div>
+            <Suspense fallback={<div className="h-[460px]" />}>
+              <AnatomyViewer model="body" callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
+            </Suspense>
+          </motion.section>
+
+          {/* Small cards */}
+          <motion.section variants={riseChild} className="grid gap-4 sm:grid-cols-3 lg:col-span-7">
+            <div className={`${card} p-5`}>
+              <div className="flex items-center justify-between">
+                <p className="text-body font-medium">{t('card.pallor')}</p>
+                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${v.eye?.pallor ? 'bg-seetoday text-seetoday-on' : 'bg-[#1d1d1f] text-white'}`}>{v.eye?.pallorScore != null ? `${Math.round(v.eye.pallorScore * 100)}%` : '—'}</span>
+              </div>
+              <div className="mt-4 flex flex-col gap-2 text-body">
+                {[
+                  { l: t('card.jaundice'), c: flagRow(v.eye?.jaundice) },
+                  { l: t('card.cataract'), c: flagRow(v.eye?.cataract) },
+                  { l: t('card.pallor'), c: flagRow(v.eye?.pallor) },
+                ].map((x) => (
+                  <div key={x.l} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[#515154]">{x.l}</span>
+                    <StatusChip status={x.c.status} label={x.c.label} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className={`${card} p-5`}>
+              <div className="flex items-center justify-between">
+                <p className="text-body font-medium">{t('card.symptomsRow')}</p>
+                <Mic size={18} className="text-[#6e6e73]" aria-hidden />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {(v.symptoms?.symptoms ?? []).length === 0 ? (
+                  <span className="text-body text-[#6e6e73]">{v.symptoms ? t('symptoms.nothing') : t('common.notChecked')}</span>
                 ) : (
-                  view.symptoms!.symptoms.map((s) => {
-                    const v = vocab.get(s.code);
+                  v.symptoms!.symptoms.map((sy) => {
+                    const sv = vocab.get(sy.code);
                     return (
-                      <span key={s.code} className="rounded-full bg-sunken px-2.5 py-1 text-caption">
-                        {v ? pickLang(v, lang) : s.code}
-                        {s.durationDays ? ` · ${t('symptoms.duration', { n: s.durationDays })}` : ''}
+                      <span key={sy.code} className="rounded-full bg-[#f2f2f5] px-3 py-1.5 text-label">
+                        {sv ? pickLang(sv, lang) : sy.code}
+                        {sy.durationDays ? ` · ${t('symptoms.duration', { n: sy.durationDays })}` : ''}
                       </span>
                     );
                   })
                 )}
               </div>
             </div>
-          </div>
-        </motion.section>
+            <div className={`${card} flex flex-col justify-between gap-4 p-5`}>
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-[#f2f2f5]">
+                  <Hospital size={18} aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-caption text-[#6e6e73]">{t('card.department')}</p>
+                  <p className="truncate text-body font-semibold">{pickLang(dept, lang)}</p>
+                </div>
+              </div>
+              {isOwn && tr.priority !== 'emergency' && (
+                <button onClick={() => navigate('/queue')} className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#1d1d1f] text-body font-semibold text-white">
+                  {t('card.joinQueue')} <ArrowUpRight size={16} aria-hidden />
+                </button>
+              )}
+            </div>
+          </motion.section>
 
-        <motion.div variants={riseChild} className="grid grid-cols-2 gap-3">
-          <Button variant="secondary" icon={Volume2} onClick={() => { setSpeechFailed(false); speak(summaryText(), lang, () => setSpeechFailed(true)); }}>
-            {t('common.listen')}
-          </Button>
-          {isOwn && <Button variant="secondary" icon={QrCode} loading={busy} onClick={openShare}>
-            {t('card.share')}
-          </Button>}
-        </motion.div>
+          {/* Why */}
+          <motion.section variants={riseChild} className={`${card} p-6 lg:col-span-12`}>
+            <h2 className="flex items-center gap-2 text-label font-semibold text-[#515154]">
+              <Stethoscope size={16} aria-hidden /> {t('card.why')}
+            </h2>
+            <ul className="mt-3 grid gap-x-8 gap-y-2 md:grid-cols-2">
+              {tr.reasons.length === 0 && <li className="text-body text-[#6e6e73]">—</li>}
+              {tr.reasons.slice(0, 8).map((r) => (
+                <li key={r.code} className="flex items-start gap-2.5 text-body-lg">
+                  <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-[#8e8e93]" />
+                  {pickLang(r, lang)}
+                </li>
+              ))}
+            </ul>
+          </motion.section>
 
-        {isOwn && (
-          <motion.div variants={riseChild} className="flex flex-col gap-3">
-            {tr.priority !== 'emergency' && (
-              <Button icon={Hospital} onClick={() => navigate('/queue')}>
-                {t('card.joinQueue')}
-              </Button>
+          <motion.div variants={riseChild} className="flex flex-col gap-3 lg:col-span-12">
+            <Disclaimer />
+            {speechFailed && <p role="status" className="text-body text-[#515154]">{t('card.speechUnavailable')}</p>}
+            {error && <p role="alert" className="text-body text-emergency-text">{t('card.syncError')}</p>}
+            {isOwn && (
+              <button onClick={() => { setError(false); setConfirmDelete(true); }} className="mx-auto inline-flex min-h-12 items-center gap-2 text-body text-[#6e6e73] hover:text-emergency-text">
+                <Trash2 size={18} aria-hidden /> {t('card.delete')}
+              </button>
             )}
-            <Button variant="secondary" icon={Soup} onClick={() => navigate('/thali')}>
-              {t('card.scanThali')}
-            </Button>
-            <button onClick={() => navigate('/feedback')} className="min-h-12 text-body text-accent-text underline-offset-4 hover:underline">
-              {t('feedback.title')}
-            </button>
           </motion.div>
-        )}
-
-        <motion.div variants={riseChild}>
-          <Disclaimer />
-        </motion.div>
-
-        {speechFailed && <p role="status" className="text-body text-text-2">{t('card.speechUnavailable')}</p>}
-        {error && <p role="alert" className="text-body text-emergency-text">{t('card.syncError')}</p>}
-        {isOwn && (
-          <motion.button variants={riseChild} onClick={() => { setError(false); setConfirmDelete(true); }} className="mx-auto inline-flex min-h-12 items-center gap-2 text-body text-text-3 hover:text-emergency-text">
-            <Trash2 size={18} aria-hidden /> {t('card.delete')}
-          </motion.button>
-        )}
-      </motion.div>
+        </motion.main>
+      </div>
 
       <Sheet open={!!shareUrl} onClose={() => setShareUrl('')} title={t('card.share')}>
         <div className="flex flex-col items-center gap-4 py-4">
@@ -358,6 +484,6 @@ export default function HealthCard() {
           </Button>
         </div>
       </Sheet>
-    </Screen>
+    </div>
   );
 }

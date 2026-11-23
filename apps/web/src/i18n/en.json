@@ -106,7 +106,9 @@
     "cataract": "White pupil (experimental)",
     "normal": "No flag in this image",
     "check": "Get checked",
-    "openCamera": "Turn on camera"
+    "openCamera": "Turn on camera",
+    "lookStraight": "Look straight",
+    "pullLid": "Pull lower lid"
   },
   "vision": {
     "title": "Vision test",
@@ -204,7 +206,19 @@
     "incomplete": "No checks completed",
     "noFlag": "No flag",
     "recorded": "Recorded",
-    "speechUnavailable": "Voice playback is unavailable in this browser. The summary is shown above."
+    "speechUnavailable": "Voice playback is unavailable in this browser. The summary is shown above.",
+    "eyeFlags": "Eye flags",
+    "bodyMapEyebrow": "Body map",
+    "bodyMapTitle": "Your screening, mapped",
+    "dragToRotate": "Drag to rotate",
+    "myHeart": "My heart",
+    "aorta": "Aorta",
+    "pulmonary": "Pulmonary artery",
+    "venaCava": "Vena cava",
+    "checkYour": "Check your",
+    "overall": "Overall screening",
+    "checksDone": "{{n}} of 5 checks",
+    "patient": "Patient"
   },
   "queue": {
     "title": "OPD queue",
