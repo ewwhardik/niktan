@@ -12,11 +12,13 @@ import { MotionConfig } from 'motion/react';
 import { App } from './App';
 import { perfTier, trackKeyboardInset } from './lib/perf';
 import { ScanProvider } from './state/scan';
+import { runBoot } from './lib/boot';
 import i18n from './i18n';
 
 document.documentElement.dataset.perf = perfTier;
 document.documentElement.lang = i18n.language === 'en' ? 'en' : 'hi';
 trackKeyboardInset();
+runBoot();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

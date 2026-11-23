@@ -6,12 +6,17 @@ import { FS, HR_BAND, pos, qualityFromSnr, type RppgResult } from './rppg';
  *
  * 1. Forehead, left cheek and right cheek are processed separately, because a shadow or a hand on
  *    one region should not corrupt the others.
- * 2. Each region gives two pulse estimates: POS (Wang et al. 2017) and CHROM (de Haan & Jeanne 2013).
- * 3. The normalised power spectra are averaged with weights from each signal's own SNR, so clean
- *    regions dominate.
- * 4. A harmonic-sum spectrum favours the true fundamental over its 2x harmonic.
- * 5. Across windows, a small Viterbi search picks the heart-rate path that balances spectral power
+ * 2. Sudden steps in each colour trace (a head jerk, a light switching) are clipped before any
+ *    pulse extraction, so one bad frame does not smear energy across the whole spectrum.
+ * 3. Each region gives three pulse estimates: POS (Wang et al. 2017), CHROM (de Haan & Jeanne 2013)
+ *    and an OMIT-style orthogonal projection (Casado & López 2023).
+ * 4. The normalised power spectra are averaged with weights from each signal's own SNR, so clean
+ *    regions and methods dominate.
+ * 5. A harmonic-sum spectrum favours the true fundamental over its 2x harmonic.
+ * 6. Across windows, a small Viterbi search picks the heart-rate path that balances spectral power
  *    against implausible jumps between neighbouring windows.
+ * 7. Beats are located in the time domain around the tracked rate, so the interface can pulse in
+ *    phase with the person's own heartbeat rather than with a generic loop.
  */
 
 export type RoiName = 'forehead' | 'leftCheek' | 'rightCheek';
@@ -58,6 +63,56 @@ export function chrom(r: Float64Array, g: Float64Array, b: Float64Array, fs = FS
     for (let i = 0; i < l; i++) h[start + i] = h[start + i]! + win[i]! * (x[i]! - mx - alpha * (y[i]! - my));
   }
   return h;
+}
+
+/**
+ * OMIT-style pulse: removes the window's mean skin-colour direction (intensity and specular change)
+ * by orthogonal projection and keeps the green row of what remains. The original method takes that
+ * direction from a QR factorisation; the window mean is the same direction with less frame noise.
+ */
+export function omit(r: Float64Array, g: Float64Array, b: Float64Array, fs = FS): Float64Array {
+  const n = r.length;
+  const l = Math.max(2, Math.round(1.6 * fs));
+  const h = new Float64Array(n);
+  const win = new Float64Array(l);
+  for (let i = 0; i < l; i++) win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (l - 1));
+  for (let start = 0; start + l <= n; start += Math.max(1, Math.floor(l / 2))) {
+    const mr = mean(r.subarray(start, start + l));
+    const mg = mean(g.subarray(start, start + l));
+    const mb = mean(b.subarray(start, start + l));
+    if (mr <= 0 || mg <= 0 || mb <= 0) continue;
+    // After mean normalisation every channel averages 1, so the skin direction is (1,1,1)/√3.
+    const y = new Float64Array(l);
+    for (let i = 0; i < l; i++) {
+      const rn = r[start + i]! / mr;
+      const gn = g[start + i]! / mg;
+      const bn = b[start + i]! / mb;
+      y[i] = gn - (rn + gn + bn) / 3;
+    }
+    const my = mean(y);
+    for (let i = 0; i < l; i++) h[start + i] = h[start + i]! + win[i]! * (y[i]! - my);
+  }
+  return h;
+}
+
+/**
+ * Clips first differences larger than `k` robust standard deviations and re-integrates. A step in
+ * brightness becomes a flat shift (removed later by detrending) instead of a broadband spike.
+ */
+export function despike(x: Float64Array, k = 4): Float64Array {
+  const n = x.length;
+  if (n < 3) return x.slice();
+  const d = new Float64Array(n - 1);
+  for (let i = 0; i < n - 1; i++) d[i] = x[i + 1]! - x[i]!;
+  const med = median(Array.from(d));
+  const mad = 1.4826 * median(Array.from(d, (v) => Math.abs(v - med)));
+  if (!(mad > 0)) return x.slice();
+  const lo = med - k * mad;
+  const hi = med + k * mad;
+  const out = new Float64Array(n);
+  out[0] = x[0]!;
+  for (let i = 0; i < n - 1; i++) out[i + 1] = out[i]! + Math.min(hi, Math.max(lo, d[i]!));
+  return out;
 }
 
 interface Spectrum {
@@ -123,21 +178,23 @@ export interface WindowEstimate {
   candidates: { bpm: number; weight: number }[];
   snrDb: number;
   pulse: Float64Array;
+  /** Time (s) of the first pulse sample, on the same clock as the input samples. */
+  t0?: number;
 }
 
 /** One window: per-region POS + CHROM, SNR-weighted spectral fusion, harmonic-sum peak picking. */
 export function fuseWindow(window: MultiSample[]): WindowEstimate | null {
   const times = window.map((s) => s.t);
-  const spectra: { spec: Spectrum; weight: number; pulse: Float64Array }[] = [];
+  const spectra: { spec: Spectrum; weight: number; pulse: Float64Array; t0: number }[] = [];
   for (const roi of ROI_NAMES) {
     const present = window.filter((s) => (s.rois[roi]?.n ?? 0) > 0);
     // A region hidden for more than a fifth of the window is left out of this window.
     if (present.length < window.length * 0.8 || present.length < FS * 4) continue;
     const t = present.map((s) => s.t);
-    const r = resample(t, present.map((s) => s.rois[roi]!.r), FS);
-    const g = resample(t, present.map((s) => s.rois[roi]!.g), FS);
-    const b = resample(t, present.map((s) => s.rois[roi]!.b), FS);
-    for (const method of [pos, chrom]) {
+    const r = despike(resample(t, present.map((s) => s.rois[roi]!.r), FS));
+    const g = despike(resample(t, present.map((s) => s.rois[roi]!.g), FS));
+    const b = despike(resample(t, present.map((s) => s.rois[roi]!.b), FS));
+    for (const method of [pos, chrom, omit]) {
       const pulse = bandpass(detrend(method(r, g, b, FS), FS), FS, HR_BAND[0], HR_BAND[1]);
       const spec = bandSpectrum(pulse);
       if (!spec) continue;
@@ -145,7 +202,7 @@ export function fuseWindow(window: MultiSample[]): WindowEstimate | null {
       const snr = snrOf(spec, k * spec.df);
       // Linear SNR weight; signals below -3 dB contribute nothing.
       const weight = Math.max(0, 10 ** (snr / 10) - 0.5);
-      if (weight > 0) spectra.push({ spec, weight, pulse });
+      if (weight > 0) spectra.push({ spec, weight, pulse, t0: t[0]! });
     }
   }
   if (!spectra.length || times.length < 2) return null;
@@ -167,7 +224,7 @@ export function fuseWindow(window: MultiSample[]): WindowEstimate | null {
   if (!peaks.length) return null;
   const best = spectra.reduce((a, b) => (b.weight > a.weight ? b : a));
   const snrDb = snrOf({ power: fused, df }, peaks[0]!.freq);
-  return { candidates: peaks.map((p) => ({ bpm: p.freq * 60, weight: p.power })), snrDb, pulse: best.pulse };
+  return { candidates: peaks.map((p) => ({ bpm: p.freq * 60, weight: p.power })), snrDb, pulse: best.pulse, t0: best.t0 };
 }
 
 /**
@@ -222,21 +279,119 @@ function median(v: number[]): number {
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 }
 
+/**
+ * Systolic peaks of a pulse trace near the tracked rate. The trace is narrowed to a band around
+ * `bpm` so each beat gives one clean maximum, then peaks closer than 60 % of a beat are merged.
+ * Returns peak times in seconds from the first sample, refined to sub-sample precision.
+ */
+export function detectBeats(pulse: Float64Array, fs: number, bpm: number): { times: number[]; wave: Float64Array } {
+  const f = bpm / 60;
+  if (pulse.length < fs * 2 || !(f > 0)) return { times: [], wave: new Float64Array(0) };
+  const wave = bandpass(pulse, fs, Math.max(0.5, f - 0.4), f + 0.6);
+  const s = std(wave) || 1;
+  for (let i = 0; i < wave.length; i++) wave[i] = wave[i]! / s;
+  const half = Math.max(1, Math.floor((0.3 * fs) / f));
+  const times: number[] = [];
+  for (let i = 1; i < wave.length - 1; i++) {
+    const v = wave[i]!;
+    if (v <= 0.2 || v < wave[i - 1]! || v < wave[i + 1]!) continue;
+    let isMax = true;
+    for (let j = Math.max(0, i - half); j <= Math.min(wave.length - 1, i + half); j++) {
+      if (wave[j]! > v) {
+        isMax = false;
+        break;
+      }
+    }
+    if (!isMax) continue;
+    const a = wave[i - 1]!;
+    const c = wave[i + 1]!;
+    const den = a - 2 * v + c;
+    const off = den !== 0 ? Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / den)) : 0;
+    const t = (i + off) / fs;
+    if (!times.length || t - times.at(-1)! > (0.6 * 60) / bpm) times.push(t);
+  }
+  return { times, wave };
+}
+
+export interface MultiResult extends RppgResult {
+  /** Beat times on the input clock, from the most recent window. */
+  beats: number[];
+  /** Narrow-band pulse for display, ending at `waveEnd` on the input clock. */
+  wave: Float64Array;
+  waveEnd: number;
+  /** Tracked rate per 1 s step, for a stability read-out. */
+  track: number[];
+}
+
+/**
+ * Scalar Kalman filter for a live heart-rate read-out. The rate follows a random walk; measurement
+ * noise grows as signal quality falls, and readings far from the prediction are ignored until three
+ * in a row agree, which then resets the filter onto the new rate.
+ */
+export class RateFilter {
+  private x: number | null = null;
+  private p = 0;
+  private misses = 0;
+  constructor(private readonly processNoise = 6, private readonly gate = 3) {}
+
+  get value(): number | null {
+    return this.x;
+  }
+
+  reset(): void {
+    this.x = null;
+    this.p = 0;
+    this.misses = 0;
+  }
+
+  update(z: number, quality: number, dt = 1): number {
+    const q = Math.max(0, Math.min(1, quality));
+    const r = 4 + 220 * (1 - q) ** 2;
+    if (this.x === null) {
+      this.x = z;
+      this.p = r;
+      return z;
+    }
+    this.p += this.processNoise * dt;
+    const s = this.p + r;
+    const innovation = z - this.x;
+    if (innovation * innovation > this.gate * this.gate * s) {
+      if (++this.misses >= 3) {
+        this.x = z;
+        this.p = r;
+        this.misses = 0;
+      }
+      return this.x;
+    }
+    this.misses = 0;
+    const k = this.p / s;
+    this.x += k * innovation;
+    this.p *= 1 - k;
+    return this.x;
+  }
+}
+
 /** Full estimate over a scan, in the same result shape as v1 so the UI can use either. */
-export function estimateMulti(samples: MultiSample[], { motion = 0 }: { motion?: number } = {}): RppgResult {
-  const empty: RppgResult = { heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0) };
+export function estimateMulti(
+  samples: MultiSample[],
+  { motion = 0, rejectedTimes = [] }: { motion?: number; rejectedTimes?: number[] } = {},
+): MultiResult {
+  const empty: MultiResult = { heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0), beats: [], wave: new Float64Array(0), waveEnd: 0, track: [] };
   const unique = samples.filter((s, i) => i === 0 || s.t > samples[i - 1]!.t);
   if (unique.length < 2) return empty;
-  const start = unique[0]!.t;
-  const end = unique.at(-1)!.t;
+  const start = Math.min(unique[0]!.t, rejectedTimes[0] ?? Infinity);
+  const end = Math.max(unique.at(-1)!.t, rejectedTimes.at(-1) ?? -Infinity);
   if (end - start < WINDOW_SECONDS) return empty;
 
   const windows: WindowEstimate[] = [];
   let total = 0;
   for (let ws = start; ws + WINDOW_SECONDS <= end + 1e-9; ws += STEP_SECONDS) {
     total++;
-    const win = unique.filter((s) => s.t >= ws && s.t <= ws + WINDOW_SECONDS);
-    if (win.length < 12 * WINDOW_SECONDS) continue;
+    const we = ws + WINDOW_SECONDS;
+    const win = unique.filter((s) => s.t >= ws && s.t <= we);
+    const rejected = rejectedTimes.filter((t) => t >= ws && t <= we).length;
+    if (win.length < 12 * WINDOW_SECONDS || rejected > win.length / 4) continue;
+    if (win[0]!.t - ws > MAX_GAP || we - win.at(-1)!.t > MAX_GAP) continue;
     if (win.some((s, i) => i > 0 && s.t - win[i - 1]!.t > MAX_GAP)) continue;
     const est = fuseWindow(win);
     if (est && est.snrDb > -3) windows.push(est);
@@ -246,11 +401,18 @@ export function estimateMulti(samples: MultiSample[], { motion = 0 }: { motion?:
   const snrDb = median(windows.map((w) => w.snrDb));
   const coverage = windows.length / Math.max(1, total);
   const quality = qualityFromSnr(snrDb) * Math.max(0, 1 - motion) * Math.min(1, coverage * 1.5);
+  const last = windows.at(-1)!;
+  const { times, wave } = detectBeats(last.pulse, FS, path.at(-1)!);
+  const t0 = last.t0 ?? 0;
   return {
-    heartRate: quality >= 0.5 ? median(path) : null,
+    heartRate: coverage >= 0.5 && quality >= 0.5 ? median(path) : null,
     breathingRate: null,
     snrDb,
     quality,
-    pulse: windows.at(-1)!.pulse,
+    pulse: last.pulse,
+    beats: times.map((t) => t0 + t),
+    wave,
+    waveEnd: t0 + (wave.length - 1) / FS,
+    track: path,
   };
 }

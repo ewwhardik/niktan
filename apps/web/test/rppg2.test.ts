@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chrom, estimateMulti, trackRates, type MultiSample, type RoiName } from '../src/cv/rppg2';
+import { chrom, despike, detectBeats, estimateMulti, omit, RateFilter, trackRates, type MultiSample, type RoiName } from '../src/cv/rppg2';
 import { estimate, FS, spectralPeak, type RgbSample } from '../src/cv/rppg';
 
 function rng(seed: number) {
@@ -75,6 +75,75 @@ describe('CHROM', () => {
   });
 });
 
+describe('OMIT', () => {
+  it('recovers a clean pulse under a slow brightness drift', () => {
+    const n = 600;
+    const r = new Float64Array(n);
+    const g = new Float64Array(n);
+    const b = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / FS;
+      const light = 1 + 0.08 * Math.sin(2 * Math.PI * 0.07 * t);
+      const p = Math.sin(2 * Math.PI * 1.3 * t);
+      r[i] = light * (150 + 0.3 * p);
+      g[i] = light * (110 + 0.8 * p);
+      b[i] = light * (90 + 0.2 * p);
+    }
+    const peak = spectralPeak(omit(r, g, b), FS, [0.7, 3]);
+    expect(Math.abs(peak!.freq * 60 - 78)).toBeLessThan(2);
+  });
+});
+
+describe('despike', () => {
+  it('turns a brightness step into a flat offset without touching small ripples', () => {
+    const x = Float64Array.from({ length: 300 }, (_, i) => 100 + 0.2 * Math.sin(i / 3) + (i >= 150 ? 25 : 0));
+    const y = despike(x);
+    expect(Math.abs(y[160]! - y[140]!)).toBeLessThan(1);
+    expect(Math.abs(y[10]! - y[11]! - (x[10]! - x[11]!))).toBeLessThan(1e-9);
+  });
+});
+
+describe('beats', () => {
+  it('finds one beat per cardiac cycle, in phase with the pulse', () => {
+    const bpm = 75;
+    const pulse = Float64Array.from({ length: 300 }, (_, i) => Math.cos(2 * Math.PI * (bpm / 60) * (i / FS)) + 0.3 * Math.cos(4 * Math.PI * (bpm / 60) * (i / FS)));
+    const { times } = detectBeats(pulse, FS, bpm);
+    expect(times.length).toBeGreaterThanOrEqual(11);
+    expect(times.length).toBeLessThanOrEqual(13);
+    const ibi = times.slice(1).map((t, i) => t - times[i]!);
+    for (const d of ibi.slice(1, -1)) expect(Math.abs(d - 0.8)).toBeLessThan(0.05);
+    // Cosine peaks sit on whole periods.
+    for (const t of times.slice(1, -1)) expect(Math.abs(((t / 0.8) % 1 + 1) % 1 - 0.5)).toBeGreaterThan(0.43);
+  });
+
+  it('reports live beats on the capture clock', () => {
+    const r = estimateMulti(synth(90, 12).map((s) => ({ ...s, t: s.t + 100 })));
+    expect(r.beats.length).toBeGreaterThan(10);
+    expect(r.beats.every((t) => t >= 100 && t <= 112.1)).toBe(true);
+    expect(r.waveEnd).toBeGreaterThan(110);
+  });
+});
+
+describe('RateFilter', () => {
+  it('steadies a noisy read-out and ignores a single wild reading', () => {
+    const f = new RateFilter();
+    const rand = rng(21);
+    const out: number[] = [];
+    for (let i = 0; i < 30; i++) out.push(f.update(72 + 8 * rand(), 0.8));
+    const spread = Math.max(...out.slice(10)) - Math.min(...out.slice(10));
+    expect(spread).toBeLessThan(5);
+    expect(Math.abs(f.update(140, 0.8) - 72)).toBeLessThan(4);
+  });
+
+  it('moves to a new rate once several readings agree', () => {
+    const f = new RateFilter();
+    for (let i = 0; i < 10; i++) f.update(70, 0.9);
+    let v = 0;
+    for (let i = 0; i < 4; i++) v = f.update(110, 0.9);
+    expect(Math.abs(v - 110)).toBeLessThan(3);
+  });
+});
+
 describe('rPPG v2 fusion', () => {
   it.each([52, 70, 95, 128])('recovers %i bpm on clean multi-region traces', (bpm) => {
     const r = estimateMulti(synth(bpm, 30));
@@ -128,8 +197,32 @@ describe('rPPG v2 fusion', () => {
     expect(estimateMulti(s).heartRate).toBeNull();
   });
 
+  it.each([[62, 1], [84, 2], [72, 4]])('holds %i bpm through repeated coloured head jerks', (bpm, seed) => {
+    // A 130 ms jerk every 2.1 s that shifts skin colour (shadow plus specular), so every 10 s window
+    // contains several. Without step clipping these windows give no reading at all.
+    const rand = rng(seed);
+    const s: MultiSample[] = [];
+    for (let t = 0; t < 30; t += 1 / 30 + 0.004 * rand()) {
+      const p = Math.sin(2 * Math.PI * (bpm / 60) * t);
+      const jerk = t % 2.1 < 0.13 ? 40 * (0.5 + rand()) : 0;
+      const rois: MultiSample['rois'] = {};
+      for (const roi of ['forehead', 'leftCheek', 'rightCheek'] as RoiName[]) {
+        rois[roi] = { r: 150 + 0.3 * p + jerk + 0.3 * rand(), g: 110 + 0.8 * p - 0.4 * jerk + 0.3 * rand(), b: 90 + 0.2 * p + 0.6 * jerk + 0.3 * rand(), n: 200 };
+      }
+      s.push({ t, rois });
+    }
+    expect(Math.abs(estimateMulti(s).heartRate! - bpm)).toBeLessThan(2);
+  });
+
   it('needs at least one 10 s window', () => {
     expect(estimateMulti(synth(70, 8)).heartRate).toBeNull();
+  });
+
+  it('rejects a short clean segment when most of the scan was lost', () => {
+    const samples = synth(72, 11);
+    const rejectedTimes = Array.from({ length: 570 }, (_, i) => 11 + i / 30);
+    expect(estimateMulti(samples).heartRate).toBeCloseTo(72, -1);
+    expect(estimateMulti(samples, { rejectedTimes }).heartRate).toBeNull();
   });
 });
 

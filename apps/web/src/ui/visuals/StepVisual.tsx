@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import type { ScreeningStep } from '../../state/scan';
 
-export type StepKey = 'face' | 'eye' | 'vision' | 'hearing' | 'symptoms';
+export type StepKey = ScreeningStep;
 
 const loop = { repeat: Infinity, ease: 'easeInOut' as const };
 

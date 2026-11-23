@@ -51,9 +51,16 @@ export function useCamera(facingMode: 'user' | 'environment' = 'user', { idealWi
       signal.addEventListener('abort', release, { once: true });
       const track = stream.getVideoTracks()[0];
       if (!video || !track || track.readyState === 'ended') throw new Error('No live video track');
-      const interrupt = () => fail('interrupted');
-      track.addEventListener('ended', interrupt, { signal });
-      track.addEventListener('mute', interrupt, { signal });
+      track.addEventListener('ended', () => fail('interrupted'), { signal });
+      // Phones and laptops mute a track for a moment during exposure changes or OS hiccups; only a
+      // track that stays muted is treated as lost.
+      let muteTimer: number | undefined;
+      track.addEventListener('mute', () => {
+        clearTimeout(muteTimer);
+        muteTimer = window.setTimeout(() => { if (track.muted && !signal.aborted) fail('interrupted'); }, 3000);
+      }, { signal });
+      track.addEventListener('unmute', () => clearTimeout(muteTimer), { signal });
+      signal.addEventListener('abort', () => clearTimeout(muteTimer), { once: true });
       video.srcObject = stream;
       await video.play();
       if (signal.aborted) return null;
@@ -85,12 +92,20 @@ export function useCamera(facingMode: 'user' | 'environment' = 'user', { idealWi
   }, [fail, facingMode, idealWidth, requestTorch, stop]);
 
   useEffect(() => {
+    // A permission sheet or notification can hide the page for an instant; leaving the app cannot.
+    let hiddenTimer: number | undefined;
     const interrupt = () => {
-      if (session.current && document.visibilityState === 'hidden') fail('interrupted');
+      clearTimeout(hiddenTimer);
+      if (session.current && document.visibilityState === 'hidden') {
+        hiddenTimer = window.setTimeout(() => {
+          if (session.current && document.visibilityState === 'hidden') fail('interrupted');
+        }, 1200);
+      }
     };
     document.addEventListener('visibilitychange', interrupt);
     return () => {
       document.removeEventListener('visibilitychange', interrupt);
+      clearTimeout(hiddenTimer);
       session.current?.abort();
       session.current = null;
     };

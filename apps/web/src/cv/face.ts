@@ -3,7 +3,7 @@ import type { FaceLandmarker, NormalizedLandmark } from '@mediapipe/tasks-vision
 import wasmLoaderPath from '@mediapipe/tasks-vision/vision_wasm_internal.js?url';
 import wasmBinaryPath from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?url';
 
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+export const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 /** Match the JS/WASM versions. Each camera session closes its own native model and GPU context. */
 export async function loadFaceLandmarker(signal: AbortSignal, { pose = false, preferCpu = false } = {}): Promise<FaceLandmarker> {

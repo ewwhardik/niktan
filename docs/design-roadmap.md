@@ -57,3 +57,13 @@ RPPG_TRACES=/path/to/traces RPPG_REPORT=/path/to/report.json \
 ```
 
 The evaluator was exercised with two synthetic recordings, one with a periodic signal and one with face tracking absent. Clinical accuracy, Hindi hearing calibration, measured staff task time and hardware sensor performance remain unverified.
+
+## Screening recovery
+
+The face scan counts frames rejected for acquisition problems against the measurement window. The regression fixture shows that a clean 11-second segment can produce a pulse estimate on its own, while the same segment followed by 19 seconds of rejected capture produces no reading. Camera sampling continues at the available frame rate while the overlay updates at most about 15 times per second during steady guidance. Published rPPG research shows why lighting, motion and camera conditions need evaluation with paired reference data. [Webcam rPPG validation study](https://pmc.ncbi.nlm.nih.gov/articles/PMC11362249/)
+
+An unfinished screening resumes at the first unanswered step. The browser retains a private creation key until the API acknowledges the new session. D1 tests confirm that two requests with the same key create one screening and protect the original profile from a conflicting replay.
+
+A 390-pixel browser check resumed at vision when pulse and eye had already been skipped. A forced connection reset followed by reload reused the saved session key. The published site also offered retry and skip after simulated camera permission denial. A synthetic production API check returned the same screening ID for two parallel requests and rejected a conflicting profile.
+
+The next accuracy comparison needs paired reference recordings. The local rPPG trace directory currently contains no recordings. UBFC-rPPG collected synchronized facial video and fingertip pulse oximetry. MPU-rPPG adds annotated activities and synchronized physiological references. Dataset access terms, reference quality and representation across lighting, motion and devices should be checked before interpreting results for NikTan. [UBFC-rPPG](https://sites.google.com/view/ybenezeth/ubfcrppg) · [MPU-rPPG](https://www.nature.com/articles/s41597-026-07310-3)

@@ -3,14 +3,13 @@ import { ArrowLeft } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useScan } from '../../state/scan';
+import { SCREENING_STEPS, useScan, type ScreeningStep } from '../../state/scan';
 import { StepRail } from '../../ui/Chamber';
 import { LangToggle } from '../../ui/Layout';
 import { screenVariants } from '../../ui/motion';
 import { VoiceGuide } from './VoiceGuide';
 
-export const STEPS = ['face', 'eye', 'vision', 'hearing', 'symptoms'] as const;
-export type StepId = (typeof STEPS)[number];
+const STEPS = SCREENING_STEPS.map(({ route }) => route);
 
 const components = {
   face: lazy(() => import('./FaceVitals')),
@@ -26,11 +25,11 @@ export interface StepProps {
 }
 
 export default function ScanStep() {
-  const { step } = useParams<{ step: StepId }>();
+  const { step } = useParams<{ step: ScreeningStep }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profile } = useScan();
-  const index = STEPS.indexOf(step as StepId);
+  const index = step === undefined ? -1 : STEPS.indexOf(step);
   const prev = useRef(index);
   const dir = index >= prev.current ? 1 : -1;
   useEffect(() => {

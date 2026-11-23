@@ -26,6 +26,15 @@ export interface Results {
   symptoms?: Symptoms | null;
 }
 
+export const SCREENING_STEPS = [
+  { route: 'face', module: 'vitals' },
+  { route: 'eye', module: 'eye' },
+  { route: 'vision', module: 'vision' },
+  { route: 'hearing', module: 'hearing' },
+  { route: 'symptoms', module: 'symptoms' },
+] as const;
+export type ScreeningStep = (typeof SCREENING_STEPS)[number]['route'];
+
 interface ScanState {
   sessionId: string | null;
   profile: Profile | null;
@@ -34,10 +43,16 @@ interface ScanState {
   pending: ModuleName[];
   tokenId: string | null;
   startedAt: number | null;
+  creation?: { key: string; lang: string };
 }
 
 const KEY = 'niktan.scan';
 const empty: ScanState = { sessionId: null, profile: null, results: {}, pending: [], tokenId: null, startedAt: null };
+
+function newCreation(lang: string): NonNullable<ScanState['creation']> {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return { key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''), lang };
+}
 
 interface ScanApi extends ScanState {
   begin: (profile: Profile, lang: string) => Promise<void>;
@@ -84,22 +99,28 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     const version = generation.current;
     const current = () => version === generation.current;
     const run = async () => {
+      const controller = new AbortController();
+      const deadline = window.setTimeout(() => controller.abort(), 12_000);
       try {
         let { sessionId } = latest.current;
         if (!sessionId) {
-          const lang = load('niktan.lang', 'en');
-          const res = await api.post<{ id: string }>('/api/sessions', { ...latest.current.profile, lang });
+          const draft = latest.current;
+          const creation = draft.creation ?? newCreation(load('niktan.lang', 'en'));
+          if (!draft.creation) update({ ...draft, creation });
+          const res = await api.post<{ id: string }>(
+            '/api/sessions', { ...draft.profile, lang: creation.lang, creationKey: creation.key }, controller.signal,
+          );
           if (!current()) return null;
           sessionId = res.id;
-          update({ ...latest.current, sessionId });
+          update({ ...latest.current, sessionId, creation: undefined });
         }
         // Serial writes preserve retake order, including a skip while a previous POST is pending.
         while (current() && latest.current.pending.length) {
           const module = latest.current.pending[0]!;
           const data = latest.current.results[module];
           const path = `/api/sessions/${sessionId}/measurements`;
-          if (data) await api.post(path, { module, data });
-          else await api.del(`${path}/${module}`);
+          if (data) await api.post(path, { module, data }, controller.signal);
+          else await api.del(`${path}/${module}`, controller.signal);
           if (current() && latest.current.results[module] === data) {
             update({ ...latest.current, pending: latest.current.pending.filter((m) => m !== module) });
           }
@@ -107,6 +128,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
         return current() ? sessionId : null;
       } catch {
         return null;
+      } finally {
+        clearTimeout(deadline);
       }
     };
     const task = run().finally(() => {
@@ -122,10 +145,10 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('online', onReconnect);
   }, [sync]);
 
-  const begin = useCallback(async (profile: Profile) => {
+  const begin = useCallback(async (profile: Profile, lang: string) => {
     if (inFlight.current) await inFlight.current;
     generation.current++;
-    update({ ...empty, profile, startedAt: Date.now() });
+    update({ ...empty, profile, startedAt: Date.now(), creation: newCreation(lang) });
   }, [update]);
 
   const record = useCallback<ScanApi['record']>((module, data) => {

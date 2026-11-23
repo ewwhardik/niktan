@@ -52,10 +52,10 @@ async function getFresh<T>(path: string): Promise<T> {
 export const api = {
   get: <T>(path: string) => request<T>(path),
   getFresh,
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown, signal?: AbortSignal) =>
+    request<T>(path, { method: 'POST', signal, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  del: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: 'DELETE', signal }),
 };
 
 const STAFF_KEY = 'niktan.staff';

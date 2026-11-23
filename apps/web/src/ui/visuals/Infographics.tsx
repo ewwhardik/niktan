@@ -40,11 +40,11 @@ export function QueueRace({ labels }: { labels: { fcfs: string; niktan: string; 
             {labels.wait.replace('{{n}}', String(redWaitSlots * 6))}
           </p>
         </div>
-        <div className="mt-4 flex items-center gap-2">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent text-on-accent" title="Doctor">
+        <div className="mt-4 flex items-center gap-1.5 sm:gap-2">
+          <span className="flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-xl bg-accent text-on-accent" title="Doctor">
             <DoorOpen size={18} aria-hidden />
           </span>
-          <div className="relative flex min-h-8 flex-1 items-center gap-1 overflow-hidden">
+          <div className="relative flex min-h-8 min-w-0 flex-1 items-center gap-0.5 overflow-hidden sm:gap-1">
             <AnimatePresence initial={false} mode="popLayout">
               {remaining.map((id) => {
                 const red = id === LANE - 1;
@@ -56,16 +56,16 @@ export function QueueRace({ labels }: { labels: { fcfs: string; niktan: string; 
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, x: -24, scale: 0.6 }}
                     transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-                    className={`relative flex size-6 shrink-0 items-center justify-center rounded-full sm:size-7 ${red ? 'bg-emergency text-emergency-on' : 'bg-sunken text-text-3'}`}
+                    className={`relative flex aspect-square max-w-7 min-w-0 flex-1 items-center justify-center rounded-full ${red ? 'bg-emergency text-emergency-on' : 'bg-sunken text-text-3'}`}
                   >
-                    <CircleUser size={14} aria-hidden />
+                    <CircleUser className="size-[60%]" aria-hidden />
                     {red && <span className="absolute inset-0 animate-ping rounded-full bg-emergency/40" />}
                   </motion.span>
                 );
               })}
             </AnimatePresence>
           </div>
-          <span className={`mono w-12 shrink-0 text-right text-caption ${redServed ? 'text-routine-text' : 'text-text-3'}`}>{redServed ? '✓' : `${remaining.length}`}</span>
+          <span className={`mono w-6 shrink-0 text-right sm:w-12 text-caption ${redServed ? 'text-routine-text' : 'text-text-3'}`}>{redServed ? '✓' : `${remaining.length}`}</span>
         </div>
       </div>
     );
@@ -92,8 +92,8 @@ export function TimeDonut({ wait, consult, labels }: { wait: number; consult: nu
   const c = 2 * Math.PI * r;
   const share = consult / total;
   return (
-    <div className="flex items-center gap-6">
-      <svg ref={ref} viewBox="0 0 180 180" className="size-40 shrink-0 -rotate-90 sm:size-48" aria-hidden>
+    <div className="flex min-w-0 flex-col items-start gap-5 min-[420px]:flex-row min-[420px]:items-center min-[420px]:gap-6">
+      <svg ref={ref} viewBox="0 0 180 180" className="size-36 min-[420px]:size-40 shrink-0 -rotate-90 sm:size-48" aria-hidden>
         <circle cx="90" cy="90" r={r} fill="none" stroke="var(--surface-sunken)" strokeWidth="22" />
         <motion.circle cx="90" cy="90" r={r} fill="none" stroke="var(--text-3)" strokeWidth="22" strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={inView ? { strokeDashoffset: c * share } : {}} transition={{ duration: 1.4, ease }} />
         <motion.circle cx="90" cy="90" r={r} fill="none" stroke="var(--emergency)" strokeWidth="22" strokeLinecap="round" strokeDasharray={`${c * share} ${c}`} initial={{ opacity: 0 }} animate={inView ? { opacity: 1 } : {}} transition={{ delay: 1.3, duration: 0.4 }} />

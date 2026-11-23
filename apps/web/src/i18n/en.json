@@ -32,7 +32,8 @@
     "privacy": "Your face and eye images never leave your phone.",
     "hospital": "Hospital staff login",
     "thali": "Scan your meal",
-    "resume": "Open my health card"
+    "resume": "Open my health card",
+    "continue": "Continue screening"
   },
   "consent": {
     "title": "Before we begin",
@@ -101,7 +102,8 @@
     "quality": "Signal quality",
     "breathing": "Breathing (experimental)",
     "lowQuality": "The reading was not clear. Try again in better light, or skip.",
-    "feel": "Feel that? Your phone taps at your estimated heart rate."
+    "feel": "Feel that? Your phone taps at your estimated heart rate.",
+    "stability": "Reading held steady within {{n}} bpm across the scan."
   },
   "eye": {
     "title": "Eye check",
@@ -253,6 +255,8 @@
     "add": "Add dish",
     "compute": "See nutrition",
     "noFood": "No food found in the photo.",
+    "photoUnreadable": "Couldn't open this photo. Try another photo or add dishes by hand.",
+    "newPhoto": "Try another photo",
     "manual": "Couldn't recognise automatically. Add dishes yourself.",
     "perMeal": "of a meal's need",
     "advice": "Try this",
@@ -385,12 +389,12 @@
     "bentoTitle": "Serious engineering behind a three-minute check.",
     "b1t": "Your face never leaves your phone",
     "b1d": "Video, eye photos, vision and hearing are processed on-device. Only numbers and flags are sent.",
-    "b2t": "Rules, not a chatbot",
-    "b2d": "Priority comes from a versioned, unit-tested rule engine. AI only turns speech into structured fields.",
-    "b3t": "Works on a ₹8,000 phone",
-    "b3d": "Offline-first PWA. Scan steps keep working when the venue Wi‑Fi doesn't.",
-    "b4t": "Hindi first",
-    "b4d": "Hindi by default, Chhattisgarhi greetings, English when you want it, voice guidance throughout.",
+    "b2t": "Versioned triage rules",
+    "b2d": "Confirmed symptoms and usable readings feed a rule engine. Voice transcription helps you enter symptoms for review.",
+    "b3t": "Local results",
+    "b3d": "Once the check is loaded, you can keep your results on the phone and sync when you reconnect.",
+    "b4t": "Three languages",
+    "b4d": "Switch between English, Hindi and Chhattisgarhi, with spoken guidance during the checks.",
     "b5t": "NikTan Thali",
     "b5d": "Photograph your plate; nutrition from the Indian Nutrient Databank and local swaps like lal bhaji and kulthi.",
     "b6t": "Emergency first",
@@ -445,7 +449,127 @@
         "Photos"
       ]
     },
-    "problemVisual": "Where the time goes"
+    "problemVisual": "Where the time goes",
+    "live": "Live on any phone browser",
+    "console": {
+      "brand": "OPD pre-consult",
+      "tabs": [
+        "Vitals",
+        "Eyes",
+        "Vision",
+        "Hearing",
+        "Symptoms"
+      ],
+      "hello": "Token #15 is ready",
+      "meta": [
+        "46 y · F",
+        "Fever · 3 days",
+        "हिंदी"
+      ],
+      "hr": "Heart rate",
+      "vision": "Vision",
+      "hearing": "Hearing",
+      "summary": "Summary",
+      "rows": [
+        "Pulse locked",
+        "Pallor: no",
+        "6/9 both eyes",
+        "Digits in noise: pass",
+        "2 symptoms confirmed"
+      ],
+      "chart": "Pulse · on-device",
+      "tip": "72 bpm · beat-locked",
+      "verdict": "See today",
+      "ahead": "0 ahead",
+      "moved": "Moved from 15th to 1st",
+      "open": "Open card",
+      "chipA": "Face video stays on the phone",
+      "chipB": "108 bypass on red flags"
+    },
+    "consTitle": "Every queue hides a sicker patient.",
+    "consBody": "First-come, first-served treats a breathless patient like a prescription refill. NikTan surfaces the signals before the counter does.",
+    "consTags": [
+      "Fever · 3 days",
+      "BP refill",
+      "Routine follow-up",
+      "Breathless · arrived 15th",
+      "Knee pain",
+      "Seen 1st"
+    ],
+    "hubEyebrow": "One engine",
+    "hubTitle": "Five checks feed one triage verdict.",
+    "hubBody": "Each check sends numbers and flags, never images, into a versioned rule engine that sorts the queue by need, then arrival.",
+    "hubEngine": "Triage engine",
+    "hubOut": [
+      "Emergency · call 108",
+      "See today",
+      "Routine"
+    ],
+    "hubShort": [
+      "Pulse from skin colour",
+      "Inner-eyelid pallor",
+      "Tumbling-E acuity",
+      "Digits in noise",
+      "Hindi voice to chips"
+    ],
+    "notifs": [
+      "Token #15 moved to 1st in line",
+      "Red flag confirmed → Emergency, call 108",
+      "Pre-consult card sent to the OPD desk",
+      "Queue re-sorted for General Medicine"
+    ],
+    "notifTitle": "Re-triage in real time",
+    "notifBody": "When a red flag appears, the board moves that patient at once. Staff see why.",
+    "rulesCta": "See how it works",
+    "foundTitle": "Built on a careful foundation",
+    "found": [
+      {
+        "t": "Published methods",
+        "d": "POS, CHROM and OMIT pulse extraction, fused by signal quality."
+      },
+      {
+        "t": "Tested logic",
+        "d": "Signal processing and triage rules run under automated tests."
+      },
+      {
+        "t": "No identity needed",
+        "d": "No name, phone or Aadhaar. Delete with one tap."
+      },
+      {
+        "t": "Offline-first",
+        "d": "Once loaded, the checks keep working on a weak network."
+      },
+      {
+        "t": "Budget phones",
+        "d": "A lighter mode for low-memory devices keeps it smooth."
+      }
+    ],
+    "endCta": "Start your 3-minute check",
+    "footCols": [
+      "Screening",
+      "Hospitals",
+      "About"
+    ],
+    "footHow": "How it works",
+    "footBoard": "Demo board",
+    "footFeedback": "Feedback",
+    "thaliEyebrow": "NikTan Thali",
+    "thaliTitle": "Point your camera at lunch. See what it gives you.",
+    "thaliBody": "Photograph your plate and NikTan names each dish, then estimates protein, iron, fibre and energy from the Indian Nutrient Databank, with swaps that grow nearby.",
+    "thaliPoints": [
+      "Recognises home-cooked Indian dishes",
+      "Nutrients from IFCT 2017 and INDB",
+      "Local swaps like lal bhaji, kulthi and ragi"
+    ],
+    "thaliDishes": [
+      "Dal",
+      "Rice",
+      "Lal bhaji",
+      "Roti",
+      "Curd"
+    ],
+    "thaliCta": "Scan a meal",
+    "thaliMeal": "1 meal"
   },
   "design": {
     "screeningArt": "A woman holds her phone at eye level for a face scan.",

@@ -3,9 +3,9 @@ import { useIsPresent } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import type { StepId } from './ScanStep';
+import type { ScreeningStep } from '../../state/scan';
 
-export function VoiceGuide({ step }: { step: StepId }) {
+export function VoiceGuide({ step }: { step: ScreeningStep }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const present = useIsPresent();

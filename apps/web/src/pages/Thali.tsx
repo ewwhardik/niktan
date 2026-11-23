@@ -19,15 +19,30 @@ const dishById = new Map(dishes.map((d) => [d.id, d]));
 const SHOWN: Nutrient[] = ['protein', 'iron', 'fibre', 'vitaminC', 'calcium', 'kcal', 'carbs'];
 
 /** Downscales a photo to at most 1024 px so uploads stay small on 3G. */
-async function shrink(file: File): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1024 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * scale);
-  c.height = Math.round(bmp.height * scale);
-  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
-  bmp.close();
-  return new Promise((resolve, reject) => c.toBlob((b) => b ? resolve(b) : reject(new Error('JPEG encoding failed')), 'image/jpeg', 0.82));
+async function shrink(file: File, url: string): Promise<Blob> {
+  const bitmap = await globalThis.createImageBitmap?.(file).catch(() => null);
+  const source = bitmap ?? await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Photo decoding failed'));
+    image.src = url;
+  });
+  const width = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+  const height = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+  const scale = Math.min(1, 1024 / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  try {
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Photo rendering failed');
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  } finally {
+    bitmap?.close();
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('JPEG encoding failed')), 'image/jpeg', 0.82);
+  });
 }
 
 function Bar({ label, share, value, unit }: { label: string; share: number; value: number; unit: string }) {
@@ -69,13 +84,23 @@ export default function Thali() {
 
   const person = { age: scan.profile?.age ?? 30, sex: scan.profile?.sex ?? ('other' as const), pregnant: scan.profile?.pregnant, pallor: !!scan.results.eye?.pallor };
 
-  const onFile = async (file: File | undefined) => {
+  const onFile = async (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    input.value = '';
     if (!file) return;
-    setPhoto(URL.createObjectURL(file));
+    const url = URL.createObjectURL(file);
+    setPhoto(url);
     setPhase('recognising');
     setNotice(null);
+    let blob: Blob;
     try {
-      const blob = await shrink(file);
+      blob = await shrink(file, url);
+    } catch {
+      setNotice(t('thali.photoUnreadable'));
+      setPhase('confirm');
+      return;
+    }
+    try {
       const form = new FormData();
       form.append('photo', new File([blob], 'thali.jpg', { type: 'image/jpeg' }));
       const r = await api.post<{ items: { dishId: string; count: number }[]; noFood: boolean; fallback?: string }>('/api/thali/recognize', form);
@@ -89,6 +114,14 @@ export default function Thali() {
       setNotice(t('thali.manual'));
     }
     setPhase('confirm');
+  };
+
+  const resetPhoto = () => {
+    setItems([]);
+    setPhoto(null);
+    setResult(null);
+    setNotice(null);
+    setPhase('photo');
   };
 
   const setCount = (id: string, d: number) =>
@@ -117,8 +150,8 @@ export default function Thali() {
   return (
     <Screen>
       <TopBar onBack={() => (phase === 'result' ? setPhase('confirm') : navigate(scan.profile ? '/card' : '/'))} title={t('thali.title')} />
-      <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
-      <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
+      <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onFile(e.currentTarget)} />
+      <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.currentTarget)} />
 
       <AnimatePresence mode="wait">
         {phase === 'photo' && (
@@ -240,20 +273,15 @@ export default function Thali() {
           </>
         )}
         {phase === 'confirm' && (
-          <Button disabled={!items.length} onClick={compute}>
-            {t('thali.compute')}
-          </Button>
+          <>
+            <Button disabled={!items.length} onClick={compute}>
+              {t('thali.compute')}
+            </Button>
+            {photo && <LinkButton onClick={resetPhoto}>{t('thali.newPhoto')}</LinkButton>}
+          </>
         )}
         {phase === 'result' && (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setItems([]);
-              setPhoto(null);
-              setResult(null);
-              setPhase('photo');
-            }}
-          >
+          <Button variant="secondary" onClick={resetPhoto}>
             {t('thali.take')}
           </Button>
         )}

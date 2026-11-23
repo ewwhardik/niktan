@@ -48,11 +48,20 @@ function OfflineBanner() {
   );
 }
 
+const MARK = 'M1 27h7c4 0 6-2 9-5C27 11 36 1 51 1c20 0 36 16 36 37v19L61 81V40c0-10-6-16-15-16-6 0-10 3-15 9-4 4-5 7-5 10v37H1Z';
+
 function Loader() {
   const { t } = useTranslation();
   return (
+    // Same animation as the boot screen in index.html, whose <style> defines these classes.
     <div className="brand-loader" role="status" aria-label={t('common.loading')}>
-      <img src="/brand/niktan-mark.svg" alt="" width="56" height="56" />
+      <svg className="nl" viewBox="0 0 88 82" aria-hidden>
+        <defs><clipPath id="nl-clip"><path d={MARK} /></clipPath></defs>
+        <g clipPath="url(#nl-clip)"><rect className="nl-fill" width="88" height="82" /></g>
+        <path className="nl-trace" pathLength={100} d={MARK} />
+        <path className="nl-pulse" pathLength={100} d={MARK} />
+      </svg>
+      <span className="nl-word">NikTan</span>
     </div>
   );
 }

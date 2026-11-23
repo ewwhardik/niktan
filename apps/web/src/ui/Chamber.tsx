@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { Check, Ear, Eye, Glasses, HeartPulse, Mic, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { springs } from './motion';
 
 const ICONS: Record<string, LucideIcon> = { face: HeartPulse, eye: Eye, vision: Glasses, hearing: Ear, symptoms: Mic };
@@ -47,10 +47,18 @@ export function StepLayout({ stage, children }: { stage: ReactNode; children: Re
   );
 }
 
-/** Camera frame with optical corner ticks. */
+/** Camera frame with optical corner ticks. On a mouse it leans a few degrees toward the pointer. */
 export function StageFrame({ children, className = '' }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const move = (e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== 'mouse' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const r = el.getBoundingClientRect();
+    el.style.transform = `perspective(1400px) rotateX(${((r.top + r.height / 2 - e.clientY) / r.height) * 4}deg) rotateY(${((e.clientX - r.left - r.width / 2) / r.width) * 4}deg)`;
+  };
   return (
-    <div className={`relative mx-auto aspect-[3/4] w-full max-w-[400px] overflow-hidden rounded-[32px] bg-black ring-1 ring-white/10 lg:h-[min(72vh,680px)] lg:w-auto lg:max-w-none ${className}`} style={{ touchAction: 'pan-y' }}>
+    <div ref={ref} onPointerMove={move} onPointerLeave={() => { if (ref.current) ref.current.style.transform = ''; }}
+      className={`stage-3d relative mx-auto aspect-[3/4] w-full max-w-[400px] overflow-hidden rounded-[32px] bg-black ring-1 ring-white/10 lg:h-[min(72vh,680px)] lg:w-auto lg:max-w-none ${className}`} style={{ touchAction: 'pan-y' }}>
       {children}
       {(['top-3 left-3 border-t border-l', 'top-3 right-3 border-t border-r', 'bottom-3 left-3 border-b border-l', 'bottom-3 right-3 border-b border-r'] as const).map((c) => (
         <span key={c} className={`pointer-events-none absolute size-5 rounded-[6px] border-white/40 ${c}`} />

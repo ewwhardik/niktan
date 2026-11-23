@@ -34,9 +34,9 @@ export const exitFast: Transition = { duration: 0.16, ease: easeIn };
 
 /** Step-to-step screen transition; direction 1 = forward, -1 = back. */
 export const screenVariants: Variants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir * 24 }),
-  center: { opacity: 1, x: 0, transition: springs.step },
-  exit: (dir: number) => ({ opacity: 0, x: dir * -16, transition: exitFast }),
+  enter: (dir: number) => ({ opacity: 0, x: dir * 28, rotateY: dir * -7, scale: 0.985, transformPerspective: 1400 }),
+  center: { opacity: 1, x: 0, rotateY: 0, scale: 1, transformPerspective: 1400, transition: springs.step },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -18, rotateY: dir * 5, scale: 0.99, transformPerspective: 1400, transition: exitFast }),
 };
 
 export const staggerParent: Variants = {

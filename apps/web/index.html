@@ -12,16 +12,25 @@
     <link rel="apple-touch-icon" href="/brand/app-180.png" />
     <style>
       body { margin:0; }
-      .brand-loader { min-height:100svh; display:grid; place-items:center; }
-      .brand-loader img { width:56px; height:56px; animation:brand-unfold 1.2s ease-in-out infinite alternate; }
-      @keyframes brand-unfold { from { opacity:.46; transform:perspective(200px) rotateY(-24deg) scale(.92); } to { opacity:1; transform:perspective(200px) rotateY(0) scale(1); } }
-      @media (prefers-color-scheme:dark) { .brand-loader { background:#131617; } .brand-loader img { filter:brightness(0) invert(1); } }
-      @media (prefers-reduced-motion:reduce) { .brand-loader img { animation:none; } }
+      #boot { position:fixed; inset:0; z-index:1000; transition:opacity .5s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
+      #boot.boot-out { opacity:0; transform:scale(1.04); pointer-events:none; }
+      .brand-loader { min-height:100svh; display:grid; place-items:center; align-content:center; gap:18px; background:#f5f5f7; color:#00454c; }
+      .nl { width:72px; height:68px; overflow:visible; animation:nl-beat 2.6s cubic-bezier(.22,1,.36,1) infinite; transform-origin:50% 60%; }
+      .nl-trace { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linejoin:round; stroke-dasharray:100; animation:nl-trace 2.6s cubic-bezier(.65,0,.35,1) infinite; }
+      .nl-fill { fill:currentColor; transform:translateY(100%); animation:nl-fill 2.6s cubic-bezier(.65,0,.35,1) infinite; }
+      .nl-pulse { fill:none; stroke:#ff3b30; stroke-width:2.6; stroke-linecap:round; stroke-dasharray:5 95; animation:nl-pulse 1.3s linear infinite; }
+      .nl-word { font:600 15px/1 -apple-system,BlinkMacSystemFont,"SF Pro Display","Inter Variable",system-ui,sans-serif; letter-spacing:-.01em; opacity:.55; }
+      @keyframes nl-trace { 0% { stroke-dashoffset:100; opacity:1; } 45% { stroke-dashoffset:0; } 88% { opacity:1; } 100% { stroke-dashoffset:0; opacity:0; } }
+      @keyframes nl-fill { 0%,30% { transform:translateY(100%); } 66% { transform:translateY(0); } 92% { transform:translateY(0); opacity:1; } 100% { transform:translateY(0); opacity:0; } }
+      @keyframes nl-pulse { from { stroke-dashoffset:100; } to { stroke-dashoffset:0; } }
+      @keyframes nl-beat { 0%,66% { transform:scale(1); } 72% { transform:scale(1.09); } 78% { transform:scale(.98); } 84% { transform:scale(1.04); } 92%,100% { transform:scale(1); } }
+      @media (prefers-color-scheme:dark) { .brand-loader { background:#000; color:#f5f5f7; } }
+      @media (prefers-reduced-motion:reduce) { .nl, .nl-trace, .nl-pulse { animation:none; } .nl-fill { animation:none; transform:none; } .nl-pulse { display:none; } }
     </style>
     <title>NikTan · निकतन</title>
   </head>
   <body>
-    <div id="root"><div class="brand-loader" role="status" aria-label="Loading NikTan"><img src="/brand/niktan-mark.svg" alt="" width="56" height="56" /></div></div>
+    <div id="boot"><div class="brand-loader" role="status" aria-label="Loading NikTan"><svg class="nl" viewBox="0 0 88 82" aria-hidden="true"><defs><clipPath id="nl-clip"><path d="M1 27h7c4 0 6-2 9-5C27 11 36 1 51 1c20 0 36 16 36 37v19L61 81V40c0-10-6-16-15-16-6 0-10 3-15 9-4 4-5 7-5 10v37H1Z"/></clipPath></defs><g clip-path="url(#nl-clip)"><rect class="nl-fill" width="88" height="82"/></g><path class="nl-trace" pathLength="100" d="M1 27h7c4 0 6-2 9-5C27 11 36 1 51 1c20 0 36 16 36 37v19L61 81V40c0-10-6-16-15-16-6 0-10 3-15 9-4 4-5 7-5 10v37H1Z"/><path class="nl-pulse" pathLength="100" d="M1 27h7c4 0 6-2 9-5C27 11 36 1 51 1c20 0 36 16 36 37v19L61 81V40c0-10-6-16-15-16-6 0-10 3-15 9-4 4-5 7-5 10v37H1Z"/></svg><span class="nl-word">NikTan</span></div></div><div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

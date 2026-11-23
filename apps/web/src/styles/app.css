@@ -364,3 +364,80 @@
   background: linear-gradient(90deg, transparent, #adffe9 22%, #adffe9 78%, transparent);
   box-shadow: 0 1px 7px #89f5da88;
 }
+
+/* Beating heart: "lub-dub" scale with a bloom that peaks on the first sound. */
+.beating-heart__shape {
+  animation: lub-dub var(--beat, 0.9s) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: 50% 55%;
+}
+@keyframes lub-dub {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.18); }
+  30% { transform: scale(0.97); }
+  44% { transform: scale(1.08); }
+  62% { transform: scale(1); }
+}
+/* PPG trace: three beats draw on over three beat periods, then the ink travels with the pulse. */
+.ppg-trace__ink {
+  stroke-dasharray: 34 100;
+  animation: ppg-ink calc(var(--beat, 0.9s) * 3) linear infinite;
+}
+@keyframes ppg-ink {
+  from { stroke-dashoffset: 34; }
+  to { stroke-dashoffset: -100; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beating-heart__shape,
+  .ppg-trace__ink {
+    animation: none;
+  }
+  .ppg-trace__ink {
+    stroke-dasharray: none;
+  }
+}
+
+/* Camera stage: lifts on a layered shadow and leans toward the mouse (set inline by StageFrame). */
+.stage-3d {
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.08), 0 12px 24px -8px rgb(0 0 0 / 0.25), 0 40px 80px -30px rgb(0 0 0 / 0.45);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Two rings orbiting the face in 3D while the pulse scan runs. */
+.orbit-3d {
+  transform: translate(-50%, -50%);
+  perspective: 700px;
+}
+.orbit-3d__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgb(255 255 255 / 0.28);
+  border-top-color: rgb(255 255 255 / 0.85);
+  animation: orbit-a 5.5s linear infinite;
+}
+.orbit-3d__ring.is-locked {
+  border-color: rgb(255 69 58 / 0.3);
+  border-top-color: #ff453a;
+}
+.orbit-3d__ring--b {
+  inset: 6%;
+  border-color: rgb(255 255 255 / 0.12);
+  border-right-color: rgb(255 255 255 / 0.55);
+  animation: orbit-b 8s linear infinite;
+}
+@keyframes orbit-a {
+  from { transform: rotateX(72deg) rotateZ(0deg); }
+  to { transform: rotateX(72deg) rotateZ(360deg); }
+}
+@keyframes orbit-b {
+  from { transform: rotateY(68deg) rotateZ(360deg); }
+  to { transform: rotateY(68deg) rotateZ(0deg); }
+}
+:root[data-perf="lite"] .orbit-3d__ring--b {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit-3d__ring { animation: none; transform: rotateX(72deg); }
+  .orbit-3d__ring--b { display: none; }
+}
