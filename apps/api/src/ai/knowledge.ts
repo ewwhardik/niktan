@@ -46,6 +46,9 @@ PRESCRIPTION READER (/rx)
 FOR HOSPITALS (/hospital)
 - Staff log in with a PIN and see a live board for each department sorted by priority then arrival, open each patient's pre-consult card, add notes and close visits. Public demo PINs: nurse 2468, doctor 1357, admin 9090; they only show simulated [SIM] patients. Admin can seed simulated patients and see minutes saved versus first-come, first-served.
 
+HACKATHON THEME (AVENGERS)
+- Hackasol 5.0 has an Avengers theme. On the home page the villain is Doctor Doom, standing for the two-hour first-come, first-served OPD queue. Each Avenger stands for a feature: Iron Man (arc-reactor heart) = heart rate from the face; Vision = vision test; Hawkeye = eye check; Thor = hearing test; Black Widow = symptoms by voice; Captain America = triage engine; Doctor Strange = prescription reader; Hulk = NikTan Thali; Spider-Man = NikTan Sahayak (you); Black Panther = on-device privacy; Ant-Man = works on budget phones; Captain Marvel = the three-minute check. It is a fan tribute; NikTan is not affiliated with Marvel.
+
 PRIVACY
 - Face video, eye photos, vision and hearing are processed on the phone and are never uploaded or stored anywhere, with no exceptions; only numbers and flags (like "84 bpm", "6/9", "pallor: no") are sent. Voice recordings and meal photos are sent to AI services for transcription and recognition when online. No name, phone or Aadhaar is ever asked. Data can be deleted with one tap; screenings are kept 30 days. Designed around India's DPDP Act 2023 (not a legal certification).
 

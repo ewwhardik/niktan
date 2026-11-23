@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 const film = '/media/before-the-waiting-room';
 
-export function ProductFilm() {
+/** `inHero` drops the section's own outer padding when it sits inside the hero. */
+export function ProductFilm({ inHero = false }: { inHero?: boolean }) {
   const { t } = useTranslation();
   const player = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
@@ -21,7 +22,7 @@ export function ProductFilm() {
   }
 
   return (
-    <section id="film" aria-label={t('film.title')} className="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-10 md:px-10 md:py-16">
+    <section id="film" aria-label={t('film.title')} className={inHero ? 'mx-auto mt-10 max-w-[1080px] scroll-mt-24 md:mt-14' : 'mx-auto max-w-[1240px] scroll-mt-24 px-5 py-10 md:px-10 md:py-16'}>
       <div className="relative isolate aspect-video overflow-hidden rounded-[20px] bg-[#091d20] shadow-[0_18px_55px_-30px_#0c303a80] md:rounded-[32px]">
         <video ref={player} controls={started} playsInline preload="none" poster={film + '.webp'}
           tabIndex={started ? 0 : -1} aria-label={t('film.title')} className="block h-full w-full">

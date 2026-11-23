@@ -627,7 +627,104 @@
       "Uses and warnings from NLM RxNorm and openFDA"
     ],
     "rxCta": "Read a prescription",
-    "builtBy": "Designed and built by"
+    "builtBy": "Designed and built by",
+    "assemble": {
+      "eyebrow": "Avengers Assemble · Hackasol 5.0 theme",
+      "title": "Every check is a hero. The villain is the queue.",
+      "body": "NikTan's features, each matched to the Avenger who shares its power, against the enemy every OPD patient knows.",
+      "doomName": "Doctor Doom",
+      "doomRole": "The villain",
+      "doomTitle": "The two-hour queue",
+      "doomBody": "Victor von Doom wants to rule everything, and he is back for Avengers: Doomsday. In a public OPD he already rules: a first-come, first-served line where a breathless patient waits behind routine refills for about two hours, for five minutes with a doctor.",
+      "doomStat": "110.9 min average wait",
+      "heroes": [
+        {
+          "name": "Iron Man",
+          "power": "Arc-reactor heart",
+          "feature": "Heart rate from your face",
+          "line": "Tony powered his heart with light. NikTan reads yours from the light on your skin.",
+          "to": "/start"
+        },
+        {
+          "name": "Vision",
+          "power": "Mind Stone sight",
+          "feature": "Vision test",
+          "line": "The hero named for sight checks how sharply you see, one tumbling E at a time.",
+          "to": "/start"
+        },
+        {
+          "name": "Hawkeye",
+          "power": "Never misses",
+          "feature": "Eye check",
+          "line": "Clint never misses a target; the eye check doesn't miss a pale inner eyelid.",
+          "to": "/start"
+        },
+        {
+          "name": "Thor",
+          "power": "God of thunder",
+          "feature": "Hearing test",
+          "line": "Thunder is easy to hear. Quiet digits and tones in each ear are not.",
+          "to": "/start"
+        },
+        {
+          "name": "Black Widow",
+          "power": "Gets anyone talking",
+          "feature": "Symptoms by voice",
+          "line": "Speak in Hindi or Hinglish and your words become symptoms to confirm.",
+          "to": "/start"
+        },
+        {
+          "name": "Captain America",
+          "power": "Leaves no one behind",
+          "feature": "Triage engine",
+          "line": "The rules put the sickest patient first, and send red flags straight to 108.",
+          "to": "#engine"
+        },
+        {
+          "name": "Doctor Strange",
+          "power": "Eye of Agamotto",
+          "feature": "Prescription reader",
+          "line": "Even a sorcerer's notes are hard to read. The reader makes doctors' handwriting plain.",
+          "to": "/rx"
+        },
+        {
+          "name": "Hulk",
+          "power": "Strength from within",
+          "feature": "NikTan Thali",
+          "line": "Strength needs fuel. Thali shows the protein and iron on your plate.",
+          "to": "/thali"
+        },
+        {
+          "name": "Spider-Man",
+          "power": "Friendly neighbourhood",
+          "feature": "NikTan Sahayak",
+          "line": "Always nearby: the assistant answers questions in your own language.",
+          "to": "#top"
+        },
+        {
+          "name": "Black Panther",
+          "power": "Wakanda keeps secrets",
+          "feature": "On-device privacy",
+          "line": "Your face video and eye photos never leave your phone.",
+          "to": "#privacy"
+        },
+        {
+          "name": "Ant-Man",
+          "power": "Small but mighty",
+          "feature": "Budget phones",
+          "line": "Runs on low-memory phones and keeps working on a weak network.",
+          "to": "/start"
+        },
+        {
+          "name": "Captain Marvel",
+          "power": "Fastest in the sky",
+          "feature": "Three minutes",
+          "line": "The whole check in about three minutes, before you reach the counter.",
+          "to": "/start"
+        }
+      ],
+      "note": "A fan tribute for the hackathon theme. Avengers characters are trademarks of Marvel; NikTan is not affiliated with or endorsed by Marvel."
+    }
   },
   "design": {
     "screeningArt": "A woman holds her phone at eye level for a face scan.",

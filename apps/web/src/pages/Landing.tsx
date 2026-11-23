@@ -1,11 +1,12 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff, Play } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { SCREENING_STEPS, useScan } from '../state/scan';
 import { ProductFilm } from '../ui/ProductFilm';
+import { Assemble } from '../ui/visuals/Assemble';
 import { BrandMark } from '../ui/BrandMark';
 import { LangToggle } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
@@ -272,19 +273,21 @@ export function Landing() {
               {t('home.secondary')} <ArrowUpRight size={18} aria-hidden />
             </a>
           </motion.div>
-          <a href="#film" className="mt-5 inline-flex min-h-11 items-center gap-2 text-label font-medium underline decoration-border-strong underline-offset-4">{t('film.watch')} <span aria-hidden>↘</span></a>
+          <a href="#film" className="mt-5 inline-flex min-h-11 items-center gap-2.5 rounded-full bg-sunken py-1.5 pr-4 pl-1.5 text-label font-medium transition-colors hover:bg-border">
+            <span className="grid size-8 place-items-center rounded-full bg-text text-bg"><Play size={13} fill="currentColor" aria-hidden /></span>
+            {t('film.watch')} <span className="tnum text-text-3">1:26</span>
+          </a>
           <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-body text-text-3">
             {trust.map((x) => (
               <li key={x} className="flex items-center gap-2"><span className="size-1 rounded-full bg-text-3" /> {x}</li>
             ))}
           </motion.ul>
         </div>
+        <ProductFilm inHero />
         <div className="mt-14 md:mt-20">
           <HeroConsole progress={heroP} />
         </div>
       </section>
-
-      <ProductFilm />
 
       {/* Module strip */}
       <div className="border-y border-border py-6 text-title-3 font-medium text-text-3">
@@ -348,6 +351,8 @@ export function Landing() {
           </div>
         </div>
       </section>
+
+      <Assemble />
 
       <HowItWorks steps={steps} />
 

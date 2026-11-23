@@ -209,3 +209,17 @@
   .thali-scan { animation: none; }
   .thali-scan { opacity: 0; }
 }
+
+/* Avengers section decoration: the spider bobs on its thread; nothing here is interactive. */
+.web-spider,
+.web-thread {
+  animation: web-bob 4.5s ease-in-out infinite;
+  transform-origin: 64px 0;
+}
+@keyframes web-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .web-spider, .web-thread { animation: none; }
+}
