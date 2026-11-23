@@ -449,7 +449,7 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Prescription reader */}
+      {/* Health Papers: prescription, Medicine Saver, lab report */}
       <section id="rx" className="mx-auto max-w-[1240px] px-5 pt-24 md:px-10 md:pt-32">
         <div className="lp-card grid items-center gap-10 overflow-hidden rounded-[40px] px-6 py-12 md:px-12 md:py-16 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
           <Reveal className="lg:order-2">
@@ -457,9 +457,12 @@ export function Landing() {
             <h2 className="mt-4 text-[clamp(2rem,4.4vw,3.5rem)] leading-[1.05] font-semibold text-balance">{t('home.rxTitle')}</h2>
             <p className="mt-5 max-w-lg text-body-lg text-text-2">{t('home.rxBody')}</p>
             <ul className="mt-7 flex flex-col gap-3">
-              {(t('home.rxPoints', { returnObjects: true }) as string[]).map((point) => (
-                <li key={point} className="flex items-start gap-3 text-body-lg">
-                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-sunken"><Check size={14} aria-hidden /></span>{point}
+              {(t('home.rxPoints', { returnObjects: true }) as string[]).map((point, i) => (
+                <li key={point}>
+                  <button type="button" onClick={() => navigate(['/rx', '/rx?tool=saver', '/rx?tool=lab'][i] ?? '/rx')} className="group flex items-start gap-3 text-left text-body-lg">
+                    <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-sunken"><Check size={14} aria-hidden /></span>
+                    <span className="underline-offset-4 group-hover:underline">{point}</span>
+                  </button>
                 </li>
               ))}
             </ul>

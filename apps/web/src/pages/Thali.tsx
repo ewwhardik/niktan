@@ -18,6 +18,38 @@ import { riseChild, spring, staggerParent } from '../ui/motion';
 type Phase = 'photo' | 'recognising' | 'confirm' | 'result';
 const dishById = new Map(dishes.map((d) => [d.id, d]));
 const SHOWN: Nutrient[] = ['protein', 'iron', 'fibre', 'vitaminC', 'calcium', 'kcal', 'carbs'];
+const REGIONS = ['all', 'chhattisgarh', 'north', 'south', 'east', 'west', 'northeast', 'pan_india'] as const;
+const GOOD_TAGS = ['protein', 'iron_rich', 'green_leafy', 'vitamin_c', 'whole_grain', 'millet', 'local'];
+
+/** One dish: what a serving weighs, what it gives, and what it is good or careful about. */
+function DishDetails({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const d = dishById.get(id)!;
+  return (
+    <div className="flex flex-col gap-4 pb-4">
+      <p className="text-body text-text-2">
+        {t('thali.perServing', { unit: t(`thali.units.${d.unit}`, { defaultValue: d.unit }), grams: d.grams })} · {t(`thali.regions.${d.region}`)}
+      </p>
+      {d.aliases.length > 0 && <p className="text-caption text-text-3">{t('thali.alsoCalled')}: {d.aliases.join(', ')}</p>}
+      <dl className="grid grid-cols-4 gap-2">
+        {(['kcal', 'protein', 'carbs', 'fat', 'fibre', 'iron', 'calcium', 'vitaminC'] as const).map((n) => (
+          <div key={n} className="rounded-2xl bg-sunken p-3 text-center">
+            <dd className="tnum text-title-3 font-semibold">{d.per[n]}</dd>
+            <dt className="text-caption text-text-3">{t(`thali.${n}`)}{n === 'kcal' ? '' : ` (${UNITS[n]})`}</dt>
+          </div>
+        ))}
+      </dl>
+      {d.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {d.tags.map((tag) => (
+            <span key={tag} className={`rounded-full px-2.5 py-1 text-caption font-medium ${GOOD_TAGS.includes(tag) ? 'bg-routine-tint text-routine-ink' : 'bg-seetoday-tint text-seetoday-ink'}`}>{t(`thali.tags.${tag}`)}</span>
+          ))}
+        </div>
+      )}
+      <p className="text-caption text-text-3">{t(d.indbCode === 'est' ? 'thali.sourceEst' : 'thali.sourceIndb')}</p>
+    </div>
+  );
+}
 
 function Bar({ label, share, value, unit }: { label: string; share: number; value: number; unit: string }) {
   const pct = Math.round(share * 100);
@@ -50,6 +82,9 @@ export default function Thali() {
   const [notice, setNotice] = useState<string | null>(null);
   const [picker, setPicker] = useState(false);
   const [query, setQuery] = useState('');
+  const [region, setRegion] = useState<string>('all');
+  const [detail, setDetail] = useState<string | null>(null);
+  const [unsure, setUnsure] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<ThaliResult | null>(null);
   const camInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -77,8 +112,9 @@ export default function Thali() {
     try {
       const form = new FormData();
       form.append('photo', new File([blob], 'thali.jpg', { type: 'image/jpeg' }));
-      const r = await api.post<{ items: { dishId: string; count: number }[]; noFood: boolean; fallback?: string }>('/api/thali/recognize', form);
+      const r = await api.post<{ items: { dishId: string; count: number; confidence?: number }[]; noFood: boolean; fallback?: string }>('/api/thali/recognize', form);
       const known = r.items.filter((i) => dishById.has(i.dishId));
+      setUnsure(new Set(known.filter((i) => (i.confidence ?? 1) < 0.6).map((i) => i.dishId)));
       if (r.noFood) setNotice(t('thali.noFood'));
       else if (r.fallback || !known.length) setNotice(t('thali.manual'));
       const portions = new Map<string, number>();
@@ -99,7 +135,7 @@ export default function Thali() {
   };
 
   const setCount = (id: string, d: number) =>
-    setItems((list) => list.map((i) => (i.dishId === id ? { ...i, count: Math.max(0, Math.min(10, i.count + d)) } : i)).filter((i) => i.count > 0));
+    (setUnsure((u) => (u.has(id) ? new Set([...u].filter((x) => x !== id)) : u)), setItems((list) => list.map((i) => (i.dishId === id ? { ...i, count: Math.max(0, Math.min(10, i.count + d)) } : i)).filter((i) => i.count > 0)));
 
   const add = (id: string) => {
     setItems((list) => (list.some((i) => i.dishId === id) ? list : [...list, { dishId: id, count: 1 }]));
@@ -118,8 +154,8 @@ export default function Thali() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return dishes.filter((d) => !q || d.en.toLowerCase().includes(q) || d.hi.includes(q) || d.id.includes(q));
-  }, [query]);
+    return dishes.filter((d) => (region === 'all' || d.region === region) && (!q || d.en.toLowerCase().includes(q) || d.hi.includes(q) || d.id.includes(q) || d.aliases.some((a) => a.includes(q))));
+  }, [query, region]);
 
   return (
     <Screen>
@@ -164,12 +200,15 @@ export default function Thali() {
                       const d = dishById.get(i.dishId)!;
                       return (
                         <motion.li key={i.dishId} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={spring.chip} className="flex items-center gap-3 rounded-lg bg-surface py-2 pr-2 pl-4 shadow-1">
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-body-lg">{pickLang(d, lang)}</span>
-                            <span className="text-caption text-text-3">
-                              {d.unit} · {Math.round(d.grams * i.count)} g
+                          <button type="button" onClick={() => setDetail(d.id)} className="min-w-0 flex-1 text-left">
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate text-body-lg">{pickLang(d, lang)}</span>
+                              {unsure.has(d.id) && <span className="shrink-0 rounded-full bg-seetoday-tint px-2 py-0.5 text-caption font-medium text-seetoday-ink">{t('thali.unsure')}</span>}
                             </span>
-                          </span>
+                            <span className="text-caption text-text-3">
+                              {t(`thali.units.${d.unit}`, { defaultValue: d.unit })} · {Math.round(d.grams * i.count)} g · <span className="underline underline-offset-2">{t('thali.details')}</span>
+                            </span>
+                          </button>
                           <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCount(i.dishId, -0.5)} aria-label={t('design.less', { dish: pickLang(d, lang) })} className="flex size-11 items-center justify-center rounded-md bg-sunken">
                             {i.count <= 0.5 ? <X size={18} /> : <Minus size={18} />}
                           </motion.button>
@@ -266,16 +305,34 @@ export default function Thali() {
           <Search size={18} className="text-text-3" aria-hidden />
           <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} className="h-12 min-w-0 flex-1 bg-transparent outline-none" aria-label={t('thali.add')} />
         </label>
-        <ul className="mt-3 flex flex-col">
+        <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+          {REGIONS.map((r) => (
+            <button key={r} type="button" onClick={() => setRegion(r)} aria-pressed={region === r}
+              className={`shrink-0 rounded-full px-3.5 py-2 text-label font-medium transition-colors ${region === r ? 'bg-text text-surface' : 'bg-sunken text-text-2'}`}>
+              {t(`thali.regions.${r}`)}
+            </button>
+          ))}
+        </div>
+        <ul className="mt-2 flex flex-col">
           {filtered.map((d) => (
             <li key={d.id}>
-              <button onClick={() => add(d.id)} className="flex min-h-14 w-full items-center justify-between border-b border-border text-left">
-                <span className="text-body-lg">{pickLang(d, lang)}</span>
-                <span className="text-caption text-text-3">{d.unit}</span>
+              <button onClick={() => add(d.id)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-border py-2 text-left">
+                <span className="min-w-0">
+                  <span className="block text-body-lg">{pickLang(d, lang)}</span>
+                  {d.aliases.length > 0 && <span className="block truncate text-caption text-text-3">{d.aliases.slice(0, 3).join(' · ')}</span>}
+                </span>
+                <span className="tnum shrink-0 text-right text-caption text-text-3">
+                  {t(`thali.units.${d.unit}`, { defaultValue: d.unit })}<br />{d.per.kcal} kcal · {d.per.protein} g {t('thali.proteinShort')}
+                </span>
               </button>
             </li>
           ))}
+          {!filtered.length && <li className="py-6 text-center text-body text-text-2">{t('thali.noDish')}</li>}
         </ul>
+      </Sheet>
+
+      <Sheet open={!!detail} onClose={() => setDetail(null)} title={detail ? pickLang(dishById.get(detail)!, lang) : ''}>
+        {detail && <DishDetails id={detail} />}
       </Sheet>
     </Screen>
   );

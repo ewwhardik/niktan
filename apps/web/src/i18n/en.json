@@ -119,7 +119,7 @@
   "eye": {
     "title": "Eye check",
     "instruction": "Gently pull your lower eyelid down and look up. Keep the inner red part of the eyelid in the box.",
-    "align": "Place one lower eyelid in the centre of the box. Keep your whole face visible.",
+    "align": "Bring your pulled-down eyelid into the box",
     "torch": "Turn on good light. Avoid coloured light.",
     "capture": "Take photo",
     "pallor": "Pale eyelid (possible anaemia)",
@@ -129,7 +129,28 @@
     "check": "Get checked",
     "openCamera": "Turn on camera",
     "lookStraight": "Look straight",
-    "pullLid": "Pull lower lid"
+    "pullLid": "Pull lower lid",
+    "closer": "Move a little closer",
+    "farther": "Move back a little",
+    "centre": "Centre your eyes in the frame",
+    "still": "Hold still",
+    "holding": "Hold steady…",
+    "findFace": "Show your whole face",
+    "auto": "Hold steady and it takes the photo by itself. Good, even light works best.",
+    "why": {
+      "pallor": {
+        "check": "The inner eyelid looks pale, which can mean low haemoglobin. Ask for an Hb blood test; leafy greens, chana, jaggery and amla help.",
+        "normal": "The inner eyelid has a healthy red colour in this photo."
+      },
+      "jaundice": {
+        "check": "The white of the eye looks yellowish. This can be lighting, but yellow eyes need a doctor's check (bilirubin test).",
+        "normal": "The white of the eye does not look yellow."
+      },
+      "cataract": {
+        "check": "The pupil looks cloudy or white in the light. Please see an eye doctor; cataracts are treatable.",
+        "normal": "The pupil looks clear in this photo."
+      }
+    }
   },
   "vision": {
     "title": "Vision test",
@@ -318,7 +339,45 @@
     "calcium": "Calcium",
     "vitaminC": "Vitamin C",
     "targetHint": "Estimated portions. The bars compare this meal with one third of a reference day.",
-    "defaultTarget": "Without a screening profile, the comparison uses one third of a moderately active adult reference day."
+    "defaultTarget": "Without a screening profile, the comparison uses one third of a moderately active adult reference day.",
+    "unsure": "Check",
+    "details": "Details",
+    "proteinShort": "protein",
+    "noDish": "No dish found. Try a local name.",
+    "perServing": "Per {{unit}} (about {{grams}} g)",
+    "alsoCalled": "Also called",
+    "sourceEst": "Estimated from standard home recipes (ICMR-NIN IFCT 2017 values).",
+    "sourceIndb": "From the Indian Nutrient Databank (INDB) and ICMR-NIN IFCT 2017.",
+    "units": {
+      "katori": "katori",
+      "roti": "roti",
+      "piece": "piece",
+      "plate": "plate",
+      "cup": "cup"
+    },
+    "regions": {
+      "all": "All",
+      "chhattisgarh": "Chhattisgarh",
+      "north": "North",
+      "south": "South",
+      "east": "East",
+      "west": "West",
+      "northeast": "North-East",
+      "pan_india": "Everyday"
+    },
+    "tags": {
+      "protein": "Protein",
+      "iron_rich": "Iron-rich",
+      "green_leafy": "Leafy green",
+      "vitamin_c": "Vitamin C",
+      "whole_grain": "Whole grain",
+      "millet": "Millet",
+      "local": "Local food",
+      "refined_carb": "Refined carbs",
+      "fried": "Fried",
+      "sugar": "Sugary",
+      "iron_blocker": "Blocks iron with meals"
+    }
   },
   "feedback": {
     "title": "How was it?",
@@ -619,15 +678,15 @@
     ],
     "thaliCta": "Scan a meal",
     "thaliMeal": "1 meal",
-    "rxEyebrow": "Prescription reader",
-    "rxTitle": "Doctor's handwriting, finally readable.",
-    "rxBody": "Photograph a prescription and NikTan reads every medicine, strength and schedule, expands shorthand like 1-0-1, BD and HS, and explains what each medicine is for from public drug databases.",
+    "rxEyebrow": "Health Papers",
+    "rxTitle": "Prescriptions, medicines and lab reports, made plain.",
+    "rxBody": "One place for the paper a clinic visit leaves behind. Read a doctor's handwriting, find the Jan Aushadhi generic that costs a fraction of the brand, and see what every number on a lab report means.",
     "rxPoints": [
-      "Reads handwritten and printed prescriptions",
-      "Morning, afternoon and night at a glance",
-      "Uses and warnings from NLM RxNorm and openFDA"
+      "Prescription: handwriting, shorthand like 1-0-1, BD and HS",
+      "Medicine Saver: same salt at the government Jan Aushadhi price",
+      "Lab report: each value against the range your lab printed"
     ],
-    "rxCta": "Read a prescription",
+    "rxCta": "Open Health Papers",
     "builtBy": "Designed and built by",
     "assemble": {
       "eyebrow": "Avengers Assemble · Hackasol 5.0 theme",
@@ -684,8 +743,8 @@
         {
           "name": "Doctor Strange",
           "power": "Eye of Agamotto",
-          "feature": "Prescription reader",
-          "line": "Even a sorcerer's notes are hard to read. The reader makes doctors' handwriting plain.",
+          "feature": "Health Papers",
+          "line": "Even a sorcerer's notes are hard to read. Health Papers makes handwriting, medicine prices and lab reports plain.",
           "to": "/rx"
         },
         {
@@ -725,7 +784,8 @@
         }
       ],
       "note": "A fan tribute for the hackathon theme. Avengers characters are trademarks of Marvel; NikTan is not affiliated with or endorsed by Marvel."
-    }
+    },
+    "rxTools": "Prescription · Medicine Saver · Lab report"
   },
   "design": {
     "screeningArt": "A woman holds her phone at eye level for a face scan.",
@@ -757,7 +817,7 @@
   "rx": {
     "tooLarge": "This image is too large. Crop to the prescription or paste its text.",
     "reviewAdvice": "The readings differ. Confirm these instructions against the original.",
-    "title": "Prescription reader",
+    "title": "Health Papers",
     "heading": "Understand your prescription",
     "intro": "Choose a photo or paste the wording to see the medicines, directions and follow-up instructions.",
     "tips": [
@@ -811,11 +871,108 @@
       "frequency": "How often",
       "timing": "When to take it",
       "duration": "For how long"
-    }
+    },
+    "fromDictionary": "Generic from NikTan’s brand list"
   },
   "scan": {
     "stepOf": "Step {{n}} of {{total}} · {{name}} · about {{min}} min left",
     "saved": "{{name}} saved",
     "skipped": "{{name}} skipped"
+  },
+  "tools": {
+    "label": "Health Papers",
+    "rx": "Prescription",
+    "saver": "Medicine Saver",
+    "lab": "Lab report",
+    "aside": {
+      "rx": "Doctor's handwriting, readable.",
+      "saver": "Same medicine. Fair price.",
+      "lab": "Your lab report, in plain words."
+    }
+  },
+  "saver": {
+    "heading": "Pay less for the same medicine",
+    "intro": "Photograph a strip or box. NikTan reads its ingredients and finds the Jan Aushadhi generic with the same salt and strength, at the government price.",
+    "tips": [
+      "Show the side that says Composition or Each tablet contains",
+      "Keep the MRP and expiry date in view",
+      "Always ask your doctor or pharmacist before switching"
+    ],
+    "search": "Search generic medicines",
+    "searchPlaceholder": "Or type a salt, e.g. paracetamol 650",
+    "take": "Photograph a medicine",
+    "read": "Find cheaper generic",
+    "reading": "Reading the label…",
+    "review": "Check the label is sharp",
+    "photoAlt": "Your medicine pack photo",
+    "share": "Selecting Find cheaper generic sends this photo to an AI service. It is not stored.",
+    "youHave": "Your medicine",
+    "unknownBrand": "Brand not visible",
+    "noComposition": "Ingredients not visible on this side",
+    "fields": {
+      "form": "Form",
+      "packSize": "Pack",
+      "mrp": "Printed MRP",
+      "maker": "Made by"
+    },
+    "expiry": {
+      "expired": "Expired ({{date}}). Do not use it; return it to a pharmacy.",
+      "soon": "Expires soon ({{date}}). Use before then.",
+      "ok": "Good until {{date}}"
+    },
+    "genericTitle": "Jan Aushadhi generics",
+    "genericBody": "Same salt from the government's Pradhan Mantri Bhartiya Janaushadhi Pariyojana, sold at Jan Aushadhi Kendras.",
+    "typeInstead": "The ingredients were not visible. Photograph the Composition side, or type the salt in the search box.",
+    "noMatch": "No Jan Aushadhi product with these ingredients was found. Ask the Kendra pharmacist.",
+    "listPending": "The Jan Aushadhi price list is being updated. Ask any Jan Aushadhi Kendra for this salt.",
+    "pack": "Pack",
+    "code": "Code",
+    "perUnit": "{{price}} each",
+    "save": "Save {{pct}}%",
+    "notExact": "Different strength or form: ask your doctor first",
+    "findKendra": "Find a Jan Aushadhi Kendra",
+    "source": "Official price list",
+    "findCheaper": "Find a cheaper generic",
+    "unrelated": "This does not look like a medicine pack. Try the side with the name and composition.",
+    "failed": "Couldn't check prices right now. Try again.",
+    "tooMany": "Too many photos from this network. Try again in an hour.",
+    "another": "Check another medicine",
+    "disclaimer": "Generic medicines with the same salt and strength work the same way, but never switch without asking your doctor or pharmacist. Prices are the government MRP and may change."
+  },
+  "lab": {
+    "heading": "Understand your lab report",
+    "intro": "Photograph or paste a blood, sugar, thyroid or other report. Each value is checked against the range your lab printed and explained in plain words.",
+    "tips": [
+      "One page at a time, flat and in good light",
+      "Keep the reference range column in view",
+      "Your doctor reads the report together with how you feel"
+    ],
+    "take": "Photograph a report",
+    "paste": "Paste report text",
+    "read": "Explain report",
+    "reading": "Reading the report…",
+    "review": "Check every row is readable",
+    "photoAlt": "Your lab report photo",
+    "share": "Selecting Explain report sends this to an AI service. Names and IDs are left out; nothing is stored.",
+    "found_one": "{{count}} test explained",
+    "found_other": "{{count}} tests explained",
+    "range": "Normal range",
+    "flag": {
+      "low": "Low",
+      "high": "High",
+      "normal": "In range"
+    },
+    "printedFlag": "Marked by the lab; the range could not be read.",
+    "typicalRange": "Typical adult range; your lab's range was not visible.",
+    "urgent": "Some values are far outside the usual range. Please show this report to a doctor today.",
+    "urgentLine": "Far outside the usual range: see a doctor today.",
+    "showFlagged": "Show only the {{count}} outside range",
+    "showAll": "Show all tests",
+    "unrelated": "This does not look like a lab report.",
+    "none": "No test values could be read. Try a sharper photo.",
+    "failed": "The reader is unavailable. Check your connection and try again.",
+    "tooMany": "Too many reports from this network. Try again in an hour.",
+    "another": "Read another report",
+    "disclaimer": "This explains numbers; it does not diagnose. One value outside the range is often not a problem. Discuss your report with a doctor."
   }
 }

@@ -188,20 +188,23 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 - **Coverage Gaps:** Skipped or unreliable checks are returned as desk actions ("Heart-rate signal unclear: take pulse at the desk") and shown on the doctor's card.
 - **Acuity Score:** A 0–100 ordering hint inside each priority tier (emergency 80+, see-today 40–79, routine 0–39) from the number of reasons, pulse deviation for age, severe symptoms and age extremes. It never moves anyone between tiers.
 
-### M7: Prescription Reader (`/rx`)
-- **Handwriting reading:** Photograph a printed or handwritten prescription. A vision model (Gemini, falling back to Groq and Workers AI) returns each medicine, strength, form, dose, schedule and duration as validated JSON, expands Indian shorthand (OD, BD, TDS, HS, SOS, AC/PC, 1-0-1) and marks hard-to-read words for checking with the pharmacist.
-- **Medicine information online:** Each name is matched to its ingredient with the US National Library of Medicine's **RxNorm** API, then uses, warnings, contraindications and side effects are fetched from **openFDA** drug labels. Indian brands are mapped to their generic by the reader first (e.g. Dolo 650 → paracetamol → acetaminophen).
-- **Safety:** Never suggests changing a dose; the photo is sent only for reading and not stored.
+### M7: Health Papers (`/rx`): Prescription, Medicine Saver, Lab report
+One page, three tools, each opened on its own (`/rx`, `/rx?tool=saver`, `/rx?tool=lab`).
+- **Prescription:** Photograph or paste a printed or handwritten prescription. Two vision readers run in parallel and are merged line by line; disagreements are marked for the pharmacist. Indian shorthand (OD, BD, TDS, HS, SOS, AC/PC, 1-0-1) is explained. A built-in list of ~200 common Indian brands (Dolo, Pan-D, Augmentin, Montair LC, Telma, Glycomet…) fills the salt for clearly read brand names without another AI call. Uses, warnings and side effects come from **NLM RxNorm** and **openFDA**; "Find a cheaper generic" checks Jan Aushadhi.
+- **Medicine Saver:** Photograph a strip or box (or type a brand or salt). The label's composition, MRP and expiry are read (expired and expiring-soon packs are flagged), and the matching **Jan Aushadhi (PMBJP)** generic is found by ingredients, strength and form with its government MRP and per-tablet saving. Data: the official Product & MRP List, converted with `node apps/api/scripts/janaushadhi.mjs <download.csv>`.
+- **Lab report:** Photograph or paste a report. The AI only transcribes rows; Low/High/In range flags are computed in code from the range printed on the report (or a typical adult range when none is visible, labelled as such), with plain-language notes for ~25 common tests in English and Hindi and a "see a doctor today" alert for far-out values.
+- **Speed:** Readings are cached at the edge for an hour by a hash of the exact input, so a retry or a second scan of the same photo answers instantly.
+- **Safety:** Never suggests changing a dose or switching a medicine without the doctor or pharmacist; photos are sent only for reading and not stored.
 
 ### M8: NikTan Sahayak, the Help Assistant
-- A chat assistant on every page except the camera steps, powered by **Groq** (`gpt-oss-120b`) with Workers AI as backup. It answers from a curated knowledge base of NikTan's features, results, Thali, the prescription reader, hospitals and privacy, replies in English, Hindi or Chhattisgarhi, links to the right page, never diagnoses, and leads with **108** for emergencies. Phone and Aadhaar-like numbers are masked before text leaves the server.
+- A chat assistant on every page except the camera steps, powered by **Groq** (`gpt-oss-120b`) with Workers AI as backup. It answers from a curated knowledge base of NikTan's features, results, Thali, Health Papers, hospitals and privacy, replies in English, Hindi or Chhattisgarhi, links to the right page, never diagnoses, and leads with **108** for emergencies. Phone and Aadhaar-like numbers are masked before text leaves the server.
 
 ---
 
 ## NikTan Thali: Nutrition Engine
 
 NikTan closes the clinical loop by linking screening observations (e.g., conjunctival pallor) with nutritional dietary interventions:
-1. **Computer Vision Dish Recognition:** Meal photos are analyzed via Gemini Flash Vision against a catalogue of **70 Indian and Chhattisgarhi dishes** whose nutrient values come from the Indian Nutrient Databank (the INDB data files carry no explicit licence; ask the authors before redistribution).
+1. **Computer Vision Dish Recognition:** Meal photos are analyzed via Gemini Flash Vision against a catalogue of **131 dishes from every region of India** (Chhattisgarh home food, South, North, West, East and North-East, street food, fruits and drinks), each with local names for search and recognition. Look-alike rules (dal colours, puri vs bhatura, dosa vs uttapam) and portion cues are in the prompt, and labels the model returns are mapped back to dishes through their local names. Nutrient values come from the Indian Nutrient Databank, with newer dishes estimated from IFCT 2017 ingredients and marked `est` (the INDB data files carry no explicit licence; ask the authors before redistribution).
 2. **Deterministic Nutritional Calculation:** Computes macronutrients and micronutrients (protein, iron, calcium, vitamin C, dietary fiber) derived from the **Indian Nutrient Databank (INDB)** and ICMR-NIN IFCT 2017.
 3. **ICMR-NIN RDA 2020 Targets:** Compares meals against age- and sex-adjusted reference daily intakes.
 4. **Culturally Grounded Central Indian Swaps:** Recommends hyper-local, affordable alternatives:
@@ -352,7 +355,7 @@ Nothing below is redistributed beyond what its licence allows; raw datasets are 
 
 **Designed and built by Sai Ram Dash**: [GitHub @ewwhardik](https://github.com/ewwhardik) · [LinkedIn @ewwhardik](https://www.linkedin.com/in/ewwhardik)
 
-All product design, engineering, the rPPG and anaemia models, the triage engine, NikTan Thali, the prescription reader and the help assistant are by Sai Ram Dash.
+All product design, engineering, the rPPG and anaemia models, the triage engine, NikTan Thali, Health Papers (prescription, Medicine Saver, lab report) and the help assistant are by Sai Ram Dash.
 
 - **Event:** Hackasol 5.0, IIIT Naya Raipur, Chhattisgarh.
 - **Track:** Open Innovation (OI-01: Build for Real-World Impact).

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Pill, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Pill, PiggyBank, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -8,9 +8,15 @@ import { shrink } from '../lib/photo';
 import { Button, LinkButton } from '../ui/Button';
 import { Dock, Screen, TopBar } from '../ui/Layout';
 import { riseChild, staggerParent } from '../ui/motion';
+import { GenericList, type Dataset, type Generic } from './rx/Generics';
+import { LabReport } from './rx/LabReport';
+import { MedicineSaver } from './rx/MedicineSaver';
+import { ToolTabs, useTool } from './rx/ToolTabs';
 
 interface Medicine {
   name: string;
+  /** Set by the server when the written name is a brand it knows; the generic came from its dictionary. */
+  knownBrand?: boolean;
   generic?: string | null;
   strength?: string | null;
   form?: string | null;
@@ -48,6 +54,16 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<Info | null | 'loading' | 'error'>(null);
+  const [cheaper, setCheaper] = useState<{ generics: Generic[]; dataset: Dataset } | 'loading' | 'error' | null>(null);
+  async function findCheaper() {
+    if (cheaper && cheaper !== 'error') return setCheaper(null);
+    setCheaper('loading');
+    try {
+      setCheaper(await api.post<{ generics: Generic[]; dataset: Dataset }>('/api/meds/generics', { generic: m.generic || m.name, strength: m.strength ?? null, form: m.form ?? null }));
+    } catch {
+      setCheaper('error');
+    }
+  }
   async function toggle() {
     setOpen((v) => !v);
     if (open || (info && info !== 'error')) return;
@@ -68,6 +84,7 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
           <div className="min-w-0 flex-1 break-words">
             <p className="text-title-3 font-semibold">{m.name}</p>
             {m.generic && !m.conflicts?.includes('generic') && <p className="text-body text-text-2">{m.generic}</p>}
+            {m.knownBrand && <p className="text-caption text-text-3">{t('rx.fromDictionary')}</p>}
           </div>
           {m.unclear && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-seetoday-tint px-2.5 py-1 text-caption font-medium text-seetoday-ink">
@@ -91,6 +108,19 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
         </dl>
       </div>
       {!m.unclear && <>
+        {(m.generic || m.knownBrand) && (
+          <div className="border-t border-border">
+            <button onClick={() => void findCheaper()} aria-expanded={!!cheaper && cheaper !== 'error'} className="flex w-full items-center justify-between px-5 py-3.5 text-left text-label font-medium text-routine-ink">
+              {t('saver.findCheaper')}
+              <PiggyBank size={18} aria-hidden />
+            </button>
+            {cheaper && (
+              <div className="px-5 pb-5">
+                {cheaper === 'loading' ? <div className="skeleton h-14 rounded-2xl" /> : cheaper === 'error' ? <p className="text-body text-text-2">{t('saver.failed')}</p> : <GenericList generics={cheaper.generics} dataset={cheaper.dataset} compact />}
+              </div>
+            )}
+          </div>
+        )}
         <button onClick={() => void toggle()} aria-expanded={open} className="flex w-full items-center justify-between border-t border-border px-5 py-3.5 text-left text-label font-medium text-[#0071e3] dark:text-[#2997ff]">
           {t('rx.about')}
           <motion.span animate={{ rotate: open ? 180 : 0 }}><ChevronDown size={18} aria-hidden /></motion.span>
@@ -135,10 +165,22 @@ function MedicineCard({ m, index }: { m: Medicine; index: number }) {
   );
 }
 
-/** Reads a photographed prescription, handwriting included, and explains each medicine. */
-export default function Prescription() {
-  const { t, i18n } = useTranslation();
+/** The prescription page hosts three paper tools; each opens on its own via ?tool=. */
+export default function RxHub() {
   const navigate = useNavigate();
+  const [tool] = useTool();
+  const { t } = useTranslation();
+  const exit = () => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/', { replace: true }));
+  return (
+    <Screen aside={t(`tools.aside.${tool}`)}>
+      {tool === 'saver' ? <MedicineSaver key="saver" onExit={exit} /> : tool === 'lab' ? <LabReport key="lab" onExit={exit} /> : <PrescriptionReader key="rx" onExit={exit} />}
+    </Screen>
+  );
+}
+
+/** Reads a photographed prescription, handwriting included, and explains each medicine. */
+function PrescriptionReader({ onExit }: { onExit: () => void }) {
+  const { t, i18n } = useTranslation();
   const camInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('photo');
@@ -203,24 +245,23 @@ export default function Prescription() {
   }
 
   function back() {
-    if (phase === 'photo') {
-      if (window.history.state?.idx > 0) navigate(-1);
-      else navigate('/', { replace: true });
-    } else if (phase === 'reading' || phase === 'error' || phase === 'result') {
+    if (phase === 'photo') onExit();
+    else if (phase === 'reading' || phase === 'error' || phase === 'result') {
       pending.current?.abort();
       setPhase('review');
     } else reset();
   }
 
   return (
-    <Screen>
+    <>
       <TopBar onBack={back} title={t('rx.title')} />
       <input ref={camInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void onFile(e.currentTarget)} />
       <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.currentTarget)} />
 
       <AnimatePresence mode="wait">
         {phase === 'photo' && (
-          <motion.div key="photo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-1 flex-col gap-6 pt-4">
+          <motion.div key="photo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-1 flex-col gap-6 pt-2">
+            <ToolTabs />
             <div>
               <h1 className="text-title-1 font-semibold lg:text-[2.5rem] lg:leading-tight">{t('rx.heading')}</h1>
               <p className="mt-2 text-body-lg text-text-2">{t('rx.intro')}</p>
@@ -295,7 +336,7 @@ export default function Prescription() {
           <Button variant="secondary" icon={RefreshCw} onClick={reset}>{t('rx.another')}</Button>
         )}
       </Dock>
-    </Screen>
+    </>
   );
 }
 

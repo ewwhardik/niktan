@@ -50,6 +50,10 @@ export default function EyeScan({ next, guide }: StepProps) {
 
   const overlay = useRef<HTMLCanvasElement>(null);
   const [locked, setLocked] = useState(false);
+  /** Live coaching ("move closer", "hold still") and how far through the steady hold we are. */
+  const [cue, setCue] = useState<string | null>(null);
+  const [hold, setHold] = useState(0);
+  const captureRef = useRef<() => Promise<void>>(async () => undefined);
 
   // Live tracking: brackets lock onto both irises (straight look) or trace the lower lid (lid photo).
   useEffect(() => {
@@ -58,6 +62,30 @@ export default function EyeScan({ next, guide }: StepProps) {
     let stopped = false;
     const radii = { left: 60, right: 60 };
     let lastFrame = -1;
+    // Hands-free capture: once the eyes (or the eyelid in the box) stay still for ~0.8 s, take the photo.
+    const STEADY_FRAMES = 22;
+    let steady = 0;
+    let last: { x: number; y: number } | null = null;
+    let cooldownUntil = performance.now() + 900;
+    let shownHold = -1;
+    let shownCue: string | null = null;
+    const coach = (key: string | null, progress: number) => {
+      if (key !== shownCue) { shownCue = key; setCue(key); }
+      const step = Math.round(progress * 10) / 10;
+      if (step !== shownHold) { shownHold = step; setHold(step); }
+    };
+    const track = (pt: { x: number; y: number } | null, problem: string | null) => {
+      if (!pt || problem) { steady = 0; last = null; coach(problem, 0); return; }
+      const moved = last ? Math.hypot(pt.x - last.x, pt.y - last.y) : 0;
+      last = pt;
+      steady = moved > 4 ? 0 : steady + 1;
+      coach(moved > 4 ? 'eye.still' : 'eye.holding', Math.min(1, steady / STEADY_FRAMES));
+      if (steady >= STEADY_FRAMES && performance.now() > cooldownUntil) {
+        steady = 0;
+        cooldownUntil = performance.now() + 2000;
+        void captureRef.current();
+      }
+    };
     const tick = () => {
       if (stopped) return;
       const video = cam.videoRef.current;
@@ -84,6 +112,7 @@ export default function EyeScan({ next, guide }: StepProps) {
         ctx.clearRect(0, 0, cw, ch);
         const face = faces.length === 1 ? faces[0]! : null;
         setLocked(!!face);
+        if (!face) track(null, faces.length > 1 ? 'face.manyFaces' : 'eye.findFace');
         if (face) {
           const scale = Math.max(cw / video.videoWidth, ch / video.videoHeight);
           const ox = (video.videoWidth * scale - cw) / 2;
@@ -93,6 +122,7 @@ export default function EyeScan({ next, guide }: StepProps) {
           ctx.strokeStyle = '#64D2FF';
           ctx.lineCap = 'round';
           if (phase === 'straight') {
+            const centres: { x: number; y: number }[] = [];
             for (const side of ['left', 'right'] as const) {
               const [ctr, a, , b] = IRIS[side].map((i) => face[i]!);
               const r = Math.max(8, Math.hypot(X(a!) - X(b!), Y(a!) - Y(b!)) * 1.1);
@@ -113,8 +143,22 @@ export default function EyeScan({ next, guide }: StepProps) {
               ctx.beginPath();
               ctx.arc(cx, cy, 2, 0, Math.PI * 2);
               ctx.fill();
+              centres.push({ x: cx, y: cy });
             }
+            const mid = { x: (centres[0]!.x + centres[1]!.x) / 2, y: (centres[0]!.y + centres[1]!.y) / 2 };
+            const r = (radii.left + radii.right) / 2;
+            const offCentre = Math.abs(mid.x - cw / 2) > cw * 0.22 || Math.abs(mid.y - ch * 0.42) > ch * 0.25;
+            track(mid, r < 9 ? 'eye.closer' : r > 40 ? 'eye.farther' : offCentre ? 'eye.centre' : null);
           } else {
+            const box = { l: LID_BOX.x * cw, t: LID_BOX.y * ch, r: (LID_BOX.x + LID_BOX.w) * cw, b: (LID_BOX.y + LID_BOX.h) * ch };
+            let inBox: { x: number; y: number } | null = null;
+            for (const side of ['left', 'right'] as const) {
+              const pts = LOWER_LID[side].map((i) => ({ x: X(face[i]!), y: Y(face[i]!) }));
+              const c = { x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length };
+              if (c.x > box.l && c.x < box.r && c.y > box.t && c.y < box.b) inBox = c;
+            }
+            ctx.strokeStyle = inBox ? '#30D158' : '#64D2FF';
+            track(inBox, inBox ? null : 'eye.align');
             for (const side of ['left', 'right'] as const) {
               ctx.lineWidth = 2.5;
               ctx.beginPath();
@@ -133,6 +177,7 @@ export default function EyeScan({ next, guide }: StepProps) {
     raf = requestAnimationFrame(tick);
     return () => {
       stopped = true;
+      setHold(0);
       cancelAnimationFrame(raf);
       overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
     };
@@ -176,7 +221,16 @@ export default function EyeScan({ next, guide }: StepProps) {
           return;
         }
         const crop = cropImage(img, box.x, box.y, box.w, box.h);
-        setPallor(pallorFromCrop(crop));
+        // Three frames a moment apart; the median reading is steadier than any single photo.
+        const readings = [pallorFromCrop(crop)];
+        for (let k = 0; k < 2; k++) {
+          await new Promise((r) => setTimeout(r, 110));
+          const more = grabFrame(video, 1280);
+          const data = more.getContext('2d')!.getImageData(0, 0, more.width, more.height);
+          if (data.width === img.width && data.height === img.height) readings.push(pallorFromCrop(cropImage(data, box.x, box.y, box.w, box.h)));
+        }
+        const valid = readings.filter((r): r is PallorResult => !!r).sort((a, b) => a.probability - b.probability);
+        setPallor(valid[Math.floor(valid.length / 2)] ?? null);
         const thumbnail = document.createElement('canvas');
         thumbnail.width = crop.width;
         thumbnail.height = crop.height;
@@ -193,6 +247,8 @@ export default function EyeScan({ next, guide }: StepProps) {
       setBusy(false);
     }
   }
+
+  captureRef.current = capture;
 
   function reset() {
     cam.stop();
@@ -219,10 +275,10 @@ export default function EyeScan({ next, guide }: StepProps) {
     return <CameraProblem error={cam.error} onRetry={reset} onSkip={() => { skip('eye'); next(); }} />;
   }
 
-  const rows: { label: string; value: boolean | null }[] = [
-    { label: t('eye.pallor'), value: pallor ? pallor.flag : null },
-    { label: t('eye.jaundice'), value: heur?.jaundice ?? null },
-    { label: t('eye.cataract'), value: heur?.cataract ?? null },
+  const rows: { key: 'pallor' | 'jaundice' | 'cataract'; label: string; value: boolean | null }[] = [
+    { key: 'pallor', label: t('eye.pallor'), value: pallor ? pallor.flag : null },
+    { key: 'jaundice', label: t('eye.jaundice'), value: heur?.jaundice ?? null },
+    { key: 'cataract', label: t('eye.cataract'), value: heur?.cataract ?? null },
   ];
 
   const live = cam.status === 'live';
@@ -255,6 +311,14 @@ export default function EyeScan({ next, guide }: StepProps) {
           <Hud label="torch" value={cam.torch ? 'ON' : 'OFF'} />
         </div>
       )}
+      {live && !busy && cue && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 flex flex-col items-center gap-2">
+          <motion.p key={cue} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="rounded-full bg-black/60 px-4 py-2 text-label font-medium text-white backdrop-blur-md">{t(cue)}</motion.p>
+          <span className="h-1 w-32 overflow-hidden rounded-full bg-white/20" aria-hidden>
+            <motion.span className="block h-full origin-left rounded-full bg-[#30D158]" animate={{ scaleX: hold }} transition={{ duration: 0.15 }} />
+          </span>
+        </div>
+      )}
       {busy && live && <motion.div className="absolute inset-0 bg-white" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} transition={{ duration: 0.4 }} />}
     </StageFrame>
   ) : (
@@ -269,7 +333,7 @@ export default function EyeScan({ next, guide }: StepProps) {
     <StepLayout stage={stage}>
       {phase !== 'result' ? (
         <div className="flex flex-col gap-5">
-          <StepTitle eyebrow={`02 / 05 · ${phase === 'straight' ? 'Sclera · Pupil' : 'Conjunctiva'}`} title={t('eye.title')} body={<><p role={hint ? 'status' : undefined}>{hint ? t(hint) : t(phase === 'straight' ? 'face.instruction' : 'eye.instruction')}</p><p className="mt-2 text-body text-text-3">{t('eye.torch')}</p></>} />
+          <StepTitle eyebrow={`02 / 05 · ${phase === 'straight' ? 'Sclera · Pupil' : 'Conjunctiva'}`} title={t('eye.title')} body={<><p role={hint ? 'status' : undefined}>{hint ? t(hint) : t(phase === 'straight' ? 'face.instruction' : 'eye.instruction')}</p><p className="mt-2 text-body text-text-3">{live ? t('eye.auto') : t('eye.torch')}</p></>} />
           <div className="flex gap-2">
             {(['straight', 'lid'] as const).map((p, i) => (
               <span key={p} className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-caption ${phase === p ? 'bg-accent text-on-accent' : 'bg-white/[0.06] text-text-3'}`}>
@@ -285,7 +349,10 @@ export default function EyeScan({ next, guide }: StepProps) {
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-xl bg-surface">
             {rows.map((r) => (
               <motion.li variants={riseChild} key={r.label} className="flex min-h-16 items-center justify-between gap-3 px-5 py-3">
-                <span className="text-body-lg">{r.label}</span>
+                <span className="min-w-0">
+                  <span className="block text-body-lg">{r.label}</span>
+                  {r.value !== null && <span className="mt-0.5 block text-body text-text-2">{t(`eye.why.${r.key}.${r.value ? 'check' : 'normal'}`)}</span>}
+                </span>
                 {r.value === null ? (
                   <span className="text-caption text-text-3">{t('common.notChecked')}</span>
                 ) : r.value ? (

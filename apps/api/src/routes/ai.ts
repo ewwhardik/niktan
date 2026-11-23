@@ -85,6 +85,17 @@ ai.post('/symptoms/structure', rateLimit('symptoms', 40, 3600), async (c) => {
   }
 });
 
+const known = new Set(dishes.map((d) => d.id));
+const byName = new Map<string, string>();
+for (const d of dishes) for (const n of [d.en, d.hi, d.id.replace(/_/g, ' '), ...d.aliases]) byName.set(n.toLowerCase().trim(), d.id);
+
+/** A catalogue id, or the dish whose name or local name matches the model's label ("Rosogolla" -> rasgulla). */
+export function dishFor(id: string, label?: string | null): string {
+  if (known.has(id)) return id;
+  const key = (label ?? id).toLowerCase().replace(/_/g, ' ').trim();
+  return byName.get(key) ?? byName.get(key.replace(/s$/, '')) ?? 'other';
+}
+
 const ThaliItems = z.object({
   items: z.array(z.object({ dishId: z.string(), label: z.string().optional(), count: z.number(), confidence: z.number().optional() })).max(20),
   noFood: z.boolean().optional(),
@@ -108,10 +119,9 @@ ai.post('/thali/recognize', rateLimit('thali', 15, 3600), async (c) => {
       (o) => ThaliItems.safeParse(o).success,
     );
     const parsed = ThaliItems.parse(output);
-    const known = new Set(dishes.map((d) => d.id));
     const items = parsed.items
       .map((i) => ({
-        dishId: known.has(i.dishId) ? i.dishId : 'other',
+        dishId: dishFor(i.dishId, i.label),
         label: i.label ?? null,
         count: Math.min(10, Math.round(i.count * 2) / 2),
         confidence: Math.max(0, Math.min(1, i.confidence ?? 0.5)),

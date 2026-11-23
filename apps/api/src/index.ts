@@ -9,6 +9,8 @@ import { runRetention } from './lib/retention';
 import { ai } from './routes/ai';
 import { assistant } from './routes/assistant';
 import { rx, MAX_IMAGE_BYTES } from './routes/rx';
+import { meds } from './routes/meds';
+import { lab } from './routes/lab';
 import { hospital } from './routes/hospital';
 import { misc } from './routes/misc';
 import { queue } from './routes/queue';
@@ -39,7 +41,7 @@ app.use('/api/*', async (c, next) => {
 });
 
 // Every JSON endpoint is small. Uploads read their multipart body themselves and enforce their own caps.
-const UPLOADS = new Set(['/api/asr', '/api/thali/recognize', '/api/rx/read']);
+const UPLOADS = new Set(['/api/asr', '/api/thali/recognize', '/api/rx/read', '/api/meds/read', '/api/lab/read']);
 const jsonLimit = bodyLimit({
   maxSize: 64 * 1024,
   onError: () => {
@@ -49,7 +51,7 @@ const jsonLimit = bodyLimit({
 app.use('/api/*', (c, next) => (UPLOADS.has(c.req.path) ? next() : jsonLimit(c, next)));
 
 // Allow the image plus multipart headers, while bounding the body before parsing it.
-app.use('/api/rx/read', bodyLimit({ maxSize: MAX_IMAGE_BYTES + 64 * 1024 }));
+for (const path of ['/api/rx/read', '/api/meds/read', '/api/lab/read']) app.use(path, bodyLimit({ maxSize: MAX_IMAGE_BYTES + 64 * 1024 }));
 
 app.route('/api/shared', shared);
 app.route('/api/sessions', sessions);
@@ -58,6 +60,8 @@ app.route('/api/hospital', hospital);
 app.route('/api', ai);
 app.route('/api', assistant);
 app.route('/api', rx);
+app.route('/api', meds);
+app.route('/api', lab);
 app.route('/api', misc);
 app.get('/status', (c) => c.redirect('/api/status'));
 app.get('/', (c) => c.json({ name: 'niktan-api', docs: '/api/status' }));
