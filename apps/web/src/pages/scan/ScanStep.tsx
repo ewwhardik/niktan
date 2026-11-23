@@ -63,7 +63,7 @@ export default function ScanStep() {
           <ArrowLeft size={20} strokeWidth={1.8} />
         </motion.button>
         <StepRail steps={STEPS} index={index} labels={STEPS.map((s) => t(`steps.${s}`))} />
-        <LangToggle />
+        <LangToggle compact />
       </header>
       <div className="mx-auto flex min-h-[calc(100dvh-64px)] w-full max-w-[1280px] flex-col px-5 lg:px-10">
         <AnimatePresence mode="wait" custom={dir} initial={false}>

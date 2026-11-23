@@ -301,11 +301,11 @@ export default function HealthCard() {
           <motion.section variants={riseChild} className="grid grid-cols-3 gap-2.5 sm:gap-4 lg:col-span-5">
             {tiles.map((tile) => (
               <div key={tile.label} className={`${tile.bg} flex min-h-[120px] flex-col justify-between rounded-[22px] p-3.5 text-white shadow-[0_14px_30px_-18px_rgba(0,0,0,.45)] sm:p-5`}>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-black/70 sm:size-9">
                     <tile.icon size={16} strokeWidth={2} aria-hidden />
                   </span>
-                  <span className="truncate text-label font-medium sm:text-body">{tile.label}</span>
+                  <span className="text-label leading-tight font-medium sm:truncate sm:text-body">{tile.label}</span>
                 </div>
                 <div className="flex items-end justify-between gap-1">
                   <p className="flex items-baseline gap-1">

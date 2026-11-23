@@ -47,7 +47,7 @@ export function Dock({ children }: { children: ReactNode }) {
   );
 }
 
-export function LangToggle() {
+export function LangToggle({ compact = false }: { compact?: boolean }) {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
@@ -56,11 +56,11 @@ export function LangToggle() {
         whileTap={{ scale: 0.94 }}
         transition={spring.tap}
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-label font-medium shadow-1"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border bg-surface px-3 text-label font-medium shadow-1"
         aria-label={t('common.language')}
       >
         <Languages size={18} strokeWidth={1.75} aria-hidden />
-        {LANGS.find((l) => l.id === i18n.language)?.label ?? 'हिंदी'}
+        <span className={compact ? 'hidden sm:inline' : ''}>{LANGS.find((l) => l.id === i18n.language)?.label ?? 'हिंदी'}</span>
       </motion.button>
       <Sheet open={open} onClose={() => setOpen(false)} title={t('common.language')}>
         <div className="flex flex-col gap-2 py-2">
