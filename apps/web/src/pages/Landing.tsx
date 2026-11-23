@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { SCREENING_STEPS, useScan } from '../state/scan';
+import { ProductFilm } from '../ui/ProductFilm';
 import { BrandMark } from '../ui/BrandMark';
 import { LangToggle } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
@@ -271,6 +272,7 @@ export function Landing() {
               {t('home.secondary')} <ArrowUpRight size={18} aria-hidden />
             </a>
           </motion.div>
+          <a href="#film" className="mt-5 inline-flex min-h-11 items-center gap-2 text-label font-medium underline decoration-border-strong underline-offset-4">{t('film.watch')} <span aria-hidden>↘</span></a>
           <motion.ul initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-body text-text-3">
             {trust.map((x) => (
               <li key={x} className="flex items-center gap-2"><span className="size-1 rounded-full bg-text-3" /> {x}</li>
@@ -281,6 +283,8 @@ export function Landing() {
           <HeroConsole progress={heroP} />
         </div>
       </section>
+
+      <ProductFilm />
 
       {/* Module strip */}
       <div className="border-y border-border py-6 text-title-3 font-medium text-text-3">
