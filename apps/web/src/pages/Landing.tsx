@@ -1,5 +1,5 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, Cpu, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +12,7 @@ import { MiniBoard } from '../ui/visuals/MiniBoard';
 import { StepVisual, type StepKey } from '../ui/visuals/StepVisual';
 import { DataFlow, NutrientRings, QueueRace, TimeDonut } from '../ui/visuals/Infographics';
 import { Decode, Magnetic, TiltCard } from '../ui/fx';
-import { Constellation, FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
+import { Constellation, FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, RxShowcase, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
 import { ease } from '../ui/motion';
 import '../styles/landing.css';
 
@@ -71,20 +71,20 @@ function Nav({ onStart }: { onStart: () => void }) {
   return (
     <header className="fixed inset-x-0 top-0 z-40 px-3 pt-[max(12px,env(safe-area-inset-top))]">
       <motion.nav initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7, ease }}
-        className={`lp-nav mx-auto flex h-14 items-center gap-4 rounded-full pr-2 pl-4 transition-[max-width] duration-500 ${scrolled ? 'max-w-[880px]' : 'max-w-[1040px]'}`}>
-        <a href="#top" className="flex items-center gap-2">
+        className={`lp-nav mx-auto flex h-14 items-center gap-4 rounded-full pr-2 pl-4 transition-[max-width] duration-500 ${scrolled ? 'max-w-[980px]' : 'max-w-[1080px]'}`}>
+        <a href="#top" className="flex shrink-0 items-center gap-2">
           <Glyph className="size-6" />
           <span className="text-title-3 font-semibold tracking-tight">NikTan</span>
           <span className="serif hidden text-title-3 text-text-3 sm:inline">निकतन</span>
         </a>
         <div className="mx-auto hidden items-center gap-1 text-label text-text-2 lg:flex">
-          {[['#how', t('home.nav.how')], ['#engine', t('home.hubEyebrow')], ['#thali', t('home.thaliEyebrow')], ['#hospitals', t('home.nav.hospitals')]].map(([href, label]) => (
-            <a key={href} href={href} className="rounded-full px-3.5 py-2 transition-colors hover:text-text">{label}</a>
+          {[['#thali', t('home.thaliEyebrow')], ['#rx', t('home.rxEyebrow')], ['#hospitals', t('home.nav.hospitals')]].map(([href, label]) => (
+            <a key={href} href={href} className="rounded-full px-3 py-2 whitespace-nowrap transition-colors hover:text-text">{label}</a>
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
           <LangToggle compact />
-          <motion.button whileTap={{ scale: 0.96 }} onClick={onStart} className="lp-cta hidden h-10 items-center gap-1.5 rounded-full px-5 text-label font-semibold sm:inline-flex">
+          <motion.button whileTap={{ scale: 0.96 }} onClick={onStart} className="lp-cta hidden h-10 items-center gap-1.5 rounded-full px-5 text-label font-semibold whitespace-nowrap sm:inline-flex">
             {t('home.nav.start')}
           </motion.button>
         </div>
@@ -249,7 +249,7 @@ export function Landing() {
       <section ref={hero} className="lp-hero relative isolate px-5 pt-[clamp(7rem,16svh,9.5rem)] pb-12 md:px-10">
         <div className="mx-auto max-w-[980px] text-center">
           <motion.a href="#how" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }}
-            className="inline-flex items-center gap-2 rounded-full bg-sunken py-1.5 pr-3 pl-1.5 text-caption text-text-2">
+            className="inline-flex min-h-10 items-center gap-2 rounded-full bg-sunken py-1.5 pr-3 pl-1.5 text-caption text-text-2">
             <span className="rounded-full bg-[var(--lp-card)] px-2 py-0.5 font-semibold whitespace-nowrap text-text shadow-1">{t('home.live')}</span>
             <span className="hidden whitespace-nowrap sm:inline">{t('home.eyebrow')}</span> <ArrowRight size={13} aria-hidden />
           </motion.a>
@@ -391,7 +391,7 @@ export function Landing() {
                   <div>
                     <h3 className="text-title-2 font-semibold">{b.t}</h3>
                     <p className="mt-2 text-body-lg text-text-2">{b.d}</p>
-                    {b.link && <a href="#engine" className="lp-link mt-4 inline-flex items-center gap-1 text-body-lg font-medium">{t('home.rulesCta')} <ArrowUpRight size={16} aria-hidden /></a>}
+                    {b.link && <a href="#engine" className="lp-link mt-2 inline-flex min-h-11 items-center gap-1 text-body-lg font-medium">{t('home.rulesCta')} <ArrowUpRight size={16} aria-hidden /></a>}
                   </div>
                 </div>
               </TiltCard>
@@ -440,6 +440,34 @@ export function Landing() {
                 { label: t('thali.fibre'), share: 0.71, color: 'var(--routine)' },
               ]} />
             </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Prescription reader */}
+      <section id="rx" className="mx-auto max-w-[1240px] px-5 pt-24 md:px-10 md:pt-32">
+        <div className="lp-card grid items-center gap-10 overflow-hidden rounded-[40px] px-6 py-12 md:px-12 md:py-16 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+          <Reveal className="lg:order-2">
+            <p className="eyebrow"><Decode text={t('home.rxEyebrow')} /></p>
+            <h2 className="mt-4 text-[clamp(2rem,4.4vw,3.5rem)] leading-[1.05] font-semibold text-balance">{t('home.rxTitle')}</h2>
+            <p className="mt-5 max-w-lg text-body-lg text-text-2">{t('home.rxBody')}</p>
+            <ul className="mt-7 flex flex-col gap-3">
+              {(t('home.rxPoints', { returnObjects: true }) as string[]).map((point) => (
+                <li key={point} className="flex items-start gap-3 text-body-lg">
+                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-sunken"><Check size={14} aria-hidden /></span>{point}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8">
+              <Magnetic>
+                <button onClick={() => navigate('/rx')} className="lp-cta inline-flex h-14 items-center gap-2 rounded-full px-7 text-body-lg font-semibold">
+                  <FileText size={18} aria-hidden /> {t('home.rxCta')}
+                </button>
+              </Magnetic>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1} className="lg:order-1">
+            <RxShowcase />
           </Reveal>
         </div>
       </section>
@@ -516,18 +544,25 @@ export function Landing() {
           <div>
             <div className="flex items-center gap-2.5"><Glyph className="size-6" /> <span className="font-semibold">NikTan</span></div>
             <p className="mt-4 max-w-sm text-body text-text-3">{t('home.footer')}</p>
+            <p className="mt-4 text-body text-text-2">
+              {t('home.builtBy')} <span className="font-semibold text-text">Sai Ram Dash</span>
+            </p>
+            <div className="mt-1 flex gap-5 text-body">
+              <a href="https://github.com/ewwhardik" target="_blank" rel="noreferrer" className="lp-link inline-flex min-h-11 items-center">GitHub</a>
+              <a href="https://www.linkedin.com/in/ewwhardik" target="_blank" rel="noreferrer" className="lp-link inline-flex min-h-11 items-center">LinkedIn</a>
+            </div>
           </div>
           {(t('home.footCols', { returnObjects: true }) as string[]).map((col, ci) => (
             <div key={col}>
               <p className="eyebrow">{col}</p>
-              <ul className="mt-4 flex flex-col gap-2.5 text-body text-text-2">
+              <ul className="mt-3 flex flex-col text-body text-text-2">
                 {(ci === 0
-                  ? [[t('home.footHow'), () => document.getElementById('how')?.scrollIntoView()], [t('home.thali'), () => navigate('/thali')], [t('landing.cta'), start]]
+                  ? [[t('home.footHow'), () => document.getElementById('how')?.scrollIntoView()], [t('home.thali'), () => navigate('/thali')], [t('home.rxCta'), () => navigate('/rx')], [t('landing.cta'), start]]
                   : ci === 1
                     ? [[t('home.staff'), () => navigate('/hospital')], [t('home.footBoard'), () => navigate('/hospital/board')]]
                     : [[t('home.nav.privacy'), () => document.getElementById('privacy')?.scrollIntoView()], [t('home.status'), () => navigate('/status')], [t('home.footFeedback'), () => navigate('/feedback')]]
                 ).map(([label, go]) => (
-                  <li key={label as string}><button onClick={go as () => void} className="text-left hover:text-text">{label as string}</button></li>
+                  <li key={label as string}><button onClick={go as () => void} className="-my-1.5 min-h-11 text-left hover:text-text">{label as string}</button></li>
                 ))}
               </ul>
             </div>

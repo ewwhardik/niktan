@@ -9,6 +9,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // main.tsx registers the worker so a new deploy reloads open tabs instead of serving the old shell.
+      injectRegister: false,
       includeAssets: ['brand/app-*.png', 'art/*.webp'],
       manifest: {
         name: 'NikTan — तीन मिनट की स्वास्थ्य जाँच',
@@ -23,6 +25,9 @@ export default defineConfig({
         icons: [192, 512].map(size => ({ src: `/brand/app-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any maskable' })),
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Scan steps must work on a flaky venue network once the app has loaded.
         globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3,wav}'],
         // The 3D viewer only appears on the health card; fetch it on demand instead of on first visit.

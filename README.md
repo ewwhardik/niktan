@@ -6,7 +6,7 @@
 [![Hackathon](https://img.shields.io/badge/Hackasol%205.0-Track%201%3A%20Open%20Innovation%20(OI--01)-8b5cf6.svg)](https://iiitnr.ac.in)
 [![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare%20Workers%20%2B%20Pages%20%2B%20D1-orange.svg)](https://workers.cloudflare.com)
 [![Privacy](https://img.shields.io/badge/Privacy-On--Device%20Edge%20CV%20(WASM)-success.svg)](docs/architecture.md)
-[![Tests](https://img.shields.io/badge/Tests-131%20passing-brightgreen.svg)](packages/core/test)
+[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](packages/core/test)
 
 **NikTan** (from Chhattisgarhi *"nik"* = good/healthy + *"tan"* = body) is an edge-first, multimodal pre-consultation health screening and clinical triage system built for **Hackasol 5.0 (OI-01: Build for Real-World Impact)**.
 
@@ -117,16 +117,17 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
 ## Advanced Clinical Features & Modules
 
 ### M1: In-Browser Contactless rPPG Heart Rate
-- **Algorithm:** Wang et al.'s **Plane-Orthogonal-to-Skin (POS)** remote photoplethysmography ([IEEE TBME](https://doi.org/10.1109/TBME.2016.2609282)).
-- **Implementation:** MediaPipe FaceLandmarker dynamically isolates regions of interest across forehead and bilateral cheeks while masking eyes and mouth.
-- **Signal Processing:** Temporal channel normalization, band-pass filtering (**0.7 – 3.0 Hz**, corresponding to 42–180 bpm), detrending, and Welch/FFT spectral density peak tracking over a 10-second rolling window during the scan and the full 30-second capture for the result.
-- **Quality Gate:** Rejects motion artifacts, lighting dropouts, and low signal-to-noise ratio (SNR) with clear audio-visual instructions ("कृपया स्थिर रहें", "बढ़िया रोशनी में आइए").
-- **Live Pulse Waveform:** Real-time pulse waveform synced with heartbeats.
+- **Algorithms:** Three published pulse extractors run on each skin region and are fused by signal quality: **POS** (Wang et al., [IEEE TBME 2017](https://doi.org/10.1109/TBME.2016.2609282)), **CHROM** (de Haan & Jeanne 2013) and an **OMIT**-style orthogonal projection (Casado & López 2023).
+- **Implementation:** MediaPipe FaceLandmarker tracks forehead and both cheeks (eyes and mouth masked). A region hidden by hair, a beard or glare is dropped on its own; the other regions still carry the pulse.
+- **Signal Processing:** Motion and lighting steps are clipped before extraction, then band-pass (**0.7 – 3.0 Hz**, 42–180 bpm), SNR-weighted spectral fusion, harmonic-sum peak picking and Viterbi tracking across 10-second windows. Works from **6 processed frames per second**, so budget phones running the face model on the CPU still get a reading.
+- **Quality Gate:** Rejects large motion, head turns over 25°, and unusable light with spoken guidance ("कृपया स्थिर रहें", "बढ़िया रोशनी में आइए"). The camera watchdog judges a stall by video progress, not processing speed, so slow phones are not mistaken for a lost camera.
+- **Live Display:** A Kalman-smoothed rate, a patient-monitor pulse trace, and a heart and face regions that pulse on each *detected* beat, in phase with the drawn peak.
+- **Verification:** 70 unit tests, including frame-rate and stutter sweeps (6–30 fps) and coloured head-jerk artefacts, plus an end-to-end browser run on a synthetic camera that read 72 and 96 bpm exactly.
 
 ### M2: Ophthalmic Multi-Condition Screening
 - **Conjunctival Pallor (Anemia Screening Flag):** MediaPipe automatically crops the inferior palpebral conjunctiva as the patient gently pulls the lower eyelid down. Extracts 11 normalized colorimetric features across CIELAB ($L^*, a^*, b^*$), normalized red/green ratios, and erythema indices.
-- **Machine Learning Model:** Regularized logistic regression model trained on 731 pooled clinical samples (Ghana pediatric ML IDA dataset + Indian/Italian adult Eyes-defy-anemia dataset, CC BY 4.0).
-- **High-Sensitivity Calibration:** Cross-validated AUC **0.707**, sensitivity **85.1%**, specificity **38.7%**. Calibrated deliberately for high sensitivity to prevent missed cases in resource-constrained environments. Detailed model card: [`docs/model-card-anemia.md`](docs/model-card-anemia.md).
+- **Machine Learning Model (v2):** A logit blend of logistic regression (70%) and 200 depth-2 boosted trees (30%), trained on 731 pooled clinical samples (Ghana pediatric ML IDA dataset + Indian/Italian adult Eyes-defy-anemia dataset, CC BY 4.0). Trees alone score higher but transfer worse between countries, so the blend keeps cross-population behaviour close to the logistic model.
+- **High-Sensitivity Calibration:** Grouped cross-validated AUC **0.743** (v1: 0.707), sensitivity **84%**, specificity **43%** (v1: 39%), i.e. about a quarter fewer false "get an Hb test" prompts at the same sensitivity. Browser and Python inference match to 1e-9. Detailed model card: [`docs/model-card-anemia.md`](docs/model-card-anemia.md).
 - **Experimental Flags:** Ocular sclera yellowness ($b^*$ chromaticity) for preliminary jaundice detection, and pupil-to-iris white reflectance ratio for cataract screening.
 
 ### M3: Clinically Calibrated Tumbling-E Visual Acuity
@@ -154,6 +155,16 @@ See [`docs/architecture.md`](docs/architecture.md) for full sequence diagrams, s
   - 🟠 **SEE TODAY:** Moderate vital deviations, fever $\ge 3$ days, acute pallor with fatigue, or sudden sensory loss $\rightarrow$ Elevated to top priority in OPD queue.
   - 🟢 **ROUTINE:** Stable presentations $\rightarrow$ Sorted by arrival order.
 - **Automated Department Routing:** Routes to 8 specialized departments (General Medicine, Pediatrics for age < 14, Obstetrics & Gynecology, Ophthalmology, ENT, Orthopedics, Dermatology, Surgery).
+- **Coverage Gaps:** Skipped or unreliable checks are returned as desk actions ("Heart-rate signal unclear: take pulse at the desk") and shown on the doctor's card.
+- **Acuity Score:** A 0–100 ordering hint inside each priority tier (emergency 80+, see-today 40–79, routine 0–39) from the number of reasons, pulse deviation for age, severe symptoms and age extremes. It never moves anyone between tiers.
+
+### M7: Prescription Reader (`/rx`)
+- **Handwriting reading:** Photograph a printed or handwritten prescription. A vision model (Gemini, falling back to Groq and Workers AI) returns each medicine, strength, form, dose, schedule and duration as validated JSON, expands Indian shorthand (OD, BD, TDS, HS, SOS, AC/PC, 1-0-1) and marks hard-to-read words for checking with the pharmacist.
+- **Medicine information online:** Each name is matched to its ingredient with the US National Library of Medicine's **RxNorm** API, then uses, warnings, contraindications and side effects are fetched from **openFDA** drug labels. Indian brands are mapped to their generic by the reader first (e.g. Dolo 650 → paracetamol → acetaminophen).
+- **Safety:** Never suggests changing a dose; the photo is sent only for reading and not stored.
+
+### M8: NikTan Sahayak, the Help Assistant
+- A chat assistant on every page except the camera steps, powered by **Groq** (`gpt-oss-120b`) with Workers AI as backup. It answers from a curated knowledge base of NikTan's features, results, Thali, the prescription reader, hospitals and privacy, replies in English, Hindi or Chhattisgarhi, links to the right page, never diagnoses, and leads with **108** for emergencies. Phone and Aadhaar-like numbers are masked before text leaves the server.
 
 ---
 
@@ -305,6 +316,10 @@ Nothing below is redistributed beyond what its licence allows; raw datasets are 
 | OPD waiting-time figures | Problem statement | Published Indian OPD time-motion studies, e.g. IJCMPH (ijcmph.com/index.php/ijcmph/article/view/16572); AIIMS Delhi OPD volumes; ABDM Scan & Share press release (PIB, 2026) | Cited, not redistributed |
 
 ## Team & Credits
+
+**Designed and built by Sai Ram Dash**: [GitHub @ewwhardik](https://github.com/ewwhardik) · [LinkedIn @ewwhardik](https://www.linkedin.com/in/ewwhardik)
+
+All product design, engineering, the rPPG and anaemia models, the triage engine, NikTan Thali, the prescription reader and the help assistant are by Sai Ram Dash.
 
 - **Event:** Hackasol 5.0, IIIT Naya Raipur, Chhattisgarh.
 - **Track:** Open Innovation (OI-01: Build for Real-World Impact).

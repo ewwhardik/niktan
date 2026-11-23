@@ -90,6 +90,9 @@ importers:
       three:
         specifier: 0.170.0
         version: 0.170.0
+      workbox-window:
+        specifier: 7.4.1
+        version: 7.4.1
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.5

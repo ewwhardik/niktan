@@ -18,7 +18,7 @@
 
 ## 2. Feature Pipeline (11 Colorimetric Descriptors)
 
-The eye scan pipeline crops the lower-eyelid palpebral conjunctiva region using MediaPipe facial landmarks, computes colour statistics on the conjunctiva pixels, and passes 11 deterministic features through a StandardScaler (z-scores) before the logistic regression. The features, in model order:
+The eye scan pipeline crops the lower-eyelid palpebral conjunctiva region using MediaPipe facial landmarks, computes colour statistics on the conjunctiva pixels, and passes 11 deterministic features to a blend of a logistic regression (on z-scored features) and 200 depth-2 boosted trees; the final logit is 0.7 × logistic + 0.3 × trees. The features, in model order:
 
 1. `a_mean`: mean CIELAB $a^*$ (redness-greenness) of conjunctiva pixels.
 2. `a_median`: median CIELAB $a^*$.
@@ -52,10 +52,14 @@ Evaluated using **patient-grouped stratified 5-fold cross-validation** (leakage 
 
 | Cohort Subset | Samples ($n$) | Anemic ($n_{pos}$) | ROC-AUC [95% CI] | Sensitivity | Specificity | False Negative Rate |
 |---|---|---|---|---|---|---|
-| **All Combined** | **731** | **382** | **0.707 [0.67–0.75]** | **85.1%** | **38.7%** | **14.9%** |
-| **India Adults** | 95 | 68 | 0.681 | 83.8% | 29.6% | 16.2% |
-| **Italy Adults** | 122 | 23 | 0.912 | 87.0% | 80.0% | 13.0% |
-| **Ghana Children** | 514 | 291 | 0.640 | 85.2% | 22.0% | 14.8% |
+| **All Combined (v2 blend, shipped)** | **731** | **382** | **0.743 [0.71–0.78]** | **84.0%** | **43.0%** | **16.0%** |
+| India Adults | 95 | 68 | 0.674 | 88.2% | 25.9% | 11.8% |
+| Italy Adults | 122 | 23 | 0.924 | 82.6% | 82.8% | 17.4% |
+| Ghana Children | 514 | 291 | 0.672 | 83.2% | 27.4% | 16.8% |
+| *v1 logistic, for comparison* | 731 | 382 | 0.707 [0.67–0.75] | 85.1% | 38.7% | 14.9% |
+| *Boosted trees alone* | 731 | 382 | 0.770 [0.74–0.81] | 85.9% | 48.4% | 14.1% |
+
+Trees alone fit the pooled data best but transfer poorly between countries (trained on Ghana and tested on adults: AUC 0.52 vs 0.70 for logistic). The 0.3 blend keeps transfer near the logistic model (0.68) while gaining most of the pooled improvement. Also tried and not shipped: 11 extra colour-distribution features, and forniceal and combined crops as extra training images; neither improved grouped CV.
 
 ### Strategic Threshold Calibration
 In public outpatient screening, the clinical cost of a **False Negative** (missing an anemic mother or child who continues untreated) is far higher than a **False Positive** (advising an unnecessary ₹50 confirmatory capillary/venous Hb test). Therefore, the decision threshold is deliberately tuned for **high sensitivity ($\ge 85\%$)**.

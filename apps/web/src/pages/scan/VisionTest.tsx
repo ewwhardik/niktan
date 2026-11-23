@@ -118,14 +118,17 @@ export default function VisionTest({ next, guide }: StepProps) {
           className="mt-8 w-full accent-[var(--accent)]"
           aria-label={t('vision.calibrate')}
         />
-        <fieldset className="mt-5 flex gap-4">
-          <legend className="mb-2 text-label">{t('vision.mode')}</legend>
-          {([2000, 400] as const).map((mm) => (
-            <label key={mm} className="flex min-h-11 items-center gap-2">
-              <input type="radio" name="distance" checked={distanceMm === mm} onChange={() => setDistanceMm(mm)} />
-              {t(mm === 2000 ? 'vision.far' : 'vision.near')}
-            </label>
-          ))}
+        <fieldset className="mt-6">
+          <legend className="mb-2 text-label text-text-2">{t('vision.mode')}</legend>
+          {/* A segmented choice: each option is a full-width card, so long labels never wrap mid-word. */}
+          <div className="grid grid-cols-2 gap-2">
+            {([2000, 400] as const).map((mm) => (
+              <label key={mm} className={`flex min-h-14 cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-body ring-1 transition-colors ${distanceMm === mm ? 'bg-white/10 ring-white/40' : 'bg-white/[0.04] ring-white/10'}`}>
+                <input type="radio" name="distance" className="size-4 shrink-0 accent-white" checked={distanceMm === mm} onChange={() => setDistanceMm(mm)} />
+                <span className="leading-snug">{t(mm === 2000 ? 'vision.far' : 'vision.near')}</span>
+              </label>
+            ))}
+          </div>
         </fieldset>
         <p className="mt-3 text-body text-text-2">{t(distanceMm === 2000 ? 'vision.helper' : 'vision.distance')}</p>
         {!optotype.readable && <p className="mt-2 text-body">{t('vision.resolution')}</p>}

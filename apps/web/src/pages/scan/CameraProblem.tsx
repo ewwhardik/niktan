@@ -22,7 +22,7 @@ export function CameraProblem({ error, onRetry, onSkip }: { error: CameraError; 
   const { t, i18n } = useTranslation();
   const Icon = error === 'denied' ? Lock : CameraOff;
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="mx-auto flex w-full max-w-[520px] flex-1 flex-col">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <span className="flex size-16 items-center justify-center rounded-full bg-seetoday-tint text-seetoday-ink">
           <Icon size={30} strokeWidth={1.5} aria-hidden />

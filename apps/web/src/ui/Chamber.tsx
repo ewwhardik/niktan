@@ -58,7 +58,7 @@ export function StageFrame({ children, className = '' }: { children: ReactNode; 
   };
   return (
     <div ref={ref} onPointerMove={move} onPointerLeave={() => { if (ref.current) ref.current.style.transform = ''; }}
-      className={`stage-3d relative mx-auto aspect-[3/4] w-full max-w-[400px] overflow-hidden rounded-[32px] bg-black ring-1 ring-white/10 lg:h-[min(72vh,680px)] lg:w-auto lg:max-w-none ${className}`} style={{ touchAction: 'pan-y' }}>
+      className={`stage-3d relative mx-auto aspect-[3/4] w-[min(100%,36svh)] max-w-[400px] overflow-hidden rounded-[32px] bg-black ring-1 ring-white/10 lg:h-[min(72vh,680px)] lg:w-auto lg:max-w-none ${className}`} style={{ touchAction: 'pan-y' }}>
       {children}
       {(['top-3 left-3 border-t border-l', 'top-3 right-3 border-t border-r', 'bottom-3 left-3 border-b border-l', 'bottom-3 right-3 border-b border-r'] as const).map((c) => (
         <span key={c} className={`pointer-events-none absolute size-5 rounded-[6px] border-white/40 ${c}`} />

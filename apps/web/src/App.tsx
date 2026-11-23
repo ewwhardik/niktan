@@ -6,11 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { Landing } from './pages/Landing';
 import { Consent } from './pages/Consent';
 import { BasicInfo } from './pages/BasicInfo';
+import { Assistant } from './ui/Assistant';
 
 const ScanStep = lazy(() => import('./pages/scan/ScanStep'));
 const HealthCard = lazy(() => import('./pages/HealthCard'));
 const Queue = lazy(() => import('./pages/Queue'));
 const Thali = lazy(() => import('./pages/Thali'));
+const Prescription = lazy(() => import('./pages/Prescription'));
 const ServiceStatus = lazy(() => import('./pages/ServiceStatus'));
 const Feedback = lazy(() => import('./pages/Feedback'));
 const HospitalLogin = lazy(() => import('./pages/hospital/Login'));
@@ -90,6 +92,7 @@ export function App() {
               <Route path="/card" element={<HealthCard key={location.search + location.hash} />} />
               <Route path="/queue" element={<Queue />} />
               <Route path="/thali" element={<Thali />} />
+              <Route path="/rx" element={<Prescription />} />
               <Route path="/status" element={<ServiceStatus />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/hospital" element={<HospitalLogin />} />
@@ -101,6 +104,7 @@ export function App() {
           </motion.main>
         </AnimatePresence>
       </Suspense>
+      <Assistant />
     </>
   );
 }

@@ -569,7 +569,17 @@
       "Curd"
     ],
     "thaliCta": "Scan a meal",
-    "thaliMeal": "1 meal"
+    "thaliMeal": "1 meal",
+    "rxEyebrow": "Prescription reader",
+    "rxTitle": "Doctor's handwriting, finally readable.",
+    "rxBody": "Photograph a prescription and NikTan reads every medicine, strength and schedule, expands shorthand like 1-0-1, BD and HS, and explains what each medicine is for from public drug databases.",
+    "rxPoints": [
+      "Reads handwritten and printed prescriptions",
+      "Morning, afternoon and night at a glance",
+      "Uses and warnings from NLM RxNorm and openFDA"
+    ],
+    "rxCta": "Read a prescription",
+    "builtBy": "Designed and built by"
   },
   "design": {
     "screeningArt": "A woman holds her phone at eye level for a face scan.",
@@ -578,5 +588,61 @@
     "stale": "Showing the last successful update. Refresh to try again.",
     "staleShort": "Last known",
     "updated": "Last updated"
+  },
+  "assistant": {
+    "label": "Ask NikTan",
+    "open": "Open the NikTan help assistant",
+    "title": "NikTan Sahayak",
+    "subtitle": "Help with checks, results, Thali and privacy",
+    "close": "Close",
+    "hello": "Hi! I can explain the checks, your results, the hospital board, Thali and privacy. I can't diagnose. In an emergency call 108.",
+    "starters": [
+      "How does the 3-minute check work?",
+      "Tips for a good heart-rate reading",
+      "What does the Thali scan do?",
+      "Is my face video uploaded?"
+    ],
+    "placeholder": "Ask anything about NikTan",
+    "send": "Send",
+    "thinking": "Thinking",
+    "down": "I can't reach the assistant right now. Please try again in a moment. In an emergency call 108.",
+    "disclaimer": "AI answers can be wrong. NikTan does not diagnose."
+  },
+  "rx": {
+    "title": "Prescription reader",
+    "heading": "Read any prescription, even the handwriting",
+    "intro": "Take a photo of your doctor's prescription. NikTan reads each medicine and when to take it, and explains what it is for.",
+    "tips": [
+      "Lay the paper flat in good light, the whole page in view",
+      "Hold steady so the handwriting is sharp",
+      "Medicines marked \"Check\" were hard to read: confirm them with the pharmacist"
+    ],
+    "take": "Take photo",
+    "choose": "Choose from gallery",
+    "reading": "Reading the prescription…",
+    "photoAlt": "Your prescription photo",
+    "found_one": "{{count}} medicine found",
+    "found_other": "{{count}} medicines found",
+    "verify": "Check each one against the paper before you buy or take it.",
+    "check": "Check",
+    "schedule": "When to take",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "night": "Night",
+    "about": "About this medicine",
+    "ingredient": "Active ingredient",
+    "uses": "Used for",
+    "warnings": "Important warnings",
+    "doNotUse": "Do not use if",
+    "sideEffects": "Possible side effects",
+    "source": "Source",
+    "notFound": "No public label was found for this name. Ask your pharmacist about it.",
+    "infoError": "Couldn't load medicine information. Try again later.",
+    "advice": "Doctor's advice",
+    "none": "No medicines could be read. Try a sharper photo of the whole prescription, or ask your pharmacist.",
+    "failed": "Couldn't read this photo right now. Check your connection and try again.",
+    "tooMany": "Too many prescriptions read from this network. Try again in an hour.",
+    "another": "Read another prescription",
+    "disclaimer": "Reading handwriting can go wrong. Never change a dose or stop a medicine because of this page; follow your doctor and pharmacist. Medicine information comes from public US databases (NLM RxNorm, openFDA) and may differ from Indian labels. The photo is sent to an AI service to read it and is not stored."
   }
 }

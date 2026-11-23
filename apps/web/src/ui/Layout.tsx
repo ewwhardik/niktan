@@ -1,17 +1,16 @@
 import { motion } from 'motion/react';
-import { ArrowLeft, Languages } from 'lucide-react';
+import { ArrowLeft, Ear, Eye, Glasses, HeartPulse, Languages, Mic } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGS } from '../i18n';
 import { Sheet } from './Sheet';
 import { spring } from './motion';
-import { PulseSphere } from './visuals/PulseSphere';
 
 /** Desktop brand panel beside citizen screens: keeps laptops from showing a lone phone-width column. */
 function Aside({ title }: { title?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <aside className="chamber grain sticky top-0 hidden h-dvh flex-col justify-between overflow-hidden p-12 text-text lg:flex">
+    <aside className="chamber sticky top-0 hidden h-dvh flex-col justify-between overflow-hidden p-12 text-text lg:flex">
       <a href="/" className="flex items-center gap-2.5">
         <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
           <rect width="32" height="32" rx="9" fill="currentColor" />
@@ -19,9 +18,19 @@ function Aside({ title }: { title?: ReactNode }) {
         </svg>
         <span className="text-title-3 font-semibold">NikTan</span>
       </a>
-      <div className="pointer-events-none absolute -right-24 top-1/2 size-[34rem] -translate-y-1/2 opacity-90">
-        <PulseSphere bpm={66} />
-      </div>
+      <ol className="relative flex max-w-sm flex-col gap-1">
+        {[HeartPulse, Eye, Glasses, Ear, Mic].map((Icon, i) => {
+          const key = ['face', 'eye', 'vision', 'hearing', 'symptoms'][i]!;
+          return (
+            <motion.li key={key} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.07, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="flex items-center gap-4 border-b border-white/[0.08] py-3.5 last:border-b-0">
+              <span className="grid size-10 place-items-center rounded-2xl bg-white/[0.07]"><Icon size={18} strokeWidth={1.7} aria-hidden /></span>
+              <span className="text-body-lg text-text-2">{t(`steps.${key}`)}</span>
+              <span className="mono ml-auto text-caption text-text-3">0{i + 1}</span>
+            </motion.li>
+          );
+        })}
+      </ol>
       <div className="relative max-w-md">
         <p className="serif text-[clamp(2.75rem,4.5vw,4.5rem)] leading-[1.02]">{title ?? t('home.endTitle')}</p>
         <p className="mt-6 max-w-sm text-body text-text-3">{t('home.footer')}</p>
@@ -41,7 +50,7 @@ export function Screen({ children, className = '', aside, wide = false }: { chil
 
 export function Dock({ children }: { children: ReactNode }) {
   return (
-    <div className="cta-dock glass z-20 -mx-5 mt-auto px-5 lg:mx-0 lg:px-0 lg:pb-10">
+    <div className="cta-dock glass z-20 -mx-5 mt-auto px-5 lg:mx-0 lg:mt-10 lg:bg-transparent lg:px-0 lg:pb-10 lg:backdrop-blur-none">
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );

@@ -75,7 +75,7 @@ export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
         </div>
 
         {/* Panels */}
-        <div className="mt-5 grid gap-3 md:grid-cols-[0.9fr_1.6fr_0.9fr]">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-[0.9fr_1.6fr_0.9fr]">
           <div className="hidden rounded-2xl bg-sunken p-4 md:block">
             <p className="text-label font-semibold">{c.summary}</p>
             <ul className="mt-3 flex flex-col gap-1.5">
@@ -91,7 +91,7 @@ export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
             </ul>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl bg-sunken p-4">
+          <div className="relative overflow-hidden rounded-2xl bg-sunken p-4 md:order-first md:col-span-2 lg:order-none lg:col-span-1">
             <div className="flex items-center justify-between">
               <p className="flex items-center gap-2 text-label font-semibold"><Activity size={15} className="text-[var(--lp-heart)]" aria-hidden />{c.chart}</p>
               <span className="flex items-center gap-1.5 text-caption text-text-3"><span className="size-1.5 rounded-full bg-[var(--lp-heart)]" />Live</span>
@@ -436,6 +436,52 @@ export function ThaliPlate({ dishes }: { dishes: string[] }) {
           <span className="size-1.5 rounded-full bg-[var(--lp-accent)]" />{dishes[i]}
         </motion.span>
       ))}
+    </div>
+  );
+}
+
+const RX_DEMO = [
+  { hand: 'Tab Dolo 650  1-0-1 × 5d', name: 'Dolo 650', generic: 'Paracetamol', slots: [1, 0, 1], note: '5 days · after food' },
+  { hand: 'Cap Pan D  1-0-0  AC', name: 'Pan D', generic: 'Pantoprazole + domperidone', slots: [1, 0, 0], note: '7 days · before food' },
+  { hand: 'Syp Ascoril LS 5ml TDS', name: 'Ascoril LS', generic: 'Ambroxol + guaifenesin + levosalbutamol', slots: [1, 1, 1], note: '5 ml each time' },
+];
+
+/** A handwritten slip on the left resolves, line by line, into medicine cards on the right. */
+export function RxShowcase() {
+  const reduce = useReducedMotion();
+  return (
+    <div className="grid items-center gap-5 sm:grid-cols-[0.9fr_1.1fr] [perspective:1200px]">
+      <motion.div initial={reduce ? false : { rotateY: 18, rotateZ: -5, opacity: 0, x: -20 }} whileInView={{ rotateY: 8, rotateZ: -3, opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.9, ease }}
+        className="relative rounded-[20px] bg-[#fbfaf6] p-5 text-[#1f2a6b] shadow-[0_1px_2px_rgb(0_0_0/0.06),0_30px_60px_-30px_rgb(0_0_0/0.4)] ring-1 ring-black/5">
+        <p className="border-b border-black/10 pb-2 text-[12px] text-black/45">Dr. A. Sharma · MBBS</p>
+        <p className="mt-3 text-[20px] italic" style={{ fontFamily: '"Bradley Hand", "Segoe Script", "Snell Roundhand", cursive' }}>℞</p>
+        <ul className="mt-1 flex flex-col gap-3">
+          {RX_DEMO.map((r, i) => (
+            <motion.li key={r.hand} initial={reduce ? false : { clipPath: 'inset(0 100% 0 0)' }} whileInView={{ clipPath: 'inset(0 0% 0 0)' }} viewport={{ once: true }} transition={{ duration: 0.9, delay: 0.3 + i * 0.45, ease: 'easeInOut' }}
+              className="text-[clamp(15px,1.6vw,19px)] leading-tight whitespace-nowrap" style={{ fontFamily: '"Bradley Hand", "Segoe Script", "Snell Roundhand", cursive', rotate: `${(i % 2 ? 0.6 : -0.8)}deg` }}>
+              {r.hand}
+            </motion.li>
+          ))}
+        </ul>
+        <motion.span aria-hidden className="absolute inset-x-4 h-[2px] rounded-full bg-[var(--lp-accent)]" initial={{ top: '20%', opacity: 0 }} whileInView={{ top: ['20%', '90%', '20%'], opacity: [0, 1, 1, 0] }} viewport={{ once: true }} transition={{ duration: 2.4, delay: 0.4, ease: 'easeInOut' }} />
+      </motion.div>
+      <ul className="flex flex-col gap-2.5">
+        {RX_DEMO.map((r, i) => (
+          <motion.li key={r.name} initial={reduce ? false : { opacity: 0, x: 24, scale: 0.97 }} whileInView={{ opacity: 1, x: 0, scale: 1 }} viewport={{ once: true }} transition={{ type: 'spring', stiffness: 220, damping: 24, delay: 1 + i * 0.35 }}
+            className="lp-card rounded-2xl p-3.5 ring-1 ring-[var(--lp-line)]">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-label font-semibold">{r.name}</p>
+              <p className="truncate text-caption text-text-3">{r.note}</p>
+            </div>
+            <p className="truncate text-caption text-text-2">{r.generic}</p>
+            <div className="mt-2 grid grid-cols-3 gap-1">
+              {['AM', 'Noon', 'PM'].map((slot, k) => (
+                <span key={slot} className={`rounded-md py-1 text-center text-[11px] font-medium ${r.slots[k] ? 'bg-text text-bg' : 'bg-sunken text-text-3'}`}>{slot}</span>
+              ))}
+            </div>
+          </motion.li>
+        ))}
+      </ul>
     </div>
   );
 }
