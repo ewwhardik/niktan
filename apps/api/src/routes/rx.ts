@@ -66,22 +66,14 @@ export function mergeReadings(primary: Read, second: Read | null): { medicines: 
   const medicines = primary.medicines.map(base);
   if (!second) return { medicines, advice: primary.advice ?? [] };
   const used = new Set<number>();
-  for (const m of medicines) {
-    let best = -1;
-    let score = 0;
-    second.medicines.forEach((o, i) => {
-      if (used.has(i)) return;
-      const sameGeneric = !!m.generic && !!o.generic && nameKey(m.generic) === nameKey(o.generic);
-      const sim = Math.max(similarity(nameKey(m.name), nameKey(o.name)), sameGeneric ? 0.9 : 0);
-      if (sim > score) { score = sim; best = i; }
-    });
-    if (best < 0 || score < 0.7) {
-      m.unclear = true;
-      m.confidence = Math.min(m.confidence, 0.5);
-      continue;
-    }
-    used.add(best);
-    const o = second.medicines[best]!;
+  const paired = new Set<number>();
+  // Letters only, so "Rantop 40" and "Rintop" compare on the name, not on a strength one reader missed.
+  const letters = (v: string) => nameKey(v).replace(/[\p{N}.]/gu, '');
+  const closeness = (m: Med, o: Med) => {
+    const sameGeneric = !!m.generic && !!o.generic && nameKey(m.generic) === nameKey(o.generic);
+    return Math.max(similarity(nameKey(m.name), nameKey(o.name)), similarity(letters(m.name), letters(o.name)), sameGeneric ? 0.9 : 0);
+  };
+  const join = (m: MergedMed, o: Med) => {
     const sameName = nameKey(m.name) === nameKey(o.name);
     // Same ingredient but a different brand reading still needs a human look at the name.
     m.agreed = sameName && !!nameKey(m.name);
@@ -101,6 +93,36 @@ export function mergeReadings(primary: Read, second: Read | null): { medicines: 
     }
     m.confidence = Math.min(m.confidence, o.confidence ?? 0.5);
     m.unclear ||= !m.agreed || !!o.unclear || m.confidence < 0.6 || m.conflicts.length > 0;
+  };
+  // Pass 1: pair by name or ingredient.
+  medicines.forEach((m, mi) => {
+    let best = -1;
+    let score = 0;
+    second.medicines.forEach((o, i) => {
+      if (used.has(i)) return;
+      const sim = closeness(m, o);
+      if (sim > score) { score = sim; best = i; }
+    });
+    if (best < 0 || score < 0.7) return;
+    used.add(best);
+    paired.add(mi);
+    join(m, second.medicines[best]!);
+  });
+  // Pass 2: both readers go down the page in order, so a leftover line is paired with the other
+  // reader's leftover at the same place when the names are at least half alike. It stays disputed.
+  const leftA = medicines.map((_, i) => i).filter((i) => !paired.has(i));
+  const leftB = second.medicines.map((_, i) => i).filter((i) => !used.has(i));
+  leftA.forEach((mi, k) => {
+    const oi = leftB[k];
+    if (oi === undefined || used.has(oi) || closeness(medicines[mi]!, second.medicines[oi]!) < 0.5) return;
+    used.add(oi);
+    paired.add(mi);
+    join(medicines[mi]!, second.medicines[oi]!);
+  });
+  for (const [mi, m] of medicines.entries()) {
+    if (paired.has(mi)) continue;
+    m.unclear = true;
+    m.confidence = Math.min(m.confidence, 0.5);
   }
   second.medicines.forEach((o, i) => {
     if (!used.has(i)) medicines.push({ ...base(o), agreed: false, unclear: true, confidence: Math.min(o.confidence ?? 0.5, 0.5) });

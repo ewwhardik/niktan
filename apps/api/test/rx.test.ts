@@ -59,4 +59,22 @@ describe('prescription reading merge', () => {
   it('leaves agreement unknown when there was only one reader', () => {
     expect(mergeReadings({ medicines: [med('Dolo 650')] }, null).medicines[0]!.agreed).toBeNull();
   });
+
+  it('keeps one entry when the readers spell the same line differently, with both readings shown', () => {
+    const r = mergeReadings(
+      { medicines: [med('Augmentin 625'), med('Rantop 40'), med('Montair LC')] },
+      { medicines: [med('Augmentin 625'), med('Rintop'), med('Montair LC')] },
+    );
+    expect(r.medicines).toHaveLength(3);
+    const line = r.medicines.find((m) => m.name === 'Rantop 40')!;
+    expect(line).toMatchObject({ agreed: false, unclear: true });
+    expect(line.alternatives).toContain('Rintop');
+  });
+
+  it('pairs leftover lines by position when names are only half alike', () => {
+    const r = mergeReadings({ medicines: [med('Dolo 650'), med('Zerodol SP')] }, { medicines: [med('Dolo 650'), med('Zerodal 5P')] });
+    expect(r.medicines).toHaveLength(2);
+    expect(r.medicines[1]!.alternatives).toContain('Zerodal 5P');
+  });
 });
+
