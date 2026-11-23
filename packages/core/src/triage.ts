@@ -39,6 +39,10 @@ export interface TriageResult {
   department: DepartmentId;
   reasons: Reason[];
   rulesVersion: string;
+  /** Checks that were skipped or failed the quality gate, phrased as what staff should do instead. */
+  gaps: Reason[];
+  /** 0-100 ordering hint inside a priority tier; tiers never overlap (emergency 80+, today 40-79, routine 0-39). */
+  acuity: number;
 }
 
 const RED_FLAG_TEXT: Record<RedFlag, Omit<Reason, 'code'>> = {
@@ -191,18 +195,53 @@ export function routeDepartment(input: TriageInput, priority: Priority): Departm
   return 'medicine';
 }
 
+/** What the screening could not establish, so the desk can measure it by hand. */
+export function coverageGaps(input: TriageInput): Reason[] {
+  const gaps: Reason[] = [];
+  if (!input.vitals) gaps.push({ code: 'gap:vitals', hi: 'नब्ज़ नहीं नापी गई: डेस्क पर नब्ज़ देखें', en: 'Heart rate not measured: take pulse at the desk' });
+  else if (input.vitals.quality < rules.qualityMin) gaps.push({ code: 'gap:vitals_quality', hi: 'नब्ज़ की रीडिंग साफ़ नहीं: डेस्क पर नब्ज़ देखें', en: 'Heart-rate signal unclear: take pulse at the desk' });
+  if (!input.eye) gaps.push({ code: 'gap:eye', hi: 'आँख की जाँच नहीं हुई', en: 'Eye check not done' });
+  if (!input.vision) gaps.push({ code: 'gap:vision', hi: 'नज़र की जाँच नहीं हुई', en: 'Vision test not done' });
+  if (!input.hearing) gaps.push({ code: 'gap:hearing', hi: 'सुनने की जाँच पूरी नहीं', en: 'Hearing test not completed' });
+  return gaps;
+}
+
+const TIER: Record<Priority, [number, number]> = { emergency: [80, 100], today: [40, 79], routine: [0, 39] };
+
+/**
+ * Within-tier ordering hint. More independent reasons, a pulse further outside the age band, severe
+ * symptoms and the age extremes each add points; the result is clamped to the tier's range so it can
+ * reorder patients of equal priority but never move anyone between priorities.
+ */
+export function acuityScore(input: TriageInput, priority: Priority, reasons: Reason[]): number {
+  const [lo, hi] = TIER[priority];
+  let points = Math.min(4, reasons.length) * 4;
+  const hr = trustedHeartRate(input.vitals);
+  if (hr !== null) {
+    const band = heartRateBand(input.age);
+    const over = Math.max(0, hr - band.todayAbove) / Math.max(1, band.emergencyAbove - band.todayAbove);
+    const under = Math.max(0, band.todayBelow - hr) / Math.max(1, band.todayBelow - band.emergencyBelow);
+    points += Math.min(1, Math.max(over, under)) * 12;
+  }
+  points += (input.symptoms ?? []).filter((s) => s.severity === 'severe').length * 4;
+  if (input.age < rules.childAgeUnder || input.age >= rules.elderlyAgeFrom) points += 5;
+  if (input.pregnant) points += 4;
+  return Math.round(Math.min(hi, lo + points * ((hi - lo) / 40)));
+}
+
 export function triage(input: TriageInput): TriageResult {
   const hr = trustedHeartRate(input.vitals);
+  const gaps = coverageGaps(input);
 
   const emergency = emergencyReasons(input, hr);
   if (emergency.length > 0) {
-    return { priority: 'emergency', department: 'emergency', reasons: emergency, rulesVersion: RULES_VERSION };
+    return { priority: 'emergency', department: 'emergency', reasons: emergency, rulesVersion: RULES_VERSION, gaps, acuity: acuityScore(input, 'emergency', emergency) };
   }
   const today = todayReasons(input, hr);
   const priority: Priority = today.length > 0 ? 'today' : 'routine';
   const seen = new Set(today.flatMap((t) => [t.code, t.code.replace(/^severe:/, 'symptom:')]));
   const reasons = [...today, ...routineReasons(input).filter((r) => !seen.has(r.code))];
-  return { priority, department: routeDepartment(input, priority), reasons, rulesVersion: RULES_VERSION };
+  return { priority, department: routeDepartment(input, priority), reasons, rulesVersion: RULES_VERSION, gaps, acuity: acuityScore(input, priority, reasons) };
 }
 
 export const PRIORITY_ORDER: Record<Priority, number> = { emergency: 0, today: 1, routine: 2 };

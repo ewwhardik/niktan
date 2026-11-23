@@ -275,3 +275,48 @@ describe('age-banded heart rate', () => {
     expect(triage({ age: 6, sex: 'female', pregnant: false, vitals: { heartRate: 240, breathingRate: null, quality: 0.2 } }).priority).toBe('routine');
   });
 });
+
+describe('coverage gaps', () => {
+  it('names every check that was skipped or unreliable', () => {
+    const r = triage({ ...adult, vitals: vitals(80, 0.2) });
+    expect(r.gaps.map((g) => g.code)).toEqual(['gap:vitals_quality', 'gap:eye', 'gap:vision', 'gap:hearing']);
+  });
+
+  it('is empty when every check produced a usable reading', () => {
+    const r = triage({ ...adult, vitals: vitals(80), eye: eye({}), vision: { leftLogMar: 0, rightLogMar: 0, distanceMm: 2000 } as never, hearing: { result: 'pass', srtDb: -12 } as never });
+    expect(r.gaps).toEqual([]);
+  });
+
+  it('never changes the priority', () => {
+    expect(triage({ ...adult }).priority).toBe('routine');
+    expect(triage({ ...adult, vitals: vitals(150, 0.1) }).priority).toBe('routine');
+  });
+});
+
+describe('acuity', () => {
+  const tiers = { emergency: [80, 100], today: [40, 79], routine: [0, 39] } as const;
+
+  it('stays inside its priority tier', () => {
+    const cases: TriageInput[] = [
+      { ...adult },
+      { ...adult, age: 80, symptoms: [sym('cough', { severity: 'severe' }), sym('fatigue', { severity: 'severe' })] },
+      { ...adult, symptoms: [sym('fever', { durationDays: 5 })], vitals: vitals(125) },
+      { ...adult, age: 2, pregnant: false, vitals: vitals(185), symptoms: [sym('fever', { durationDays: 4, severity: 'severe' })] },
+      { ...adult, redFlags: { chest_pain: true, breathlessness: true }, vitals: vitals(170), age: 70 },
+    ];
+    for (const c of cases) {
+      const r = triage(c);
+      const [lo, hi] = tiers[r.priority];
+      expect(r.acuity).toBeGreaterThanOrEqual(lo);
+      expect(r.acuity).toBeLessThanOrEqual(hi);
+    }
+  });
+
+  it('ranks a sicker same-tier patient higher', () => {
+    const mild = triage({ ...adult, symptoms: [sym('fever', { durationDays: 3 })] });
+    const worse = triage({ ...adult, age: 72, vitals: vitals(126), symptoms: [sym('fever', { durationDays: 3, severity: 'severe' }), sym('breathlessness')] });
+    expect(mild.priority).toBe('today');
+    expect(worse.priority).toBe('today');
+    expect(worse.acuity).toBeGreaterThan(mild.acuity);
+  });
+});

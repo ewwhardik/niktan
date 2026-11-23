@@ -133,6 +133,17 @@ export default function TokenDetail() {
             ))}
             {!card.triage.reasons.length && <li className="text-body text-text-3">—</li>}
           </ul>
+          {/* Older cards were triaged before gaps existed. */}
+          {!!card.triage.gaps?.length && (
+            <>
+              <h2 className="mt-5 text-label font-semibold text-text-2">{lang === 'en' ? 'Check at the desk' : 'डेस्क पर जाँचें'}</h2>
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {card.triage.gaps.map((g) => (
+                  <li key={g.code} className="rounded-md bg-seetoday-tint px-3 py-2 text-body text-seetoday-ink">{pickLang(g, lang)}</li>
+                ))}
+              </ul>
+            </>
+          )}
           <h2 className="mt-5 text-label font-semibold text-text-2">{t('card.symptomsRow')}</h2>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {(card.symptoms?.symptoms ?? []).map((s) => (
