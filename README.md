@@ -192,6 +192,17 @@ Staff access the live clinical triage board at `/hospital`.
 
 *Note: Public demo PINs are restricted to simulated records for privacy. Private staff accounts are provisioned via `apps/api/scripts/staff.mjs`.*
 
+### Operations & Accountability Endpoints
+
+| Route | Access | Purpose |
+|---|---|---|
+| `GET /api/health` | Public | Liveness probe (version and build only, no database work) |
+| `GET /api/hospital/:hid/board` | Staff | Live board; send `If-None-Match` with the last `ETag` to get a cheap `304` while nothing changed |
+| `GET /api/hospital/:hid/impact` | Staff | Today's priority queue vs. first-come-first-served: minutes saved per priority, real-only and with simulated visits, plus doctor-rated usefulness of the pre-filled history |
+| `GET /api/hospital/:hid/audit?limit=50` | Admin | DPDP audit trail (logins, token moves, note saves, simulator use), newest first, max 200 |
+
+Every response carries `X-Request-Id` and `Server-Timing`; error bodies include `requestId` so it can be quoted in a bug report. JSON bodies are capped at 64 KB. Real screenings are kept for `RETENTION_DAYS` (default 30), simulated visits for 2 days, thali scans for 7 days and audit entries for 180 days.
+
 ---
 
 ## Trilingual Localization

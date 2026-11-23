@@ -33,6 +33,10 @@ misc.get('/stats/public', async (c) => {
   return c.json(row);
 });
 
+/** Liveness for uptime checks: touches no storage, so it stays cheap and says nothing about data. */
+misc.get('/health', (c) => c.json({ ok: true, version: VERSION, build: c.env.BUILD_ID ?? null }));
+
+/** Detailed readiness: database reachability and AI provider health over the last day. */
 misc.get('/status', async (c) => {
   let db = false;
   try {
@@ -51,6 +55,7 @@ misc.get('/status', async (c) => {
     : { results: [] };
   return c.json({
     version: VERSION,
+    build: c.env.BUILD_ID ?? null,
     db,
     providers: {
       gemini: !!c.env.GEMINI_API_KEY,

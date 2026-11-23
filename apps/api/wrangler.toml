@@ -13,6 +13,8 @@ migrations_dir = "migrations"
 [vars]
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:5174,https://niktan.pages.dev"
 DEMO_MODE = "true"
+# Days to keep real screenings (simulated visits: 2 days, thali scans: 7, staff audit: 180).
+RETENTION_DAYS = "30"
 
 [triggers]
 crons = ["30 0 * * *"]

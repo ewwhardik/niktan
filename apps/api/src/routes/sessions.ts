@@ -5,9 +5,28 @@ import type { AppEnv } from '../env';
 import { requireOwnerHandle } from '../lib/auth';
 import { loadCard, shareableCard, saveTriage } from '../lib/card';
 import { rateLimit } from '../lib/rateLimit';
-import { newId, now, parseBody } from '../lib/util';
+import { istDay, newId, now, parseBody } from '../lib/util';
 
 export const sessions = new Hono<AppEnv>();
+
+/**
+ * Re-runs triage after the card changes and carries the verdict to today's visit if the patient is
+ * still waiting or being called, so a red flag reported after joining reaches the board as an
+ * emergency instead of staying routine. The department and token number stay as issued.
+ */
+async function retriage(env: AppEnv['Bindings'], sessionId: string) {
+  const card = await loadCard(env, sessionId);
+  if (!card) return null;
+  const r = card.triage;
+  // Only a verdict that was already saved is refreshed: the public counter treats a saved triage as a finished screening.
+  await env.DB.batch([
+    env.DB.prepare('UPDATE triage SET priority = ?, department = ?, reasons_json = ?, rules_version = ?, created_at = ? WHERE session_id = ?')
+      .bind(r.priority, r.department, JSON.stringify(r.reasons), r.rulesVersion, now(), sessionId),
+    env.DB.prepare(`UPDATE tokens SET priority = ? WHERE session_id = ? AND day = ? AND status IN ('waiting', 'called')`)
+      .bind(r.priority, sessionId, istDay()),
+  ]);
+  return r.priority;
+}
 
 sessions.post('/', rateLimit('session', 30, 3600), async (c) => {
   const body = await parseBody(c, SessionInput);
@@ -28,7 +47,7 @@ sessions.delete('/:id/measurements/:module', async (c) => {
   if (!['vitals', 'eye', 'vision', 'hearing', 'symptoms'].includes(module)) throw new HTTPException(404);
   await c.env.DB.prepare('DELETE FROM measurements WHERE session_id = ? AND module = ?')
     .bind(c.req.param('id'), module).run();
-  return c.json({ ok: true });
+  return c.json({ ok: true, priority: await retriage(c.env, c.req.param('id')) });
 });
 
 sessions.post('/:id/share', async (c) => {
@@ -60,7 +79,7 @@ sessions.post('/:id/measurements', rateLimit('measure', 120, 3600), async (c) =>
   )
     .bind(newId('m'), id, body.module, JSON.stringify(body.data), quality, c.req.header('x-model-version') ?? null, now())
     .run();
-  return c.json({ ok: true });
+  return c.json({ ok: true, priority: await retriage(c.env, id) });
 });
 
 sessions.post('/:id/triage', async (c) => {

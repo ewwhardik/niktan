@@ -52,9 +52,12 @@ export async function queuePosition(env: Env, token: TokenRow) {
   return { ahead: Math.max(0, ahead), etaMin, avgConsultMin: Math.round(avg * 10) / 10 };
 }
 
+/** Simulated consults run this many times faster than the department's real consult time. */
+export const SIM_TIME_SCALE = 10;
+
 /**
  * Moves simulated patients along so the demo board looks like a working OPD. Real patients are only
- * ever moved by staff. Runs lazily when the board is read; consult time is compressed 10x.
+ * ever moved by staff. Runs lazily when the board is read; consult time is compressed SIM_TIME_SCALE x.
  */
 export async function tickSimulation(env: Env, hospitalId: string) {
   const day = istDay();
@@ -74,7 +77,7 @@ export async function tickSimulation(env: Env, hospitalId: string) {
     const active = tokens.find((x) => x.status === 'in_consult' || x.status === 'called');
     if (active?.simulated) {
       const started = active.consult_start ?? active.called_at ?? t;
-      if (t - started > active.avg_consult_min * 6000) {
+      if (t - started > (active.avg_consult_min * 60_000) / SIM_TIME_SCALE) {
         updates.push(env.DB.prepare(`UPDATE tokens SET status = 'done', consult_end = ? WHERE id = ? AND simulated = 1 AND status = ?`).bind(t, active.id, active.status));
       } else if (active.status === 'called') {
         updates.push(env.DB.prepare(`UPDATE tokens SET status = 'in_consult', consult_start = ? WHERE id = ? AND simulated = 1 AND status = 'called'`).bind(t, active.id));

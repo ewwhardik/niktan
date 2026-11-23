@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import type { AppEnv, StaffClaims } from '../env';
+import { audit } from '../lib/audit';
 import { requireStaff, staffSecret } from '../lib/auth';
 import { loadCard, shareableCard } from '../lib/card';
-import { compareTokens, tickSimulation, type TokenRow } from '../lib/queue';
+import { measureImpact } from '../lib/impact';
+import { compareTokens, SIM_TIME_SCALE, tickSimulation, type TokenRow } from '../lib/queue';
 import { rateLimit } from '../lib/rateLimit';
 import { mulberry32, simulatePatient } from '../lib/simulate';
 import { istDay, newId, now, parseBody, sha256Hex, signToken } from '../lib/util';
@@ -28,9 +30,14 @@ hospital.post('/login', rateLimit('login', 10, 600), async (c) => {
   const staff = await c.env.DB.prepare('SELECT id, hospital_id, role, demo_only FROM staff WHERE hospital_id = ? AND pin_hash = ?')
     .bind(body.hospitalId, hash)
     .first<{ id: string; hospital_id: string; role: StaffClaims['role']; demo_only: number }>();
-  if (!staff || (!staff.demo_only && body.pin.length !== 8) || (staff.demo_only && c.env.DEMO_MODE !== 'true')) throw new HTTPException(401, { message: 'Wrong PIN' });
+  if (!staff || (!staff.demo_only && body.pin.length !== 8) || (staff.demo_only && c.env.DEMO_MODE !== 'true')) {
+    const reason = !staff ? 'no_match' : staff.demo_only ? 'demo_disabled' : 'short_pin';
+    await audit(c.env, { hospitalId: body.hospitalId, staffId: staff?.id ?? null, action: 'login_failed', detail: { reason } });
+    throw new HTTPException(401, { message: 'Wrong PIN' });
+  }
   const claims: StaffClaims = { sid: staff.id, hid: staff.hospital_id, role: staff.role, demoOnly: !!staff.demo_only, exp: now() + SESSION_HOURS * 3600_000 };
   const token = await signToken(claims, staffSecret(c.env));
+  await audit(c.env, { hospitalId: staff.hospital_id, staffId: staff.id, action: 'login', detail: { role: staff.role } });
   return c.json({ role: staff.role, hospitalId: staff.hospital_id, token });
 });
 
@@ -51,6 +58,7 @@ interface BoardRow extends TokenRow {
 
 hospital.get('/:hid/board', requireStaff(), async (c) => {
   const hid = c.req.param('hid');
+  const day = istDay();
   if (c.env.DEMO_MODE === 'true') await tickSimulation(c.env, hid);
   const { results } = await c.env.DB.prepare(
     `SELECT t.*, d.code, s.age, s.sex, tr.reasons_json,
@@ -62,7 +70,7 @@ hospital.get('/:hid/board', requireStaff(), async (c) => {
      LEFT JOIN triage tr ON tr.session_id = t.session_id
      WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1) AND t.status IN ('waiting', 'called', 'in_consult')`,
   )
-    .bind(hid, istDay(), Number(c.get('staff')!.demoOnly))
+    .bind(hid, day, Number(c.get('staff')!.demoOnly))
     .all<BoardRow>();
 
   const columns: Record<string, unknown[]> = {};
@@ -88,8 +96,21 @@ hospital.get('/:hid/board', requireStaff(), async (c) => {
       reasons: r.reasons_json ? JSON.parse(r.reasons_json) : [],
     });
   }
-  return c.json({ day: istDay(), updatedAt: now(), columns });
+  // The tag covers everything but updatedAt, so an unchanged board costs the poller a 304 and no body.
+  const etag = `"${(await sha256Hex(JSON.stringify({ day, columns }))).slice(0, 32)}"`;
+  c.header('ETag', etag);
+  if (matchesEtag(c.req.header('if-none-match'), etag)) return c.body(null, 304);
+  return c.json({ day, updatedAt: now(), columns });
 });
+
+/** If-None-Match uses weak comparison (RFC 9110 13.1.2), so a W/ prefix added by a proxy still matches. */
+function matchesEtag(header: string | undefined, etag: string): boolean {
+  if (!header) return false;
+  return header.split(',').some((t) => {
+    const tag = t.trim();
+    return tag === '*' || tag.replace(/^W\//, '') === etag;
+  });
+}
 
 hospital.get('/tokens/:id', requireStaff(), async (c) => {
   const staff = c.get('staff')!;
@@ -127,6 +148,7 @@ hospital.post('/tokens/:id/:action', requireStaff(), async (c) => {
     .bind(c.req.param('id'), now(), staff.hid, Number(staff.demoOnly), ...t.from)
     .run();
   if (!res.meta.changes) throw new HTTPException(409, { message: 'Token is not in a state that allows this' });
+  await audit(c.env, { hospitalId: staff.hid, staffId: staff.sid, action: `token.${action.data}`, tokenId: c.req.param('id') });
   return c.json({ ok: true });
 });
 
@@ -145,6 +167,8 @@ hospital.put('/tokens/:id/note', requireStaff(['doctor', 'admin']), async (c) =>
     .bind(c.req.param('id'), body.note, useful, staff.hid, Number(staff.demoOnly))
     .run();
   if (!result.meta.changes) throw new HTTPException(404, { message: 'Token not found' });
+  // The note itself stays out of the trail; only that one was saved and the usefulness answer.
+  await audit(c.env, { hospitalId: staff.hid, staffId: staff.sid, action: 'note.save', tokenId: c.req.param('id'), detail: { historyPrefilledUseful: useful } });
   return c.json({ ok: true });
 });
 
@@ -189,6 +213,8 @@ hospital.post('/:hid/simulate', requireStaff(['admin']), rateLimit('simulate', 1
     );
   }
   await db.batch(stmts);
+  const staff = c.get('staff')!;
+  await audit(c.env, { hospitalId: hid, staffId: staff.sid, action: 'simulate', detail: { count: body.count, scenario: body.scenario } });
   return c.json({ created: body.count });
 });
 
@@ -197,10 +223,12 @@ hospital.post('/:hid/simulate/clear', requireStaff(['admin']), async (c) => {
   const hid = c.req.param('hid');
   const db = c.env.DB;
   const sub = 'SELECT id FROM sessions WHERE simulated = 1 AND hospital_id = ?';
-  await db.batch([
+  const [, removed] = await db.batch([
     db.prepare(`DELETE FROM feedback WHERE session_id IN (${sub})`).bind(hid),
     db.prepare('DELETE FROM sessions WHERE simulated = 1 AND hospital_id = ?').bind(hid),
   ]);
+  const staff = c.get('staff')!;
+  await audit(c.env, { hospitalId: hid, staffId: staff.sid, action: 'simulate.clear', detail: { sessions: removed?.meta.changes ?? 0 } });
   return c.json({ ok: true });
 });
 
@@ -252,5 +280,77 @@ hospital.get('/:hid/stats', requireStaff(['admin']), async (c) => {
     scans: scans!.results,
     feedback: feedback!.results[0],
     consults: consults!.results[0],
+  });
+});
+
+interface AuditRow {
+  id: string;
+  at: number;
+  staff_id: string | null;
+  action: string;
+  token_id: string | null;
+  detail: string | null;
+}
+
+hospital.get('/:hid/audit', requireStaff(['admin']), async (c) => {
+  const requested = Number(c.req.query('limit') ?? 50);
+  const limit = Number.isFinite(requested) ? Math.min(200, Math.max(1, Math.floor(requested))) : 50;
+  // Public demo admins see only what public demo accounts did; the trail of private accounts stays private.
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, at, staff_id, action, token_id, detail FROM audit_log
+     WHERE hospital_id = ?1 AND (?2 = 0 OR staff_id IN (SELECT id FROM staff WHERE demo_only = 1))
+     ORDER BY at DESC, rowid DESC LIMIT ?3`,
+  )
+    .bind(c.req.param('hid'), Number(c.get('staff')!.demoOnly), limit)
+    .all<AuditRow>();
+  return c.json({
+    entries: results.map((r) => ({
+      id: r.id,
+      at: r.at,
+      staffId: r.staff_id,
+      action: r.action,
+      tokenId: r.token_id,
+      detail: r.detail ? JSON.parse(r.detail) : null,
+    })),
+  });
+});
+
+interface ImpactRow extends Pick<TokenRow, 'id' | 'number' | 'department_id' | 'simulated' | 'priority' | 'status' | 'created_at' | 'called_at' | 'consult_start' | 'consult_end'> {
+  history_prefilled_useful: number | null;
+}
+
+/** Today's priority queue against a first-come-first-served line, for the OI-01 before/after claim. */
+hospital.get('/:hid/impact', requireStaff(), async (c) => {
+  const hid = c.req.param('hid');
+  const day = istDay();
+  const db = c.env.DB;
+  const [tokens, departments] = await db.batch([
+    db.prepare(
+      `SELECT t.id, t.number, t.department_id, t.simulated, t.priority, t.status, t.created_at,
+         COALESCE(t.called_at, t.consult_start) AS called_at, t.consult_start, t.consult_end, n.history_prefilled_useful
+       FROM tokens t JOIN departments d ON d.id = t.department_id LEFT JOIN doctor_notes n ON n.token_id = t.id
+       WHERE d.hospital_id = ? AND t.day = ? AND (? = 0 OR t.simulated = 1)`,
+    ).bind(hid, day, Number(c.get('staff')!.demoOnly)),
+    db.prepare('SELECT id, avg_consult_min FROM departments WHERE hospital_id = ?').bind(hid),
+  ]);
+  const defaults = new Map((departments!.results as { id: string; avg_consult_min: number }[]).map((d) => [d.id, d.avg_consult_min]));
+  const visits = (tokens!.results as ImpactRow[]).map((t) => ({
+    id: t.id,
+    number: t.number,
+    department: t.department_id,
+    simulated: !!t.simulated,
+    priority: t.priority,
+    status: t.status,
+    arrivedAt: t.created_at,
+    calledAt: t.called_at,
+    consultStart: t.consult_start,
+    consultEnd: t.consult_end,
+    historyUseful: t.history_prefilled_useful,
+  }));
+  return c.json({
+    day,
+    model: 'fcfs-one-doctor',
+    simulatedTimeScale: SIM_TIME_SCALE,
+    ...measureImpact(visits, (d) => defaults.get(d) ?? 6, SIM_TIME_SCALE),
   });
 });

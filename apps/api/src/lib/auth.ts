@@ -18,6 +18,13 @@ export function requireStaff(roles?: StaffClaims['role'][]): MiddlewareHandler<A
       throw new HTTPException(401, { message: 'Staff login required' });
     }
     if (claims.demoOnly && c.env.DEMO_MODE !== 'true') throw new HTTPException(403, { message: 'Demo access disabled' });
+    // A removed account, or one moved to another hospital or role, loses access now rather than at token expiry.
+    const current = await c.env.DB.prepare('SELECT hospital_id, role, demo_only FROM staff WHERE id = ?')
+      .bind(claims.sid)
+      .first<{ hospital_id: string; role: string; demo_only: number }>();
+    if (!current || current.hospital_id !== claims.hid || current.role !== claims.role || !!current.demo_only !== claims.demoOnly) {
+      throw new HTTPException(401, { message: 'Staff login required' });
+    }
     if (roles && !roles.includes(claims.role)) throw new HTTPException(403, { message: 'Not allowed for this role' });
     const hid = c.req.param('hid');
     if (hid && hid !== claims.hid) throw new HTTPException(403, { message: 'Different hospital' });
