@@ -246,3 +246,31 @@
 @media (prefers-reduced-motion: reduce) {
   .hanging-spider, .footer-hammer { animation: none; }
 }
+
+/* Health Papers uses sprite strips rendered from CIT's noise-displaced orb shader. */
+.lp-paper-tool {
+  background: radial-gradient(ellipse at 50% 16%, #37352f, #242421 62%, #20211f);
+  color: #fcfaf4;
+  border: 1px solid #474640;
+}
+.lp-paper-orb {
+  display: block;
+  width: clamp(7rem, 13vw, 10rem);
+  aspect-ratio: 1;
+  overflow: hidden;
+  align-self: center;
+}
+.lp-paper-orb img {
+  display: block;
+  width: 2400%;
+  max-width: none;
+  height: 100%;
+}
+@keyframes lp-paper-orb-turn {
+  to { transform: translateX(calc(-100% * 23 / 24)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lp-paper-tool:is(:hover, :focus-visible) .lp-paper-orb img {
+    animation: lp-paper-orb-turn 1.6s steps(23) infinite alternate;
+  }
+}

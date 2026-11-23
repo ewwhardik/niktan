@@ -681,11 +681,20 @@
     "rxEyebrow": "Health Papers",
     "rxTitle": "Prescriptions, medicines and lab reports, made plain.",
     "rxBody": "One place for the paper a clinic visit leaves behind. Read a doctor's handwriting, find the Jan Aushadhi generic that costs a fraction of the brand, and see what every number on a lab report means.",
-    "rxPoints": [
-      "Prescription: handwriting, shorthand like 1-0-1, BD and HS",
-      "Medicine Saver: same salt at the government Jan Aushadhi price",
-      "Lab report: each value against the range your lab printed"
-    ],
+    "paperTools": {
+      "prescription": {
+        "title": "Prescription reader",
+        "detail": "Read handwritten medicines and check the directions on your prescription."
+      },
+      "saver": {
+        "title": "Medicine Saver",
+        "detail": "Compare medicines with the same active ingredient using Jan Aushadhi prices."
+      },
+      "lab": {
+        "title": "Lab report reader",
+        "detail": "See each result alongside the reference range printed by your lab."
+      }
+    },
     "rxCta": "Open Health Papers",
     "builtBy": "Designed and built by",
     "assemble": {

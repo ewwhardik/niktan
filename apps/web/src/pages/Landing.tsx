@@ -1,5 +1,5 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff, Play } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, HeartPulse, Languages, Lock, Siren, Soup, WifiOff, Play } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { MiniBoard } from '../ui/visuals/MiniBoard';
 import { StepVisual, type StepKey } from '../ui/visuals/StepVisual';
 import { DataFlow, NutrientRings, QueueRace, TimeDonut } from '../ui/visuals/Infographics';
 import { Decode, Magnetic, TiltCard } from '../ui/fx';
-import { Constellation, FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, RxShowcase, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
+import { Constellation, FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
 import { ease } from '../ui/motion';
 import '../styles/landing.css';
 
@@ -451,33 +451,24 @@ export function Landing() {
 
       {/* Health Papers: prescription, Medicine Saver, lab report */}
       <section id="rx" className="mx-auto max-w-[1240px] px-5 pt-24 md:px-10 md:pt-32">
-        <div className="lp-card grid items-center gap-10 overflow-hidden rounded-[40px] px-6 py-12 md:px-12 md:py-16 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-          <Reveal className="lg:order-2">
-            <p className="eyebrow"><Decode text={t('home.rxEyebrow')} /></p>
-            <h2 className="mt-4 text-[clamp(2rem,4.4vw,3.5rem)] leading-[1.05] font-semibold text-balance">{t('home.rxTitle')}</h2>
-            <p className="mt-5 max-w-lg text-body-lg text-text-2">{t('home.rxBody')}</p>
-            <ul className="mt-7 flex flex-col gap-3">
-              {(t('home.rxPoints', { returnObjects: true }) as string[]).map((point, i) => (
-                <li key={point}>
-                  <button type="button" onClick={() => navigate(['/rx', '/rx?tool=saver', '/rx?tool=lab'][i] ?? '/rx')} className="group flex items-start gap-3 text-left text-body-lg">
-                    <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-sunken"><Check size={14} aria-hidden /></span>
-                    <span className="underline-offset-4 group-hover:underline">{point}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8">
-              <Magnetic>
-                <button onClick={() => navigate('/rx')} className="lp-cta inline-flex h-14 items-center gap-2 rounded-full px-7 text-body-lg font-semibold">
-                  <FileText size={18} aria-hidden /> {t('home.rxCta')}
-                </button>
-              </Magnetic>
-            </div>
-          </Reveal>
-          <Reveal delay={0.1} className="lg:order-1">
-            <RxShowcase />
-          </Reveal>
-        </div>
+        <SectionHead eyebrow={t('home.rxEyebrow')} title={t('home.rxTitle')} body={t('home.rxBody')} />
+        <ul className="mt-8 grid gap-4 md:mt-12 md:grid-cols-3">
+          {(['prescription', 'saver', 'lab'] as const).map((tool, i) => (
+            <li key={tool}>
+              <Link to={tool === 'prescription' ? '/rx' : `/rx?tool=${tool}`}
+                className="lp-paper-tool group flex h-full flex-col rounded-[28px] p-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current lg:p-8">
+                <span className="lp-paper-orb" aria-hidden="true">
+                  <img src={`/art/paper-orb-${i}.webp`} alt="" loading="lazy" decoding="async" width="4608" height="192" />
+                </span>
+                <div className="mt-5 flex items-center justify-between gap-2">
+                  <h3 className="text-title-2 font-semibold">{t(`home.paperTools.${tool}.title`)}</h3>
+                  <ArrowUpRight size={20} aria-hidden className="shrink-0" />
+                </div>
+                <p className="mt-2 text-body text-[#d5d3ce]">{t(`home.paperTools.${tool}.detail`)}</p>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Foundation, on paper */}
