@@ -104,12 +104,12 @@ export function sampleSkin(image: ImageData, lm: NormalizedLandmark[], { skinMas
   let g = 0;
   let b = 0;
   let n = 0;
-  let total = 0;
   for (const [pi, poly] of polys.entries()) {
-    const previous = n;
     let rr = 0;
     let rg = 0;
     let rb = 0;
+    let count = 0;
+    let total = 0;
     const xs = poly.map((p) => p.x);
     const ys = poly.map((p) => p.y);
     const x0 = Math.max(0, Math.floor(Math.min(...xs)));
@@ -133,17 +133,19 @@ export function sampleSkin(image: ImageData, lm: NormalizedLandmark[], { skinMas
         rr += pr;
         rg += pg;
         rb += pb;
-        n++;
+        count++;
       }
     }
-    const count = n - previous;
-    if (count < 300 * (w / 640) ** 2) return null;
+    // A region hidden by hair, a beard, glasses or a head turn, or mostly glare, is left out on its
+    // own; the fusion step copes with a missing region, so the other two still carry the pulse.
+    if (count < 300 * (w / 640) ** 2 || 1 - count / total > 0.25) continue;
     rois[names[pi]!] = { r: rr / count, g: rg / count, b: rb / count, n: count };
     r += rr;
     g += rg;
     b += rb;
+    n += count;
   }
-  if (1 - n / total > 0.05) return null;
+  if (!n) return null;
   r /= n;
   g /= n;
   b /= n;

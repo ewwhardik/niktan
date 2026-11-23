@@ -106,7 +106,8 @@ function quantile(values: number[], fraction: number): number {
 }
 
 const WINDOW_SECONDS = 10;
-const MAX_GAP = 0.25;
+// Matches rppg2: slow phones process 6-10 frames a second; 30 Hz resampling bridges short gaps.
+const MAX_GAP = 0.6;
 
 export function estimate(
   samples: RgbSample[],
@@ -127,7 +128,7 @@ export function estimate(
     const windowStart = windowEnd - WINDOW_SECONDS;
     const trace = unique.filter(({ t }) => t >= windowStart && t <= windowEnd);
     const rejected = rejectedTimes.filter((t) => t >= windowStart && t <= windowEnd).length;
-    if (trace.length < 12 * WINDOW_SECONDS || rejected > (trace.length + rejected) / 5) continue;
+    if (trace.length < 6 * WINDOW_SECONDS || rejected > (trace.length + rejected) / 5) continue;
     if (trace[0]!.t - windowStart > MAX_GAP || windowEnd - trace.at(-1)!.t > MAX_GAP) continue;
     if (trace.some(({ t }, i) => i > 0 && t - trace[i - 1]!.t > MAX_GAP)) continue;
 

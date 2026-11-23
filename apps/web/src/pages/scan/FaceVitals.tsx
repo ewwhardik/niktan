@@ -354,7 +354,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           setLiveHr(null);
           rate.current.reset();
           feed.current = { ...emptyFeed(), clockOffset: feed.current.clockOffset };
-        } else if (worker && !pending && now - lastLive >= 1000 && multi.current.length >= 120) {
+        } else if (worker && !pending && now - lastLive >= 1000 && multi.current.length >= 60 && mediaTime - multi.current[0]!.t >= 10.5) {
           lastLive = now;
           pending = true;
           const windowStart = mediaTime - 11;
@@ -397,9 +397,9 @@ export default function FaceVitals({ next, guide }: StepProps) {
       <canvas ref={mesh} className="pointer-events-none absolute inset-0 size-full" aria-hidden />
       {phase === 'intro' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(80%_60%_at_50%_45%,#1b2a33_0%,#000_70%)] text-white">
-          <BeatingHeart bpm={66} className="size-24" />
-          <PpgTrace bpm={66} color="#FF453A" className="mt-4 h-10 w-52" />
-          <p className="mono mt-4 text-[11px] tracking-[0.2em] text-white/45 uppercase">rPPG · POS + CHROM + OMIT · 30 s</p>
+          <BeatingHeart bpm={66} className="size-20" />
+          <PpgTrace bpm={66} color="#FF453A" className="mt-4 h-9 w-40" />
+          <p className="mono mt-3 text-[10px] tracking-[0.2em] text-white/45 uppercase">rPPG · 30 s</p>
         </div>
       )}
       {(phase !== 'scanning' || hint === 'noFace' || hint === 'manyFaces' || hint === 'framing') && <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden>

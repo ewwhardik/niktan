@@ -214,6 +214,21 @@ describe('rPPG v2 fusion', () => {
     expect(Math.abs(estimateMulti(s).heartRate! - bpm)).toBeLessThan(2);
   });
 
+  it.each([[30, 0.03], [15, 0], [10, 0.03], [8, 0.03], [6, 0]])('reads a pulse at %i processed frames/s with %s stutters', (fps, stutter) => {
+    // Phones running the face model on the CPU process 6-10 frames a second and stall at times.
+    for (const [bpm, seed] of [[62, 1], [88, 2], [110, 3]] as const) {
+      const rand = rng(seed);
+      const s: MultiSample[] = [];
+      for (let t = 0; t < 30; t += 1 / fps + (0.25 / fps) * rand() + (rand() > 0.5 - stutter ? 0.3 : 0)) {
+        const p = Math.sin(2 * Math.PI * (bpm / 60) * t);
+        const rois: MultiSample['rois'] = {};
+        for (const roi of ['forehead', 'leftCheek', 'rightCheek'] as RoiName[]) rois[roi] = { r: 150 + 0.3 * p + 0.4 * rand(), g: 110 + 0.8 * p + 0.4 * rand(), b: 90 + 0.2 * p + 0.4 * rand(), n: 200 };
+        s.push({ t, rois });
+      }
+      expect(Math.abs(estimateMulti(s).heartRate! - bpm)).toBeLessThan(1.5);
+    }
+  });
+
   it('needs at least one 10 s window', () => {
     expect(estimateMulti(synth(70, 8)).heartRate).toBeNull();
   });

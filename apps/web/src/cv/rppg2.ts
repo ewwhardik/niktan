@@ -189,7 +189,7 @@ export function fuseWindow(window: MultiSample[]): WindowEstimate | null {
   for (const roi of ROI_NAMES) {
     const present = window.filter((s) => (s.rois[roi]?.n ?? 0) > 0);
     // A region hidden for more than a fifth of the window is left out of this window.
-    if (present.length < window.length * 0.8 || present.length < FS * 4) continue;
+    if (present.length < window.length * 0.8 || present.length < MIN_FPS * 4) continue;
     const t = present.map((s) => s.t);
     const r = despike(resample(t, present.map((s) => s.rois[roi]!.r), FS));
     const g = despike(resample(t, present.map((s) => s.rois[roi]!.g), FS));
@@ -271,7 +271,27 @@ export function trackRates(windows: WindowEstimate[], jumpPenalty = 0.08): numbe
 
 const WINDOW_SECONDS = 10;
 const STEP_SECONDS = 1;
-const MAX_GAP = 0.25;
+/**
+ * Phones running the face model on the CPU often process only 6-10 frames a second and stall now
+ * and then. Samples are resampled to 30 Hz, so 6 per second still cover heart rates up to 180 bpm;
+ * a window is kept unless it has a long hole or too much of it is missing.
+ */
+export const MIN_FPS = 6;
+const MAX_GAP = 0.6;
+const MAX_MISSING = 0.2;
+
+/** True when the window's samples are dense enough to resample faithfully. */
+export function windowUsable(times: number[], start: number, end: number): boolean {
+  if (times.length < MIN_FPS * (end - start)) return false;
+  if (times[0]! - start > MAX_GAP || end - times.at(-1)! > MAX_GAP) return false;
+  let missing = Math.max(0, times[0]! - start - 0.2) + Math.max(0, end - times.at(-1)! - 0.2);
+  for (let i = 1; i < times.length; i++) {
+    const gap = times[i]! - times[i - 1]!;
+    if (gap > MAX_GAP) return false;
+    if (gap > 0.2) missing += gap - 0.2;
+  }
+  return missing <= MAX_MISSING * (end - start);
+}
 
 function median(v: number[]): number {
   const s = [...v].sort((a, b) => a - b);
@@ -390,9 +410,7 @@ export function estimateMulti(
     const we = ws + WINDOW_SECONDS;
     const win = unique.filter((s) => s.t >= ws && s.t <= we);
     const rejected = rejectedTimes.filter((t) => t >= ws && t <= we).length;
-    if (win.length < 12 * WINDOW_SECONDS || rejected > win.length / 4) continue;
-    if (win[0]!.t - ws > MAX_GAP || we - win.at(-1)!.t > MAX_GAP) continue;
-    if (win.some((s, i) => i > 0 && s.t - win[i - 1]!.t > MAX_GAP)) continue;
+    if (!win.length || rejected > win.length / 4 || !windowUsable(win.map((s) => s.t), ws, we)) continue;
     const est = fuseWindow(win);
     if (est && est.snrDb > -3) windows.push(est);
   }
