@@ -1,18 +1,66 @@
 {
-  "version": "2026.11-v2",
+  "version": "2026.11-v3",
   "qualityMin": 0.5,
-  "heartRate": {
-    "emergencyAbove": 130,
-    "emergencyBelow": 40,
-    "todayAbove": 110,
-    "todayBelow": 50
-  },
   "feverDaysToday": 3,
   "childAgeUnder": 5,
   "paediatricAgeUnder": 14,
   "elderlyAgeFrom": 65,
   "visionReferLogMar": 0.3,
   "visionAsymmetryLogMar": 0.2,
-  "emergencySymptoms": ["chest_pain", "severe_bleeding", "seizure", "confusion"],
-  "todaySymptoms": ["sudden_vision_loss", "blood_in_stool", "yellow_eyes", "numbness", "fainting"]
+  "emergencySymptoms": [
+    "chest_pain",
+    "severe_bleeding",
+    "seizure",
+    "confusion"
+  ],
+  "todaySymptoms": [
+    "sudden_vision_loss",
+    "blood_in_stool",
+    "yellow_eyes",
+    "numbness",
+    "fainting"
+  ],
+  "heartRateBands": [
+    {
+      "ageMin": 0,
+      "ageMax": 0,
+      "emergencyAbove": 200,
+      "emergencyBelow": 80,
+      "todayAbove": 180,
+      "todayBelow": 100
+    },
+    {
+      "ageMin": 1,
+      "ageMax": 4,
+      "emergencyAbove": 190,
+      "emergencyBelow": 60,
+      "todayAbove": 160,
+      "todayBelow": 80
+    },
+    {
+      "ageMin": 5,
+      "ageMax": 11,
+      "emergencyAbove": 160,
+      "emergencyBelow": 55,
+      "todayAbove": 140,
+      "todayBelow": 65
+    },
+    {
+      "ageMin": 12,
+      "ageMax": 17,
+      "emergencyAbove": 140,
+      "emergencyBelow": 45,
+      "todayAbove": 120,
+      "todayBelow": 55
+    },
+    {
+      "ageMin": 18,
+      "ageMax": 120,
+      "emergencyAbove": 130,
+      "emergencyBelow": 40,
+      "todayAbove": 110,
+      "todayBelow": 50
+    }
+  ],
+  "heartRateBandsNote": "Resting pulse limits widen for younger children (PEWS/ESI-style danger zones). Starting values; review with a paediatrician before clinical use."
 }

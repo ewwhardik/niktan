@@ -250,3 +250,28 @@ it('keeps adult pulse thresholds out of infant triage while honouring confirmed 
   expect(triage(infant).reasons.some((reason) => reason.code.startsWith('hr_'))).toBe(false);
   expect(triage({ ...infant, redFlags: { child_lethargic: true } }).priority).toBe('emergency');
 });
+
+describe('age-banded heart rate', () => {
+  const child = (age: number, heartRate: number) => triage({ age, sex: 'male', pregnant: false, vitals: { heartRate, breathingRate: null, quality: 0.9 } });
+
+  it('a 10-year-old at 220 bpm is an emergency', () => {
+    expect(child(10, 220).priority).toBe('emergency');
+  });
+
+  it('a 10-year-old at 35 bpm is an emergency', () => {
+    expect(child(10, 35).priority).toBe('emergency');
+  });
+
+  it('a normal infant pulse of 140 is routine, though it would alarm in an adult', () => {
+    expect(child(0, 140).priority).toBe('routine');
+    expect(child(30, 140).priority).toBe('emergency');
+  });
+
+  it('a 3-year-old at 170 is see-today', () => {
+    expect(child(3, 170).priority).toBe('today');
+  });
+
+  it('low-quality child readings are still ignored', () => {
+    expect(triage({ age: 6, sex: 'female', pregnant: false, vitals: { heartRate: 240, breathingRate: null, quality: 0.2 } }).priority).toBe('routine');
+  });
+});

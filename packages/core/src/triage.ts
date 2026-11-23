@@ -59,10 +59,14 @@ function symptomReason(code: string, prefix = 'symptom'): Reason {
 }
 
 /** Vitals below the quality gate are ignored so a noisy reading can never escalate or calm a case. */
-function trustedHeartRate(age: number, vitals?: Vitals | null): number | null {
-  // The prototype pulse thresholds were selected for adults. Paediatric pulse varies with age.
-  if (age < 18 || !vitals || vitals.quality < rules.qualityMin) return null;
+function trustedHeartRate(vitals?: Vitals | null): number | null {
+  if (!vitals || vitals.quality < rules.qualityMin) return null;
   return vitals.heartRate;
+}
+
+/** Normal resting pulse falls with age, so limits come from the patient's age band. */
+export function heartRateBand(age: number) {
+  return rules.heartRateBands.find((b) => age >= b.ageMin && age <= b.ageMax) ?? rules.heartRateBands[rules.heartRateBands.length - 1]!;
 }
 
 export function visionNeedsReferral(vision?: Vision | null): boolean {
@@ -93,10 +97,10 @@ function emergencyReasons(input: TriageInput, hr: number | null): Reason[] {
       reasons.push({ code: 'red_flag:breathlessness', ...RED_FLAG_TEXT.breathlessness });
     }
   }
-  if (hr !== null && hr > rules.heartRate.emergencyAbove) {
+  if (hr !== null && hr > heartRateBand(input.age).emergencyAbove) {
     reasons.push({ code: 'hr_very_high', hi: `धड़कन बहुत तेज़ (${Math.round(hr)}/मिनट)`, en: `Very high heart rate (${Math.round(hr)} bpm)` });
   }
-  if (hr !== null && hr < rules.heartRate.emergencyBelow) {
+  if (hr !== null && hr < heartRateBand(input.age).emergencyBelow) {
     reasons.push({ code: 'hr_very_low', hi: `धड़कन बहुत धीमी (${Math.round(hr)}/मिनट)`, en: `Very low heart rate (${Math.round(hr)} bpm)` });
   }
   if (input.age < rules.childAgeUnder && has('lethargy') && !input.redFlags?.child_lethargic && !declined.has('child_lethargic')) {
@@ -113,10 +117,10 @@ function todayReasons(input: TriageInput, hr: number | null): Reason[] {
   const symptoms = input.symptoms ?? [];
   const has = (code: string) => symptoms.some((s) => s.code === code);
 
-  if (hr !== null && hr > rules.heartRate.todayAbove && hr <= rules.heartRate.emergencyAbove) {
+  if (hr !== null && hr > heartRateBand(input.age).todayAbove && hr <= heartRateBand(input.age).emergencyAbove) {
     reasons.push({ code: 'hr_high', hi: `धड़कन तेज़ (${Math.round(hr)}/मिनट)`, en: `High heart rate (${Math.round(hr)} bpm)` });
   }
-  if (hr !== null && hr < rules.heartRate.todayBelow && hr >= rules.heartRate.emergencyBelow) {
+  if (hr !== null && hr < heartRateBand(input.age).todayBelow && hr >= heartRateBand(input.age).emergencyBelow) {
     reasons.push({ code: 'hr_low', hi: `धड़कन धीमी (${Math.round(hr)}/मिनट)`, en: `Low heart rate (${Math.round(hr)} bpm)` });
   }
   const fever = symptoms.find((s) => s.code === 'fever');
@@ -188,7 +192,7 @@ export function routeDepartment(input: TriageInput, priority: Priority): Departm
 }
 
 export function triage(input: TriageInput): TriageResult {
-  const hr = trustedHeartRate(input.age, input.vitals);
+  const hr = trustedHeartRate(input.vitals);
 
   const emergency = emergencyReasons(input, hr);
   if (emergency.length > 0) {
