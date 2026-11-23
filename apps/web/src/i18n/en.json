@@ -290,5 +290,99 @@
     "usage": "Successful provider calls in the past 24 hours: {{ok}} of {{total}}",
     "down": "Unable to reach the service. Check your connection and refresh.",
     "refresh": "Refresh status"
+  },
+  "home": {
+    "nav": {
+      "how": "How it works",
+      "privacy": "Privacy",
+      "hospitals": "For hospitals",
+      "start": "Start check"
+    },
+    "eyebrow": "Pre-OPD screening · 3 minutes",
+    "h1a": "Your phone is the",
+    "h1em": "first",
+    "h1b": "checkup.",
+    "sub": "A 3-minute screening in the browser — heart rate from your face, eyes, vision, hearing and symptoms by voice — so the OPD knows who needs care first, before you reach the counter.",
+    "secondary": "See the hospital board",
+    "trust": [
+      "Runs on your phone",
+      "No sign-up",
+      "हिंदी · English · छत्तीसगढ़ी"
+    ],
+    "marquee": [
+      "Face heart rate",
+      "Eye pallor",
+      "Tumbling-E vision",
+      "Digits-in-noise hearing",
+      "Voice symptoms",
+      "Deterministic triage",
+      "Live OPD board",
+      "Thali nutrition",
+      "Works offline",
+      "₹0 per screening"
+    ],
+    "problemEyebrow": "The problem",
+    "problemTitle": "Two hours in a queue for five minutes with a doctor.",
+    "problemBody": "OPDs are first-come, first-served. A breathless patient waits behind a routine follow-up, and the doctor spends the consult asking basics nobody measured.",
+    "stat1": "average wait in a general-medicine OPD",
+    "stat2": "actual time with the doctor",
+    "stat3": "for a NikTan pre-screen",
+    "statSource": "Published Indian OPD time-motion studies; see README for sources.",
+    "howEyebrow": "How it works",
+    "howTitle": "Five checks. One verdict. Zero guesswork.",
+    "steps": [
+      {
+        "k": "face",
+        "t": "Heart rate from your face",
+        "d": "The camera reads tiny colour changes in your skin with every heartbeat. A signal-quality gate rejects bad light and movement."
+      },
+      {
+        "k": "eye",
+        "t": "Eye check",
+        "d": "A look at the inner eyelid flags possible anaemia; the sclera and pupil add experimental jaundice and cataract flags."
+      },
+      {
+        "k": "vision",
+        "t": "Vision test",
+        "d": "A tumbling-E chart sized to your exact screen with a bank card, one eye at a time."
+      },
+      {
+        "k": "hearing",
+        "t": "Hearing test",
+        "d": "Spoken Hindi digits in noise — the same method as WHO hearWHO — adaptively find your hearing threshold."
+      },
+      {
+        "k": "symptoms",
+        "t": "Symptoms by voice",
+        "d": "Speak in Hindi or Hinglish. Words become symptom chips you confirm. Danger signs are asked once, never assumed."
+      }
+    ],
+    "bentoEyebrow": "Built different",
+    "bentoTitle": "Serious engineering behind a three-minute check.",
+    "b1t": "Your face never leaves your phone",
+    "b1d": "Video, eye photos, vision and hearing are processed on-device. Only numbers and flags are sent.",
+    "b2t": "Rules, not a chatbot",
+    "b2d": "Priority comes from a versioned, unit-tested rule engine. AI only turns speech into structured fields.",
+    "b3t": "Works on a ₹8,000 phone",
+    "b3d": "Offline-first PWA. Scan steps keep working when the venue Wi‑Fi doesn't.",
+    "b4t": "Hindi first",
+    "b4d": "Hindi by default, Chhattisgarhi greetings, English when you want it, voice guidance throughout.",
+    "b5t": "NikTan Thali",
+    "b5d": "Photograph your plate; nutrition from the Indian Nutrient Databank and local swaps like lal bhaji and kulthi.",
+    "b6t": "Emergency first",
+    "b6d": "Red-flag answers skip the queue entirely: Call 108, go to Emergency.",
+    "hospEyebrow": "For hospitals",
+    "hospTitle": "The OPD knows you before you arrive.",
+    "hospBody": "A live triage board sorts every department by priority, then arrival. Doctors open a pre-consult card instead of starting from zero.",
+    "hospCta": "Open demo board",
+    "privEyebrow": "Privacy",
+    "privTitle": "Screening, not surveillance.",
+    "privBody": "No name, phone number or Aadhaar is ever asked. Delete your data with one tap. Built around India's DPDP Act.",
+    "endTitle": "तबियत कइसन हे?",
+    "endSub": "How are you feeling? Find out in three minutes.",
+    "footer": "NikTan screens and prioritises. It never diagnoses. In an emergency call 108.",
+    "status": "Service status",
+    "staff": "Staff login",
+    "thali": "Scan a meal"
   }
 }

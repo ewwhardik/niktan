@@ -6,10 +6,10 @@ import { spring } from './motion';
 type Variant = 'primary' | 'secondary' | 'ghost' | 'emergency';
 
 const styles: Record<Variant, string> = {
-  primary: 'h-14 w-full bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-press shadow-2 text-title-3 font-semibold',
-  secondary: 'h-14 w-full bg-surface text-text border border-border hover:bg-sunken text-title-3 font-semibold shadow-1',
-  ghost: 'h-12 px-4 text-text-2 hover:text-text text-body-lg',
-  emergency: 'h-16 w-full bg-emergency text-emergency-on text-title-2 font-semibold shadow-3',
+  primary: 'h-14 w-full rounded-full bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-press text-body-lg font-semibold',
+  secondary: 'h-14 w-full rounded-full bg-sunken text-text hover:bg-border text-body-lg font-semibold',
+  ghost: 'h-12 rounded-full px-4 text-text-2 hover:text-text text-body-lg',
+  emergency: 'h-16 w-full rounded-full bg-emergency text-emergency-on text-title-3 font-semibold shadow-3',
 };
 
 export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       transition={spring.tap}
       disabled={isDisabled}
       aria-busy={loading || undefined}
-      className={`relative inline-flex select-none items-center justify-center gap-2.5 rounded-md transition-colors duration-150 disabled:cursor-not-allowed disabled:bg-sunken disabled:text-text-3 disabled:shadow-none ${styles[variant]} ${className}`}
+      className={`relative inline-flex select-none items-center justify-center gap-2.5 transition-colors duration-150 disabled:cursor-not-allowed disabled:bg-sunken disabled:text-text-3 disabled:shadow-none ${styles[variant]} ${className}`}
       {...rest}
     >
       <span className={`inline-flex items-center gap-2.5 transition-opacity duration-150 ${loading ? 'opacity-0' : 'opacity-100'}`}>

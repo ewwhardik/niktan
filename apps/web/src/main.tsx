@@ -1,5 +1,8 @@
 import '@fontsource-variable/inter/wght.css';
 import '@fontsource-variable/noto-sans-devanagari/wght.css';
+import '@fontsource/instrument-serif/latin-400.css';
+import '@fontsource/instrument-serif/latin-400-italic.css';
+import '@fontsource-variable/noto-serif-devanagari/wght.css';
 import './styles/app.css';
 import './i18n';
 import { StrictMode } from 'react';
