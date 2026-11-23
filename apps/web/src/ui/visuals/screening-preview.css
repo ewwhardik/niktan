@@ -1,0 +1,48 @@
+.screening-preview {
+  position:relative; isolation:isolate; width:100%; max-width:560px; margin-inline:auto;
+  color:#f5f4ff; background:radial-gradient(ellipse at 69% 36%,#493760 0%,#262947 33%,#141a2b 65%,#101522 100%);
+  border:1px solid #8f9bc044; border-radius:26px; padding:clamp(14px,2vw,26px);
+  box-shadow:inset 0 1px #ffffff26,0 24px 50px -34px #070922aa;
+}
+.preview-caption,.preview-reading,.preview-controls,.preview-card-row {display:flex;align-items:center}
+.preview-caption {gap:.65rem;font-size:.83rem;font-weight:550;color:#dddeee}
+.preview-caption>span:not(.preview-lamp){color:#8f94a8}
+.preview-lamp {width:7px;height:7px;border-radius:100%;background:#a8f4dc;box-shadow:0 0 12px #96ffe2}
+.preview-optics {position:relative;isolation:isolate;aspect-ratio:1.62;overflow:hidden;margin-block:.8rem;border-radius:15px;background:radial-gradient(#c2d1ff36 .8px,transparent 1px) 0 0/13px 13px}
+.preview-field {position:absolute;inset:-8% -4%;width:108%;height:116%;opacity:.82;pointer-events:none}
+.preview-portrait {position:absolute;inset:3% 4% 0;mask-image:linear-gradient(black 89%,transparent)}
+.preview-portrait img {height:100%;width:100%;object-fit:contain}
+.preview-portrait .hero-scan {position:absolute;left:34%;width:12%;height:1.5px}
+.preview-lens,.preview-paper {position:absolute;left:50%;top:50%;animation:preview-arrive .28s ease-out;transform:translate(-50%,-50%)}
+.preview-lens {height:70%;aspect-ratio:1;display:grid;place-items:center;border-radius:100%;border:1px solid #e2ddfc99;background:radial-gradient(circle at 30% 25%,#fff,#e2ddf0 62%,#cbc8e6);box-shadow:0 0 0 7px #c9b7ff22,0 10px 32px #060e28aa;color:#1a1a30}
+.preview-lens span {font:900 clamp(3rem,6vw,6rem)/1 system-ui;transform:rotate(90deg)}
+.preview-paper {width:46%;min-width:145px;color:#192537;background:linear-gradient(145deg,#fff,#e1e5f1);padding:clamp(12px,1.5vw,22px);border-radius:14px;box-shadow:3px 5px #aba7c0,6px 9px #74708a,0 18px 35px #090b24aa;rotate:-4deg}
+.preview-paper strong {display:block;margin:.65em 0;font-size:clamp(.95rem,1.4vw,1.3rem)}
+.preview-card-row {gap:8px;border-top:1px solid #adb7c6;padding:4px 0;font-size:.8rem}
+.preview-reading {justify-content:space-between;gap:1rem;padding:0 .3rem .85rem;color:#d5d9ea;font-size:.88rem}
+.preview-reading strong {color:#fff;font-size:1.25rem;line-height:1.2;text-align:end}
+.preview-controls {gap:3px;background:#0b1022aa;border:1px solid #bac2e329;padding:4px;border-radius:14px}
+.preview-controls button {flex:1;min-width:0;min-height:46px;padding:5px;display:flex;justify-content:center;align-items:center;gap:6px;color:#cbd1df;font-size:.8rem;border-radius:9px;line-height:1.2}
+.preview-controls button[aria-pressed=true] {color:#162234;background:#dce5ee}
+.preview-controls button:focus-visible {outline:2px solid #80fbdc;outline-offset:2px}
+.preview-controls svg {flex-shrink:0}
+@keyframes preview-arrive {from{opacity:.25;scale:.94}to{opacity:1;scale:1}}
+@media(prefers-reduced-motion:reduce){.preview-lens,.preview-paper{animation:none}}
+@media(max-width:480px){.preview-controls button{flex-direction:column}.preview-optics{aspect-ratio:1.45}}
+
+/* Extend the editorial scene to the viewport edges while keeping the navigation aligned. */
+.landing-night {
+  isolation:isolate; margin-top:4rem; padding-top:clamp(2.5rem,6vw,5rem);
+  --text:#f8f7ff; --text-2:#d6d7ec; --text-3:#b4b7cd;
+  --accent:#dcd7ff; --text-on-accent:#18152b; --surface-sunken:#2c3048;
+  color:var(--text);
+}
+.landing-night::before {
+  content:""; position:absolute; inset:0 calc((100% - 100vw)/2); z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse at 77% 42%,#393764 0%,transparent 51%),
+             radial-gradient(ellipse at 15% 115%,#202b48,transparent 52%),#101321;
+}
+.landing-night .serif {color:#d1bdff}
+.landing-night .screening-preview {box-shadow:inset 0 1px #ffffff20,0 32px 70px -36px #03040ebf}
+.landing-hospital {background-image:radial-gradient(ellipse at 78% 56%,#373568,transparent 55%),linear-gradient(120deg,#111622,#17172f)}
+@media(max-width:899px){.landing-night{padding-top:2.25rem}}

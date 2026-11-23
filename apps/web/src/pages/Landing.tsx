@@ -9,6 +9,7 @@ import { LangToggle } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
 import { Marquee } from '../ui/visuals/Marquee';
 import { MiniBoard } from '../ui/visuals/MiniBoard';
+import { ScreeningPreview } from '../ui/visuals/ScreeningPreview';
 import { PulseSphere } from '../ui/visuals/PulseSphere';
 import { StepVisual, type StepKey } from '../ui/visuals/StepVisual';
 import { DataFlow, QueueRace, TimeDonut } from '../ui/visuals/Infographics';
@@ -211,11 +212,6 @@ export function Landing() {
 
   const hero = useRef<HTMLElement>(null);
   const { scrollYProgress: heroP } = useScroll({ target: hero, offset: ['start start', 'end start'] });
-  const reduce = useReducedMotion();
-  const artY = useTransform(heroP, [0, 1], [0, reduce ? 0 : 32]);
-  const scanTop = useTransform(heroP, [0, 0.75], reduce ? ['38%', '38%'] : ['26%', '57%']);
-  const artScale = useTransform(heroP, [0, 1], [1, reduce ? 1 : 0.97]);
-
   const bento = [
     { icon: Lock, t: t('home.b1t'), d: t('home.b1d'), span: 'sm:col-span-2 lg:row-span-2', dark: true },
     { icon: Cpu, t: t('home.b2t'), d: t('home.b2d'), span: '' },
@@ -230,7 +226,7 @@ export function Landing() {
       <Nav onStart={start} />
 
       {/* Hero */}
-      <section ref={hero} className="relative mx-auto grid max-w-[1240px] items-center gap-8 px-5 pt-24 pb-10 md:px-10 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-[clamp(2rem,4vw,4rem)] min-[900px]:pt-[clamp(6.5rem,15svh,9rem)] min-[900px]:pb-[clamp(2.5rem,7svh,5rem)]">
+      <section ref={hero} className="landing-night relative mx-auto grid max-w-[1240px] items-center gap-8 px-5 pt-24 pb-10 md:px-10 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[900px]:gap-[clamp(2rem,4vw,4rem)] min-[900px]:pt-[clamp(6.5rem,15svh,9rem)] min-[900px]:pb-[clamp(2.5rem,7svh,5rem)]">
         <div className="relative z-10">
           <motion.p className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
             {t('home.eyebrow')}
@@ -267,26 +263,7 @@ export function Landing() {
           </motion.ul>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[560px]">
-          <div className="hero-stage relative isolate overflow-hidden rounded-t-[28px]">
-            <motion.div style={{ y: artY, scale: artScale }} className="relative">
-          <img src="/art/screening-fold.webp" width="1050" height="788" alt={t('design.screeningArt')} fetchPriority="high" className="block h-auto w-full" />
-              <motion.span aria-hidden style={{ top: scanTop }} className="hero-scan absolute left-[27%] h-px w-[18%]" />
-            </motion.div>
-          </div>
-          <div className="relative grid grid-cols-3 divide-x divide-border border-y border-border py-3">
-            {[
-              { label: t('card.hr'), value: '72', unit: 'bpm' },
-              { label: t('card.visionRow'), value: '6/9', unit: '' },
-              { label: t('card.title'), value: t('card.routine'), unit: '' },
-            ].map(c => <div key={c.label} className="min-w-0 px-2 sm:px-4">
-              <p className="text-caption font-medium text-text-3">{c.label} · {t('home.example')}</p>
-              <p className="tnum mt-1 text-body-lg font-semibold leading-tight sm:text-title-3">
-                {c.value} {c.unit && <span className="text-caption font-normal text-text-3">{c.unit}</span>}
-              </p>
-            </div>)}
-          </div>
-        </div>
+        <ScreeningPreview progress={heroP} />
       </section>
 
       {/* Ticker */}
@@ -370,7 +347,7 @@ export function Landing() {
 
       {/* Hospitals */}
       <section id="hospitals" className="px-3 pt-16 md:px-6 md:pt-24">
-        <div className="chamber grain mx-auto grid max-w-[1400px] items-center gap-12 overflow-hidden rounded-2xl px-6 py-16 text-white md:px-14 md:py-24 lg:grid-cols-2" style={{ borderRadius: 'var(--radius-2xl)' }}>
+        <div className="landing-hospital chamber grain mx-auto grid max-w-[1400px] items-center gap-12 overflow-hidden rounded-2xl px-6 py-16 text-white md:px-14 md:py-24 lg:grid-cols-2" style={{ borderRadius: 'var(--radius-2xl)' }}>
           <Reveal>
             <p className="eyebrow !text-white/50">{t('home.hospEyebrow')}</p>
             <h2 className="mt-4 text-[clamp(2.25rem,5vw,4rem)] leading-[1.04] font-semibold text-balance">{t('home.hospTitle')}</h2>
