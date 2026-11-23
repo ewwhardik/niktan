@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Camera, ChevronDown, ImagePlus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Camera, ChevronDown, ImagePlus, RefreshCw, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -235,8 +235,11 @@ export function LabReport({ onExit }: { onExit: () => void }) {
           : phase === 'start' ? (
             <>
               <Button icon={Camera} onClick={() => photo.camera.current?.click()}>{t('lab.take')}</Button>
-              <LinkButton onClick={() => photo.gallery.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('rx.choose')}</LinkButton>
-              <LinkButton onClick={() => setPhase('review')}>{t('lab.paste')}</LinkButton>
+              <div className="grid grid-cols-2 gap-2">
+                <LinkButton onClick={() => photo.gallery.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('tools.gallery')}</LinkButton>
+                <LinkButton onClick={() => setPhase('review')}>{t('tools.paste')}</LinkButton>
+              </div>
+              <LinkButton onClick={() => void photo.sample('/samples/lab-report.jpg').then(() => { setText(''); setPhase('review'); })} className="inline-flex items-center justify-center gap-2"><Sparkles size={16} aria-hidden /> {t('tools.sampleReport')}</LinkButton>
             </>
           ) : phase === 'review' || phase === 'error' ? (
             <>

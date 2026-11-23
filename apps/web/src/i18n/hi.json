@@ -872,7 +872,8 @@
       "timing": "कब लें",
       "duration": "कितने समय तक"
     },
-    "fromDictionary": "निकतन की ब्रांड सूची से साल्ट"
+    "fromDictionary": "निकतन की ब्रांड सूची से साल्ट",
+    "sampleText": "Rx\n1. Tab Dolo 650 — 1-0-1 × 3 days, after food\n2. Tab Pan-D 40 — 1-0-0 before breakfast × 5 days\n3. Tab Montair LC — 0-0-1 HS × 5 days\n4. Syp Ascoril LS — 5 ml TDS × 5 days\nAdv: Plenty of fluids. CBC if fever persists after 3 days. Review after 5 days."
   },
   "scan": {
     "stepOf": "चरण {{n}} / {{total}} · {{name}} · लगभग {{min}} मिनट बाकी",
@@ -888,6 +889,15 @@
       "rx": "डॉक्टर की लिखावट, अब पढ़ने लायक।",
       "saver": "वही दवा, सही दाम।",
       "lab": "आपकी लैब रिपोर्ट, आसान शब्दों में।"
+    },
+    "sample": "नमूना आज़माएँ",
+    "sampleReport": "नमूना रिपोर्ट आज़माएँ",
+    "gallery": "गैलरी",
+    "paste": "टेक्स्ट चिपकाएँ",
+    "short": {
+      "rx": "पर्चा",
+      "saver": "दवा बचत",
+      "lab": "लैब"
     }
   },
   "saver": {

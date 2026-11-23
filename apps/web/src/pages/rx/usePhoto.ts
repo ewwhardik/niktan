@@ -22,6 +22,13 @@ export function usePhoto() {
       return true;
     },
     clear() { setFile(null); setUrl(null); },
+    /** Loads a bundled sample image as if the user had chosen it. */
+    async sample(path: string) {
+      const blob = await (await fetch(path)).blob();
+      const next = new File([blob], path.split('/').pop() ?? 'sample.jpg', { type: blob.type || 'image/jpeg' });
+      setFile(next);
+      setUrl(URL.createObjectURL(next));
+    },
     /** Downscaled JPEG for upload; labels and reports stay legible at 2000 px. */
     blob: (max = 2000) => (file && url ? shrink(file, url, max, 0.9) : Promise.resolve(null)),
   };

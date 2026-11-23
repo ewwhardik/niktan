@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <linearGradient id="table" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9cbb5"/><stop offset="1" stop-color="#c4b398"/></linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef3f8"/></linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="130%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity="0.28"/></filter>
+  </defs>
+  <rect width="1400" height="900" fill="url(#table)"/>
+  <g transform="rotate(-3 700 450)" filter="url(#sh)" font-family="Helvetica, Arial, sans-serif">
+    <!-- Front face -->
+    <rect x="120" y="170" width="560" height="560" rx="10" fill="url(#front)"/>
+    <rect x="120" y="170" width="560" height="120" rx="10" fill="#0b5fa5"/>
+    <rect x="120" y="270" width="560" height="20" fill="#0b5fa5"/>
+    <text x="160" y="250" font-size="64" font-weight="700" fill="#fff" letter-spacing="2">NIKPARA 650</text>
+    <text x="160" y="350" font-size="30" fill="#1b2a3a">Paracetamol Tablets IP 650 mg</text>
+    <rect x="160" y="390" width="230" height="230" rx="18" fill="#e3ebf3"/>
+    <g fill="#ffffff" stroke="#c3d0dd" stroke-width="2">
+      <circle cx="215" cy="445" r="34"/><circle cx="335" cy="445" r="34"/>
+      <circle cx="215" cy="565" r="34"/><circle cx="335" cy="565" r="34"/>
+    </g>
+    <text x="430" y="460" font-size="40" font-weight="700" fill="#0b5fa5">15</text>
+    <text x="430" y="500" font-size="28" fill="#1b2a3a">Tablets</text>
+    <text x="430" y="580" font-size="44" font-weight="700" fill="#c8102e">Rx</text>
+    <text x="160" y="690" font-size="22" fill="#55697d">Demo Pharma Ltd. (fictional)</text>
+    <!-- Side panel -->
+    <rect x="700" y="170" width="580" height="560" rx="10" fill="#fbfcfe"/>
+    <text x="730" y="225" font-size="26" font-weight="700" fill="#1b2a3a">Composition:</text>
+    <text x="730" y="262" font-size="24" fill="#1b2a3a">Each uncoated tablet contains:</text>
+    <text x="730" y="298" font-size="24" fill="#1b2a3a">Paracetamol IP ............ 650 mg</text>
+    <text x="730" y="334" font-size="24" fill="#1b2a3a">Excipients ..................... q.s.</text>
+    <text x="730" y="384" font-size="21" fill="#3d5063">Dosage: As directed by the physician.</text>
+    <text x="730" y="414" font-size="21" fill="#3d5063">Store below 30°C. Keep out of reach of children.</text>
+    <line x1="730" y1="440" x2="1250" y2="440" stroke="#d5dde6" stroke-width="2"/>
+    <text x="730" y="482" font-size="24" fill="#1b2a3a">B.No.: NK2611</text>
+    <text x="730" y="518" font-size="24" fill="#1b2a3a">MFG.: 09/2025</text>
+    <text x="730" y="554" font-size="24" font-weight="700" fill="#1b2a3a">EXP.: 08/2027</text>
+    <text x="730" y="610" font-size="28" font-weight="700" fill="#1b2a3a">M.R.P. ₹ 32.50</text>
+    <text x="730" y="642" font-size="20" fill="#3d5063">for 15 tablets (incl. of all taxes)</text>
+    <rect x="730" y="668" width="545" height="40" rx="6" fill="#fff3da"/>
+    <text x="745" y="696" font-size="20" font-weight="700" fill="#7a3e00">SAMPLE PACK · NOT A REAL PRODUCT · NikTan demo</text>
+  </g>
+</svg>

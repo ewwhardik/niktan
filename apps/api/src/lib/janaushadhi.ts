@@ -97,7 +97,9 @@ export interface Match {
 export function findGenerics(query: { generic: string; strength?: string | null; form?: string | null }, list: Product[] = PRODUCTS, min = 0.55, limit = 3): Match[] {
   const want = ingredientsOf(query.generic);
   if (!want.length) return [];
-  let wantStrength = strengthsOf(`${query.strength ?? ''} ${query.generic}`);
+  // Strengths from the strength field, else from the composition; never both, or "650 mg" counts twice.
+  let wantStrength = strengthsOf(query.strength ?? '');
+  if (!wantStrength.length) wantStrength = strengthsOf(query.generic);
   // "Dolo 650", "Pan 40": a bare number after a brand is a strength in mg.
   if (!wantStrength.length) wantStrength = [...(query.strength ?? '').matchAll(/(?:^|[\s-])([0-9]+(?:\.[0-9]+)?)(?![0-9.]*\s*(?:x|ml|'s|tab|cap))\b/gi)].map((m) => Number(m[1])).filter((n) => n > 0 && n <= 2000);
   const wantForm = formOf(`${query.form ?? ''} ${query.generic}`);

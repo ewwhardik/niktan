@@ -29,8 +29,9 @@ export function ToolTabs() {
           <button key={id} role="tab" aria-selected={active} onClick={() => setTool(id)}
             className={`relative inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-2 text-label font-medium transition-colors ${active ? 'text-text' : 'text-text-2 hover:text-text'}`}>
             {active && <motion.span layoutId="rx-tool-pill" className="absolute inset-0 rounded-full bg-surface shadow-1 ring-1 ring-border" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />}
-            <Icon size={15} className="relative shrink-0" aria-hidden />
-            <span className="relative truncate">{t(`tools.${id}`)}</span>
+            <Icon size={15} className="relative hidden shrink-0 sm:block" aria-hidden />
+            <span className="relative truncate sm:hidden">{t(`tools.short.${id}`)}</span>
+            <span className="relative hidden truncate sm:inline">{t(`tools.${id}`)}</span>
           </button>
         );
       })}

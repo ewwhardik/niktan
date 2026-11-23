@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Camera, CalendarClock, ImagePlus, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, Camera, CalendarClock, ImagePlus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -174,7 +174,10 @@ export function MedicineSaver({ onExit }: { onExit: () => void }) {
           : phase === 'start' ? (
             <>
               <Button icon={Camera} onClick={() => photo.camera.current?.click()}>{t('saver.take')}</Button>
-              <LinkButton onClick={() => photo.gallery.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('rx.choose')}</LinkButton>
+              <div className="grid grid-cols-2 gap-2">
+                <LinkButton onClick={() => photo.gallery.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('tools.gallery')}</LinkButton>
+                <LinkButton onClick={() => void photo.sample('/samples/medicine-pack.jpg').then(() => setPhase('review'))} className="inline-flex items-center justify-center gap-2"><Sparkles size={16} aria-hidden /> {t('tools.sample')}</LinkButton>
+              </div>
             </>
           ) : phase === 'review' || phase === 'error' ? (
             <>

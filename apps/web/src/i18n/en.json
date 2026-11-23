@@ -872,7 +872,8 @@
       "timing": "When to take it",
       "duration": "For how long"
     },
-    "fromDictionary": "Generic from NikTan’s brand list"
+    "fromDictionary": "Generic from NikTan’s brand list",
+    "sampleText": "Rx\n1. Tab Dolo 650 — 1-0-1 × 3 days, after food\n2. Tab Pan-D 40 — 1-0-0 before breakfast × 5 days\n3. Tab Montair LC — 0-0-1 HS × 5 days\n4. Syp Ascoril LS — 5 ml TDS × 5 days\nAdv: Plenty of fluids. CBC if fever persists after 3 days. Review after 5 days."
   },
   "scan": {
     "stepOf": "Step {{n}} of {{total}} · {{name}} · about {{min}} min left",
@@ -888,6 +889,15 @@
       "rx": "Doctor's handwriting, readable.",
       "saver": "Same medicine. Fair price.",
       "lab": "Your lab report, in plain words."
+    },
+    "sample": "Try a sample",
+    "sampleReport": "Try a sample report",
+    "gallery": "Gallery",
+    "paste": "Paste text",
+    "short": {
+      "rx": "Prescription",
+      "saver": "Saver",
+      "lab": "Lab"
     }
   },
   "saver": {

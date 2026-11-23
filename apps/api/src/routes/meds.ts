@@ -62,19 +62,20 @@ const dataset = () => ({ name: 'Jan Aushadhi (PMBJP) Product & MRP List', count:
 meds.post('/meds/read', rateLimit('meds', 20, 3600), async (c) => {
   const form = await c.req.formData().catch(() => null);
   const image = await photoInput(form?.get('photo'));
-  const { body } = await cachedJson('meds', `pack2|${image.imageBase64}`, 3600, async () => {
+  // Only the AI reading is cached; matching runs every time so list updates and fixes apply at once.
+  const { body } = await cachedJson('meds', `pack3|${image.imageBase64}`, 3600, async () => {
     const result = await runChain(c.env, 'vision', visionProviders, { system: PACK_SYSTEM, maxTokens: 600, user: 'Read this medicine pack.', ...image }, (o) => Pack.safeParse(o).success).catch(() => null);
-    if (!result) return { ok: false, body: { pack: null, generics: [], dataset: dataset(), fallback: true } as Record<string, unknown> };
-    const pack = Pack.parse(result.output);
-    // A strip often shows only the brand on the front; the built-in brand list fills the salts.
-    const known = !pack.composition && pack.brand ? saltsFor(pack.brand) : null;
-    const composition = pack.composition ?? known;
-    const generics = composition && !pack.notMedicine
-      ? withSaving(findGenerics({ generic: composition, strength: pack.strength ?? pack.brand, form: pack.form }), pack.mrp, pack.packSize)
-      : [];
-    return { ok: true, body: { pack: { ...pack, composition, compositionSource: known ? 'brandList' : pack.composition ? 'label' : null, expiryMonth: expiryMonth(pack.expiry) }, generics, dataset: dataset(), provider: result.provider } as Record<string, unknown> };
+    return result ? { ok: true, body: { pack: Pack.parse(result.output), provider: result.provider } } : { ok: false, body: null };
   });
-  return c.json(body, body.fallback ? 503 : 200);
+  if (!body) return c.json({ pack: null, generics: [], dataset: dataset(), fallback: true }, 503);
+  const { pack, provider } = body;
+  // A strip often shows only the brand on the front; the built-in brand list fills the salts.
+  const known = !pack.composition && pack.brand ? saltsFor(pack.brand) : null;
+  const composition = pack.composition ?? known;
+  const generics = composition && !pack.notMedicine
+    ? withSaving(findGenerics({ generic: composition, strength: pack.strength ?? (known ? pack.brand : null), form: pack.form }), pack.mrp, pack.packSize)
+    : [];
+  return c.json({ pack: { ...pack, composition, compositionSource: known ? 'brandList' : pack.composition ? 'label' : null, expiryMonth: expiryMonth(pack.expiry) }, generics, dataset: dataset(), provider });
 });
 
 const Query = z.object({

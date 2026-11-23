@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { ArrowLeft, Ear, Eye, Glasses, HeartPulse, Languages, Mic } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGS } from '../i18n';
 import { BrandMark } from './BrandMark';
@@ -46,9 +46,26 @@ export function Screen({ children, className = '', aside, wide = false }: { chil
   );
 }
 
+/**
+ * Bottom action bar. On phones it stays pinned with a frosted background and publishes its height
+ * as --dock-h so floating buttons sit above it; on desktop it flows after the content.
+ */
 export function Dock({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const pinned = window.matchMedia('(max-width: 1023.98px)');
+    const update = () => root.style.setProperty('--dock-h', pinned.matches ? `${Math.ceil(el.getBoundingClientRect().height)}px` : '0px');
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    pinned.addEventListener('change', update);
+    update();
+    return () => { ro.disconnect(); pinned.removeEventListener('change', update); root.style.removeProperty('--dock-h'); };
+  }, []);
   return (
-    <div className="cta-dock glass z-20 -mx-5 mt-auto px-5 lg:mx-0 lg:mt-10 lg:bg-transparent lg:px-0 lg:pb-10 lg:backdrop-blur-none">
+    <div ref={ref} className="cta-dock glass z-20 -mx-5 mt-auto border-t border-border/60 px-5 lg:static lg:mx-0 lg:mt-10 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-10 lg:backdrop-blur-none">
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );

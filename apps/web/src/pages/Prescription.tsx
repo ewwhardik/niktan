@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Pill, PiggyBank, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Camera, ChevronDown, ExternalLink, ImagePlus, Pill, PiggyBank, RefreshCw, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -325,7 +325,10 @@ function PrescriptionReader({ onExit }: { onExit: () => void }) {
           <>
             <Button icon={Camera} onClick={() => camInput.current?.click()}>{t('rx.take')}</Button>
             <LinkButton onClick={() => fileInput.current?.click()} className="inline-flex items-center justify-center gap-2"><ImagePlus size={16} aria-hidden /> {t('rx.choose')}</LinkButton>
-            <LinkButton onClick={() => setPhase('review')}>{t('rx.paste')}</LinkButton>
+            <div className="grid grid-cols-2 gap-2">
+              <LinkButton onClick={() => setPhase('review')}>{t('tools.paste')}</LinkButton>
+              <LinkButton onClick={() => { setText(t('rx.sampleText')); setPhase('review'); }} className="inline-flex items-center justify-center gap-2"><Sparkles size={16} aria-hidden /> {t('tools.sample')}</LinkButton>
+            </div>
           </>
         ) : phase === 'review' || phase === 'error' ? (
           <>

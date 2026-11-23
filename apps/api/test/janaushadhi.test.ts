@@ -81,3 +81,10 @@ describe('official Jan Aushadhi list', async () => {
     expect(findGenerics({ generic: 'Cetirizine', strength: '10 mg', form: 'tablet' })).toEqual([]);
   });
 });
+
+describe('strength read from both label fields', () => {
+  it('does not count the same strength twice', () => {
+    const [best] = findGenerics({ generic: 'Paracetamol IP 650 mg', strength: '650 mg', form: 'tablet' }, LIST);
+    expect(best).toMatchObject({ code: '37', exact: true, differs: [] });
+  });
+});
