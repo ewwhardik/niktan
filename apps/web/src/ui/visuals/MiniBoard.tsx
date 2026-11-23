@@ -1,6 +1,6 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { CircleCheck, OctagonAlert, TriangleAlert } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
+import { ArrowUp, CircleCheck, OctagonAlert, TriangleAlert } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 type P = 'emergency' | 'today' | 'routine';
 interface Tile {
@@ -26,23 +26,40 @@ const sort = (list: Tile[]) => [...list].sort((a, b) => RANK[a.p] - RANK[b.p] ||
 /** Demo loop: a red patient arrives last and the board lifts them to the top. */
 export function MiniBoard({ className = '' }: { className?: string }) {
   const [tiles, setTiles] = useState<Tile[]>(sort(SEED));
+  // The arrival that just jumped ahead of others, marked for a moment.
+  const [jumped, setJumped] = useState<number | null>(null);
+  const ref = useRef<HTMLUListElement>(null);
+  const inView = useInView(ref, { margin: '-10% 0px' });
+  const reduce = useReducedMotion();
   useEffect(() => {
+    if (!inView || reduce) return;
     let n = 13;
     let id = 10;
+    // A fixed rhythm so the story reads: routine, see-today, emergency, routine, ...
+    const pattern: P[] = ['routine', 'today', 'emergency', 'routine', 'emergency', 'today'];
+    let k = 0;
+    const timers: number[] = [];
     const tick = setInterval(() => {
       setTiles((cur) => {
         // Arrive at the bottom first, then sort a beat later so the jump is visible.
-        const arrival: Tile = { id: id++, n: n++, p: Math.random() < 0.3 ? 'emergency' : Math.random() < 0.5 ? 'today' : 'routine', age: 20 + Math.floor(Math.random() * 60) };
-        setTimeout(() => setTiles((c) => sort(c)), 900);
+        const arrival: Tile = { id: id++, n: n++, p: pattern[k++ % pattern.length]!, age: 20 + ((n * 37) % 60) };
+        timers.push(window.setTimeout(() => setTiles((c) => {
+          const next = sort(c);
+          if (next.findIndex((t) => t.id === arrival.id) < c.length - 1) {
+            setJumped(arrival.id);
+            timers.push(window.setTimeout(() => setJumped((j) => (j === arrival.id ? null : j)), 1700));
+          }
+          return next;
+        }), 900));
         // Keep five tiles by letting the lowest-priority, latest arrival leave first.
         const kept = cur.length >= 5 ? sort(cur).slice(0, -1) : cur;
         return [...sort(kept), arrival];
       });
     }, 2800);
-    return () => clearInterval(tick);
-  }, []);
+    return () => { clearInterval(tick); timers.forEach(clearTimeout); };
+  }, [inView, reduce]);
   return (
-    <ul className={`flex flex-col gap-2 ${className}`}>
+    <ul ref={ref} className={`flex flex-col gap-2 ${className}`}>
       <AnimatePresence initial={false}>
         {tiles.map((t) => {
           const M = META[t.p];
@@ -51,7 +68,14 @@ export function MiniBoard({ className = '' }: { className?: string }) {
               <span className="h-8 w-1 rounded-full" style={{ background: M.color }} />
               <span className="tnum text-body-lg font-semibold text-white">#{t.n}</span>
               <span className="text-caption text-white/55">{t.age} yrs</span>
-              <M.icon size={18} className="ml-auto" style={{ color: M.color }} aria-hidden />
+              <AnimatePresence>
+                {jumped === t.id && (
+                  <motion.span initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="ml-auto grid size-6 place-items-center rounded-full bg-white text-black">
+                    <ArrowUp size={13} strokeWidth={2.5} aria-hidden />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+              <M.icon size={18} className={jumped === t.id ? '' : 'ml-auto'} style={{ color: M.color }} aria-hidden />
             </motion.li>
           );
         })}

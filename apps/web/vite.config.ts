@@ -31,12 +31,12 @@ export default defineConfig({
         // Scan steps must work on a flaky venue network once the app has loaded.
         globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3,wav}'],
         // The 3D viewer only appears on the health card; fetch it on demand instead of on first visit.
-        globIgnores: ['**/AnatomyViewer-*.js', '**/vision_wasm_internal-*.js'],
+        globIgnores: ['**/AnatomyViewer-*.js', '**/Phone3D-*.js', '**/three3d-*.js', '**/vision_wasm_internal-*.js'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/models/') || /AnatomyViewer-.*\.js$/.test(url.pathname),
+            urlPattern: ({ url }) => url.pathname.startsWith('/models/') || /(AnatomyViewer|Phone3D|three3d)-.*\.js$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'anatomy', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 60 } },
           },
@@ -66,10 +66,19 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          motion: ['motion'],
-          mediapipe: ['@mediapipe/tasks-vision'],
+        manualChunks(id) {
+          // Group by package. Only the packages named here are pinned to a chunk; their small shared
+          // helpers are left to Rollup, so the 3D chunk is never pulled into the first page load.
+          // Vite's preload helper and Rollup's CommonJS shims are needed by every page: keep them in the core chunk.
+          if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers')) return 'react';
+          const pkg = id.match(/.*node_modules\/((?:@[^/]+\/)?[^/]+)/)?.[1];
+          if (!pkg) return undefined;
+          if (['react', 'react-dom', 'react-router', 'react-router-dom', '@remix-run/router', 'scheduler'].includes(pkg)) return 'react';
+          if (['motion', 'framer-motion', 'motion-dom', 'motion-utils'].includes(pkg)) return 'motion';
+          if (pkg === '@mediapipe/tasks-vision') return 'mediapipe';
+          // three.js is shared by the health-card anatomy viewer and the landing 3D phone; both load it on demand.
+          if (pkg === 'three' || pkg.startsWith('@react-three/') || ['three-stdlib', 'three-mesh-bvh', 'troika-three-text', 'troika-three-utils', 'troika-worker-utils', 'camera-controls', 'maath', 'meshline', 'stats-gl', 'detect-gpu', 'its-fine', 'suspend-react', 'react-use-measure', 'tunnel-rat', 'zustand', '@monogrid/gainmap-js', 'hls.js', 'react-reconciler'].includes(pkg)) return 'three3d';
+          return undefined;
         },
       },
     },

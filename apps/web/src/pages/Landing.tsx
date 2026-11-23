@@ -16,9 +16,12 @@ import { CountUp } from '../ui/Numbers';
 import { Marquee } from '../ui/visuals/Marquee';
 import { MiniBoard } from '../ui/visuals/MiniBoard';
 import { StepVisual, type StepKey } from '../ui/visuals/StepVisual';
+import { DeviceStage } from '../ui/visuals/DeviceStage';
+import { ACCENT_GLOW, Stage3D } from '../ui/visuals/Stage3D';
 import { DataFlow, NutrientRings, QueueRace, TimeDonut } from '../ui/visuals/Infographics';
 import { Decode, Magnetic, TiltCard } from '../ui/fx';
-import { Constellation, FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
+import { EcgHorizon, Odometer, PriorityQueue, ScrollTilt } from '../ui/visuals/SectionFX';
+import { FoundationCards, HeroConsole, NotificationStack, PillEye, PillHeart, ThaliPlate, TriageHub } from '../ui/visuals/LandingVisuals';
 import { ease } from '../ui/motion';
 import '../styles/landing.css';
 
@@ -105,22 +108,25 @@ function MobileSteps({ steps }: { steps: Step[] }) {
     if (strip && card) strip.scrollTo({ left: card.offsetLeft - strip.clientLeft, behavior: reduce ? 'instant' : 'smooth' });
   }
   return (
-    <div className="mx-auto mt-7 max-w-[640px] px-5">
-      <ol ref={rail} className="relative grid snap-x snap-mandatory auto-cols-[92%] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain rounded-xl no-scrollbar"
+    <div className="mx-auto mt-4 max-w-[640px]">
+      {/* The 3D phone follows the card in view; swiping the cards drives it. */}
+      <div className="relative">
+        <div aria-hidden className="absolute inset-x-10 top-[12%] h-[70%] rounded-full blur-[70px] transition-colors duration-700" style={{ background: ACCENT_GLOW[steps[selected]!.k], opacity: 0.3 }} />
+        <Stage3D compact steps={steps} active={selected} className="h-[440px] w-full"
+          fallback={<div className="chamber mx-auto flex h-[440px] items-center justify-center p-10 text-white"><StepVisual step={steps[selected]!.k} className="h-full max-h-72" /></div>} />
+      </div>
+      <ol ref={rail} className="relative grid snap-x snap-mandatory auto-cols-[86%] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain px-5 scroll-px-5 no-scrollbar"
         onScroll={event => {
           const strip = event.currentTarget;
           const stride = (strip.children[1] as HTMLElement | undefined)?.offsetLeft;
-          if (stride) setSelected(Math.min(steps.length - 1, Math.max(0, Math.round(strip.scrollLeft / stride))));
+          const first = (strip.children[0] as HTMLElement | undefined)?.offsetLeft ?? 0;
+          if (stride) setSelected(Math.min(steps.length - 1, Math.max(0, Math.round(strip.scrollLeft / (stride - first)))));
         }}>
         {steps.map((step, i) => (
-          <li key={step.k} className="lp-card snap-start overflow-hidden rounded-3xl">
-            <div className="chamber flex h-48 items-center justify-center p-5 text-white">
-              {Math.abs(selected - i) <= 1 && <StepVisual step={step.k} className="h-full" />}
-            </div>
-            <div className="p-5">
-              <h3 className="text-title-2 font-semibold">{step.t}</h3>
-              <p className="mt-2 text-body text-text-2">{step.d}</p>
-            </div>
+          <li key={step.k} className={`lp-card snap-start rounded-3xl p-5 transition-opacity duration-300 ${selected === i ? 'opacity-100' : 'opacity-60'}`}>
+            <span className="mono text-caption text-text-3">0{i + 1}</span>
+            <h3 className="mt-1 text-title-2 font-semibold">{step.t}</h3>
+            <p className="mt-2 text-body text-text-2">{step.d}</p>
           </li>
         ))}
       </ol>
@@ -176,23 +182,10 @@ function PinnedSteps({ steps }: { steps: Step[] }) {
 
   return (
     <div ref={ref} className="relative mx-auto max-w-[1240px] px-10" style={{ height: `${steps.length * 51}vh` }}>
-      <div className="sticky top-12 grid h-[calc(100svh-3rem)] grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-[clamp(2rem,6vw,6rem)]">
+      <div className="sticky top-12 grid h-[calc(100svh-3rem)] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-[clamp(1.5rem,4vw,4rem)]">
         <div className="relative">
-          <motion.div style={{ rotateY: tilt, transformPerspective: 900 }} className="relative mx-auto aspect-[9/16] h-[min(63svh,510px)] rounded-[40px] bg-[#1d1d1f] p-2 shadow-4 ring-1 ring-white/10">
-            <div className="chamber relative size-full overflow-hidden rounded-[34px] text-white">
-              <div className="absolute inset-x-0 top-3 mx-auto h-6 w-24 rounded-full bg-black" />
-              <motion.div key={steps[active]!.k} initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.35, ease }} className="absolute inset-0 flex items-center justify-center p-7 text-white">
-                <StepVisual step={steps[active]!.k} className="w-full" />
-              </motion.div>
-              <div aria-hidden className="absolute inset-x-6 bottom-6 flex gap-1">
-                {steps.map((step, i) => (
-                  <span key={step.k} className="h-1 flex-1 overflow-hidden rounded-full bg-white/15">
-                    <motion.span className="block h-full origin-left bg-white" initial={false} animate={{ scaleX: i <= active ? 1 : 0 }} transition={{ duration: 0.4, ease }} />
-                  </span>
-                ))}
-              </div>
-            </div>
-          </motion.div>
+          <div aria-hidden className="absolute inset-x-[12%] top-[14%] h-[66%] rounded-full blur-[90px] transition-colors duration-700" style={{ background: ACCENT_GLOW[steps[active]!.k], opacity: 0.28 }} />
+          <Stage3D steps={steps} active={active} fallback={<DeviceStage steps={steps} active={active} scrollTilt={tilt} />} className="h-[min(74svh,640px)] w-full" />
         </div>
         <ol className="flex flex-col">
           {steps.map((s, i) => (
@@ -464,7 +457,7 @@ export function Landing() {
         <Marquee items={marquee} />
       </div>
 
-      {/* Constellation banner */}
+      {/* Problem: the priority queue */}
       <section className="mx-auto max-w-[1240px] px-5 pt-24 md:px-10 md:pt-32">
         <Reveal className="lp-card relative grid items-center gap-8 overflow-hidden rounded-[32px] p-6 md:p-12 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="relative">
@@ -473,7 +466,7 @@ export function Landing() {
             <p className="mt-5 max-w-md text-body-lg text-text-2">{t('home.consBody')}</p>
           </div>
           <div className="relative">
-            <Constellation tags={t('home.consTags', { returnObjects: true }) as string[]} />
+            <PriorityQueue tags={t('home.consTags', { returnObjects: true }) as string[]} labels={t('home.race', { returnObjects: true }) as { fcfs: string; niktan: string }} />
           </div>
         </Reveal>
       </section>
@@ -490,7 +483,7 @@ export function Landing() {
             ].map((s, i) => (
               <Reveal key={i} delay={i * 0.1} className="border-b border-border py-8 last:border-b-0 md:border-b-0 md:px-8 md:first:pl-0">
                 <p className="flex items-baseline gap-2">
-                  <CountUp value={s.v} decimals={s.dec ?? 0} className={`text-[clamp(3.5rem,7vw,6rem)] leading-none font-semibold tracking-tight ${s.em ? 'text-[var(--lp-accent)]' : ''}`} />
+                  <Odometer value={s.v} decimals={s.dec ?? 0} className={`text-[clamp(3.5rem,7vw,6rem)] leading-none font-semibold tracking-tight ${s.em ? 'text-[var(--lp-accent)]' : ''}`} />
                   <span className="serif text-title-1 italic opacity-60">{s.u}</span>
                 </p>
                 <p className="mt-4 text-body-lg text-text-2">{s.l}</p>
@@ -626,9 +619,9 @@ export function Landing() {
             <li key={tool}>
               <Link to={tool === 'prescription' ? '/rx' : `/rx?tool=${tool}`}
                 className="lp-paper-tool group flex h-full flex-col rounded-[28px] p-6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current lg:p-8">
-                <span className="lp-paper-orb" aria-hidden="true">
+                <span className="lp-paper-float flex justify-center" style={{ ['--delay' as string]: `${-i * 1.3}s` }}><span className="lp-paper-orb" aria-hidden="true">
                   <img src={`/art/paper-orb-${i}.webp`} alt="" loading="lazy" decoding="async" width="4608" height="192" />
-                </span>
+                </span></span>
                 <div className="mt-5 flex items-center justify-between gap-2">
                   <h3 className="text-title-2 font-semibold">{t(`home.paperTools.${tool}.title`)}</h3>
                   <ArrowUpRight size={20} aria-hidden className="shrink-0" />
@@ -661,14 +654,14 @@ export function Landing() {
               {t('home.hospCta')} <ArrowUpRight size={18} aria-hidden />
             </button>
           </Reveal>
-          <Reveal delay={0.15} className="relative [perspective:1400px]">
-            <div className="lp-tile rounded-3xl p-4 transition-transform duration-700 ease-out sm:p-5 lg:[transform:rotateY(-10deg)_rotateX(6deg)] lg:hover:[transform:none]">
+          <Reveal delay={0.15} className="relative">
+            <ScrollTilt className="lp-tile rounded-3xl p-4 shadow-[0_40px_80px_-40px_rgb(0_0_0/0.6)] sm:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <span className="mono text-caption tracking-[0.14em] text-white/50 uppercase">{t('home.demoBoard')}</span>
                 <motion.span className="size-2 rounded-full bg-routine" animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.6 }} />
               </div>
               <MiniBoard />
-            </div>
+            </ScrollTilt>
           </Reveal>
         </div>
       </section>
@@ -676,7 +669,9 @@ export function Landing() {
       {/* Privacy */}
       <section id="privacy" className="mx-auto max-w-[1240px] px-5 pt-24 md:px-10 md:pt-32">
         <Reveal className="grid gap-10 md:grid-cols-[auto_1fr] md:items-end">
-          <div className="lp-tile grid size-24 place-items-center rounded-[28px] md:size-32">
+          <div className="lp-tile relative grid size-24 place-items-center rounded-[28px] md:size-32">
+            <span aria-hidden className="fx-ripple" />
+            <span aria-hidden className="fx-ripple" style={{ ['--delay' as string]: '-1.5s' }} />
             <Lock size={44} strokeWidth={1.4} aria-hidden />
           </div>
           <div>
@@ -694,9 +689,12 @@ export function Landing() {
       <Voices stats={stats} />
 
       {/* Closing */}
-      <section className="relative px-5 pt-28 pb-24 text-center md:px-10 md:pt-40 md:pb-32">
+      <section className="relative isolate overflow-hidden px-5 pt-28 pb-24 text-center md:px-10 md:pt-40 md:pb-32">
+        <EcgHorizon className="absolute inset-x-0 top-[calc(7rem-62px)] -z-10 h-40 w-full md:top-[calc(10rem-62px)]" />
         <Reveal className="relative">
-          <HeartPulse className="mx-auto text-[var(--lp-heart)]" size={36} strokeWidth={1.4} aria-hidden />
+          <span className="relative mx-auto grid size-14 place-items-center rounded-full bg-bg ring-1 ring-[var(--lp-line)]">
+            <HeartPulse className="text-[var(--lp-heart)]" size={28} strokeWidth={1.5} aria-hidden />
+          </span>
           <p lang="hne" className="serif mt-8 text-[clamp(3rem,10vw,8.5rem)] leading-[0.95]">{t('home.endTitle')}</p>
           <p className="mt-6 text-title-3 text-text-2">{t('home.endSub')}</p>
           <div className="mt-10"><Magnetic><motion.button whileTap={{ scale: 0.97 }} onClick={start} className="lp-cta inline-flex h-16 items-center gap-3 rounded-full px-9 text-title-3 font-semibold">

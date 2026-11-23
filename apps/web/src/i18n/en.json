@@ -829,7 +829,60 @@
       ],
       "note": "A fan tribute for the hackathon theme. Avengers characters are trademarks of Marvel; NikTan is not affiliated with or endorsed by Marvel."
     },
-    "rxTools": "Prescription · Medicine Saver · Lab report"
+    "rxTools": "Prescription · Medicine Saver · Lab report",
+    "stage": {
+      "live": "Live",
+      "face": [
+        {
+          "label": "Heart rate",
+          "value": "72 bpm · pulse locked"
+        },
+        {
+          "label": "Privacy",
+          "value": "Video stays on the phone"
+        }
+      ],
+      "eye": [
+        {
+          "label": "Inner eyelid",
+          "value": "Pallor · no flag"
+        },
+        {
+          "label": "Sclera",
+          "value": "White-referenced colour"
+        }
+      ],
+      "vision": [
+        {
+          "label": "Right eye",
+          "value": "6/9 · tumbling E"
+        },
+        {
+          "label": "Calibrated",
+          "value": "Sized with a bank card"
+        }
+      ],
+      "hearing": [
+        {
+          "label": "Digits in noise",
+          "value": "Pass · −9 dB SNR"
+        },
+        {
+          "label": "Earphones",
+          "value": "Left ✓ · Right ✓"
+        }
+      ],
+      "symptoms": [
+        {
+          "label": "Understood",
+          "value": "Fever · 3 days"
+        },
+        {
+          "label": "Danger signs",
+          "value": "Asked once · none"
+        }
+      ]
+    }
   },
   "design": {
     "screeningArt": "A woman holds her phone at eye level for a face scan.",

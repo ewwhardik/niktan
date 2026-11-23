@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useInView, useReducedMotion } from 'motion/react';
-import { Ban, CircleUser, DoorOpen, Ear, Eye, Glasses, HeartPulse, Lock, Server, Smartphone, Stethoscope } from 'lucide-react';
+import { Ban, Camera, CircleUser, DoorOpen, Ear, Eye, Glasses, HeartPulse, Lock, Server, ShieldCheck, Smartphone, Stethoscope, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ease } from '../motion';
 
@@ -121,6 +121,51 @@ export function TimeDonut({ wait, consult, labels }: { wait: number; consult: nu
 /* Privacy data flow: what stays on the phone, what leaves            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The wire between phone and server. Numbers travel across; raw face video and eye photos stop at
+ * the shield and fall back, because they never leave the phone.
+ */
+function PacketLane({ sent }: { sent: string[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { margin: '-10% 0px' });
+  const [packets, setPackets] = useState<number[]>([]);
+  const [hits, setHits] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    let n = 0;
+    const timers: number[] = [];
+    const add = () => {
+      const id = n++;
+      setPackets((p) => [...p.slice(-3), id]);
+      if (id % 2 === 1) timers.push(window.setTimeout(() => setHits((h) => h + 1), 1000));
+    };
+    add();
+    const iv = window.setInterval(add, 1100);
+    return () => { clearInterval(iv); timers.forEach(clearTimeout); };
+  }, [inView]);
+  return (
+    <div ref={ref} className="relative h-24 w-48">
+      <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
+      <span key={hits} className={`absolute top-1/2 left-1/2 z-10 grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-bg text-text ring-1 ring-border shadow-[0_6px_16px_-8px_rgb(0_0_0/0.35)] ${hits ? 'fx-pkt-bump' : ''}`}>
+        <ShieldCheck size={18} aria-hidden />
+      </span>
+      {packets.map((id) => {
+        const blocked = id % 2 === 1;
+        const Icon = (id >> 1) % 2 ? Camera : Video;
+        return blocked ? (
+          <span key={id} className="fx-pkt-block absolute top-1/2 left-0 grid size-7 place-items-center rounded-full bg-emergency-tint text-emergency-ink">
+            <Icon size={13} aria-hidden />
+          </span>
+        ) : (
+          <span key={id} className="fx-pkt-pass mono absolute top-1/2 left-0 rounded-full bg-text px-2 py-0.5 text-[10px] whitespace-nowrap text-bg">
+            {sent[(id >> 1) % sent.length]}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DataFlow({ labels, compact = false }: { labels: { phone: string; server: string; stays: string; sent: string; never: string; items: string[]; sentItems: string[]; neverItems: string[] }; compact?: boolean }) {
   const reduce = useReducedMotion();
   const icons = [HeartPulse, Eye, Glasses, Ear];
@@ -149,8 +194,14 @@ export function DataFlow({ labels, compact = false }: { labels: { phone: string;
         </div>
       </div>
 
-      {/* Packets */}
-      <div className={`relative flex items-center justify-center ${compact ? 'h-24 w-14' : 'h-16 sm:h-24 sm:w-20'}`} aria-hidden>
+      {/* Packets: the full lane on wider screens, a simple pulse elsewhere. */}
+      {!compact && !reduce && (
+        <div className="relative hidden flex-col items-center sm:flex" aria-hidden>
+          <PacketLane sent={labels.sentItems} />
+          <span className="mono -mt-2 text-[10px] whitespace-nowrap text-text-3">{labels.sent}</span>
+        </div>
+      )}
+      <div className={`relative flex items-center justify-center ${compact ? 'h-24 w-14' : `h-16 sm:h-24 sm:w-20 ${reduce ? '' : 'sm:hidden'}`}`} aria-hidden>
         <span className={`absolute bg-border ${compact ? 'inset-x-0 top-1/2 h-px' : 'inset-y-0 left-1/2 w-px sm:inset-x-0 sm:inset-y-auto sm:top-1/2 sm:left-0 sm:h-px sm:w-auto'}`} />
         {!reduce &&
           [0, 1, 2].map((i) => (

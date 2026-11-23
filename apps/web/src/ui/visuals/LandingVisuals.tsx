@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { AnimatePresence, motion, useInView, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from 'motion/react';
 import { Activity, BadgeCheck, Bell, Cpu, Ear, Eye, Glasses, HeartPulse, Lock, Mic, Search, ShieldCheck, Smartphone, Siren, WifiOff, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { BeatingHeart } from '../BeatingHeart';
 import { BrandMark } from '../BrandMark';
 import { CountUp } from '../Numbers';
 import { ease } from '../motion';
+import { perfTier } from '../../lib/perf';
 
 /** A repeating PPG strip: `beats` cardiac cycles per half so a -50% translate loops seamlessly. */
 function ppgPath(beats: number, beatW: number, h: number) {
@@ -23,7 +24,16 @@ function ppgPath(beats: number, beatW: number, h: number) {
 export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
-  const tilt = useTransform(progress, [0, 0.45], reduce ? [0, 0] : [20, 0]);
+  const still = !!reduce || perfTier === 'lite';
+  const scrollTilt = useTransform(progress, [0, 0.45], reduce ? [0, 0] : [20, 0]);
+  // Pointer parallax on top of the scroll tilt, with a glare that slides across the glass.
+  const px = useMotionValue(0);
+  const py = useMotionValue(0);
+  const sx = useSpring(px, { stiffness: 70, damping: 18 });
+  const sy = useSpring(py, { stiffness: 70, damping: 18 });
+  const tilt = useTransform([scrollTilt, sy] as MotionValue<number>[], ([s, y]) => (s as number) - (y as number) * 4);
+  const turn = useTransform(sx, (x) => x * 5);
+
   const lift = useTransform(progress, [0, 0.45], reduce ? [0, 0] : [48, 0]);
   const scale = useTransform(progress, [0, 0.45], reduce ? [1, 1] : [0.94, 1]);
   const c = t('home.console', { returnObjects: true }) as {
@@ -33,8 +43,15 @@ export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
   const rowIcons: LucideIcon[] = [HeartPulse, Eye, Glasses, Ear, Mic];
   const beats = 8;
   return (
-    <div className="relative mx-auto w-full max-w-[1080px] [perspective:1600px]">
-      <motion.div style={{ rotateX: tilt, y: lift, scale, transformOrigin: '50% 0%' }} className="lp-card relative overflow-hidden rounded-[28px] p-3 ring-1 ring-[var(--lp-line)] sm:p-4" aria-label={t('home.example')} role="img">
+    <div className="relative mx-auto w-full max-w-[1080px] [perspective:1600px]"
+      onPointerMove={(e) => {
+        if (still || e.pointerType === 'touch') return;
+        const r = e.currentTarget.getBoundingClientRect();
+        px.set(((e.clientX - r.left) / r.width) * 2 - 1);
+        py.set(((e.clientY - r.top) / r.height) * 2 - 1);
+      }}
+      onPointerLeave={() => { px.set(0); py.set(0); }}>
+      <motion.div style={{ rotateX: tilt, rotateY: turn, y: lift, scale, transformOrigin: '50% 0%' }} className="lp-card relative overflow-hidden rounded-[28px] p-3 ring-1 ring-[var(--lp-line)] sm:p-4" aria-label={t('home.example')} role="img">
         {/* Top bar */}
         <div className="flex items-center gap-3 rounded-2xl bg-sunken px-3 py-2.5 sm:px-4">
           <BrandMark className="size-5 dark:brightness-0 dark:invert" />
@@ -119,41 +136,6 @@ export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
           </div>
         </div>
       </motion.div>
-
-    </div>
-  );
-}
-
-/** Queue tags on a quiet field, wired together; the breathless patient links to "Seen 1st". */
-export function Constellation({ tags }: { tags: string[] }) {
-  // Positions in a 600×340 design space.
-  const nodes = [
-    { x: 70, y: 70 }, { x: 330, y: 40 }, { x: 500, y: 120 }, { x: 140, y: 230 }, { x: 420, y: 280 }, { x: 300, y: 170 },
-  ];
-  const links: [number, number, boolean?][] = [[0, 1], [1, 2], [0, 5], [5, 4], [2, 4], [3, 5, true]];
-  return (
-    <div className="relative aspect-[600/340] w-full">
-      <svg viewBox="0 0 600 340" className="absolute inset-0 size-full" aria-hidden>
-        {links.map(([a, b, hot], i) => {
-          const A = nodes[a]!;
-          const B = nodes[b]!;
-          return (
-            <g key={i}>
-              <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="var(--lp-line)" strokeWidth="1" />
-              {hot && <line className="lp-flow" x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="var(--lp-accent)" strokeWidth="2" strokeLinecap="round" style={{ ['--dur' as string]: '1.8s' }} />}
-            </g>
-          );
-        })}
-        {nodes.map((n, i) => (
-          <circle key={i} cx={n.x} cy={n.y} r="3" fill={i === 3 ? 'var(--emergency)' : i === 5 ? 'var(--lp-accent)' : 'var(--text-3)'} />
-        ))}
-      </svg>
-      {nodes.map((n, i) => (
-        <span key={i} className={`lp-float absolute -translate-x-1/2 translate-y-3 rounded-lg px-2.5 py-1.5 text-[clamp(0.65rem,1.3vw,0.8rem)] font-medium whitespace-nowrap ${i === 3 ? 'bg-emergency-tint text-emergency-ink' : i === 5 ? 'bg-[var(--lp-accent)] text-white' : 'bg-bg text-text-2'}`}
-          style={{ left: `${(n.x / 600) * 100}%`, top: `${(n.y / 340) * 100}%`, ['--dur' as string]: `${6 + (i % 3) * 1.4}s`, ['--delay' as string]: `${-i * 0.9}s` }}>
-          {tags[i]}
-        </span>
-      ))}
     </div>
   );
 }
@@ -175,28 +157,45 @@ export function TriageHub({ modules, short, engine, outs }: { modules: string[];
   const my = [60, 170, 280, 390, 500];
   const oy = [150, 280, 410];
   const chip = { x: 610, y: 280 };
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { margin: '-10% 0px' });
+  const reduce = !!useReducedMotion() || perfTier === 'lite';
+  // One verdict lights at a time, as if the engine had just sorted a patient into it.
+  const [verdict, setVerdict] = useState(0);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const id = setInterval(() => setVerdict((v) => (v + 1) % 3), 2400);
+    return () => clearInterval(id);
+  }, [reduce, inView]);
+  const inPaths = my.map((y, i) => trace(300, y, 380 + i * 18, chip.y + (i - 2) * 22, chip.x - 80));
+  const outPaths = oy.map((y, i) => trace(chip.x + 80, chip.y + (i - 1) * 26, 760 - Math.abs(i - 1) * 18, y, 810));
   return (
     <>
-      <div className="relative hidden aspect-[1000/560] w-full lg:block">
+      <div ref={ref} className="relative hidden aspect-[1000/560] w-full lg:block">
         <svg viewBox="0 0 1000 560" className="absolute inset-0 size-full" aria-hidden>
-          {my.map((y, i) => {
-            const d = trace(300, y, 380 + i * 18, chip.y + (i - 2) * 22, chip.x - 80);
-            return (
-              <g key={i}>
-                <path d={d} fill="none" stroke="var(--lp-line)" strokeWidth="1.5" />
-                <path className="lp-flow" d={d} fill="none" stroke="var(--lp-accent)" strokeWidth="2" strokeLinecap="round" style={{ ['--dur' as string]: '2.6s', ['--delay' as string]: `${-i * 0.5}s` }} />
-              </g>
-            );
-          })}
-          {oy.map((y, i) => {
-            const d = trace(chip.x + 80, chip.y + (i - 1) * 26, 760 - Math.abs(i - 1) * 18, y, 810);
-            return (
-              <g key={i}>
-                <path d={d} fill="none" stroke="var(--lp-line)" strokeWidth="1.5" />
-                <path className="lp-flow" d={d} fill="none" stroke={OUT_DOT[i]} strokeWidth="2" strokeLinecap="round" style={{ ['--dur' as string]: '2.2s', ['--delay' as string]: `${-i * 0.6 - 1}s` }} />
-              </g>
-            );
-          })}
+          {inPaths.map((d, i) => (
+            <g key={i}>
+              <path d={d} fill="none" stroke="var(--lp-line)" strokeWidth="1.5" />
+              {reduce ? null : [0, 1].map((k) => (
+                // Data packets riding each trace into the engine.
+                <circle key={k} r="3" fill="var(--lp-accent)" opacity={inView ? 1 : 0}>
+                  <animateMotion dur="2.6s" repeatCount="indefinite" begin={`${-(i * 0.47 + k * 1.3)}s`} path={d} keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.45 0 0.55 1" />
+                </circle>
+              ))}
+            </g>
+          ))}
+          {outPaths.map((d, i) => (
+            <g key={i}>
+              <path d={d} fill="none" stroke="var(--lp-line)" strokeWidth="1.5" />
+              <motion.path d={d} fill="none" stroke={OUT_DOT[i]} strokeWidth="2" strokeLinecap="round" initial={false}
+                animate={{ pathLength: reduce || verdict === i ? 1 : 0, opacity: reduce || verdict === i ? 1 : 0 }} transition={{ duration: 0.7, ease }} />
+              {!reduce && verdict === i && (
+                <circle key={verdict} r="3.5" fill={OUT_DOT[i]}>
+                  <animateMotion dur="0.7s" fill="freeze" path={d} keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.3 0 0.2 1" />
+                </circle>
+              )}
+            </g>
+          ))}
           {/* Package pins */}
           {Array.from({ length: 7 }, (_, i) => (
             <g key={i} stroke="var(--text-3)" strokeOpacity="0.5" strokeWidth="1.5">
@@ -220,20 +219,31 @@ export function TriageHub({ modules, short, engine, outs }: { modules: string[];
         })}
         <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${(chip.x / 1000) * 100}%`, top: '50%', width: '16%', aspectRatio: '1' }}>
           <motion.div initial={{ scale: 0.92, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.7, ease, delay: 0.25 }}
-            className="lp-tile grid size-full place-items-center rounded-[22%] bg-[linear-gradient(160deg,#3a3a3c,#1d1d1f)] ring-1 ring-black/40">
-            <div className="text-center">
-              <Cpu size={28} strokeWidth={1.5} className="mx-auto opacity-80" aria-hidden />
-              <p className="mt-1.5 px-2 text-label leading-tight font-semibold">{engine}</p>
+            className="relative size-full rounded-[22%]">
+            <div className="relative size-full rounded-[22%] shadow-[0_1px_1px_rgb(0_0_0/0.2),0_30px_60px_-24px_rgb(0_0_0/0.55)]">
+              <div className="lp-tile relative grid size-full place-items-center rounded-[22%] bg-[linear-gradient(160deg,#3a3a3c,#1d1d1f)] ring-1 ring-black/40 ring-inset">
+                <div aria-hidden className="absolute inset-[14%] rounded-[18%] border border-white/10 bg-[repeating-linear-gradient(90deg,rgb(255_255_255/0.03)_0_1px,transparent_1px_8px)]" />
+                <div className="relative text-center">
+                  <Cpu size={28} strokeWidth={1.5} className="mx-auto opacity-90" aria-hidden />
+                  <p className="mt-1.5 px-2 text-label leading-tight font-semibold">{engine}</p>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
-        {outs.map((o, i) => (
-          <motion.div key={o} initial={{ opacity: 0, x: 16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.45 + i * 0.08, duration: 0.6, ease }}
-            className="lp-card absolute right-0 flex w-[19%] -translate-y-1/2 items-center gap-2.5 rounded-2xl px-4 py-3 text-label font-semibold" style={{ top: `${(oy[i]! / 560) * 100}%` }}>
-            <span className="size-2.5 shrink-0 rounded-full" style={{ background: OUT_DOT[i] }} />
-            {o}
-          </motion.div>
-        ))}
+        {outs.map((o, i) => {
+          const on = !reduce && verdict === i;
+          return (
+            <motion.div key={o} initial={{ opacity: 0, x: 16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.45 + i * 0.08, duration: 0.6, ease }}
+              className="absolute right-0 w-[19%] -translate-y-1/2" style={{ top: `${(oy[i]! / 560) * 100}%` }}>
+              <motion.div animate={{ scale: on ? 1.04 : 1, boxShadow: on ? `0 0 0 1.5px ${OUT_DOT[i]}` : '0 0 0 0px rgba(0,0,0,0)' }} transition={{ type: 'spring', stiffness: 260, damping: 22, delay: on ? 0.55 : 0 }}
+                className="lp-card flex items-center gap-2.5 rounded-2xl px-4 py-3 text-label font-semibold">
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: OUT_DOT[i] }} />
+                {o}
+              </motion.div>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Phones and tablets: the same flow, stacked. */}
@@ -352,10 +362,14 @@ function FoundationCard({ item, i, progress, reduce }: { item: { t: string; d: s
   const L = FOUND_LAYOUT[i]!;
   const rotate = useTransform(progress, [0, 1], reduce ? [0, 0] : [L.r * 1.6, L.r * 0.3]);
   const y = useTransform(progress, [0, 1], reduce ? [0, 0] : [70 + i * 12, 0]);
+  // Cards rise out of the table: tipped back at first, then upright and facing you.
+  const rotateX = useTransform(progress, [0, 1], reduce ? [0, 0] : [48, 0]);
+  const rotateY = useTransform(progress, [0, 1], reduce ? [0, 0] : [(i - 2) * -9, 0]);
+  const scale = useTransform(progress, [0, 1], reduce ? [1, 1] : [0.86, 1]);
   const Icon = FOUND_ICONS[i]!;
   const dark = i === 2;
   return (
-    <motion.div style={{ left: L.x, top: L.y, rotate, y }} whileHover={{ rotate: 0, y: -8, zIndex: 10 }} transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+    <motion.div style={{ left: L.x, top: L.y, rotate, y, rotateX, rotateY, scale, transformPerspective: 1100 }} whileHover={{ rotate: 0, y: -8, zIndex: 10 }} transition={{ type: 'spring', stiffness: 260, damping: 24 }}
       className={`absolute w-[17.5%] min-w-[200px] rounded-[28px] p-6 shadow-[0_1px_2px_rgb(0_0_0/0.05),0_16px_40px_-20px_rgb(0_0_0/0.2)] ${dark ? 'lp-tile' : 'lp-card'}`}>
       <span className={`grid size-12 place-items-center rounded-2xl ${dark ? 'bg-white/10' : 'bg-sunken'}`}><Icon size={22} aria-hidden /></span>
       <p className="mt-10 text-title-2 font-semibold">{item.t}</p>
@@ -389,12 +403,42 @@ const DISHES = [
   { cx: 300, cy: 318, r: 40, fill: '#fbfaf6', side: 'right' },
 ] as const;
 
-/** A thali seen from above: a scan line passes and each dish gets its name tag. */
+/** Corner brackets around a dish, like a camera locking focus. */
+function lockPath(cx: number, cy: number, r: number) {
+  const h = r + 12;
+  const k = Math.max(10, r * 0.32);
+  const x0 = cx - h, x1 = cx + h, y0 = cy - h, y1 = cy + h;
+  return `M${x0} ${y0 + k}V${y0}H${x0 + k} M${x1 - k} ${y0}H${x1}V${y0 + k} M${x1} ${y1 - k}V${y1}H${x1 - k} M${x0 + k} ${y1}H${x0}V${y1 - k}`;
+}
+const CONF = [97, 99, 94, 96, 91];
+
+/**
+ * A thali under the camera: the plate lies back and rises flat as you scroll, and focus brackets
+ * lock onto each dish in turn with the model's confidence.
+ */
 export function ThaliPlate({ dishes }: { dishes: string[] }) {
-  const reduce = useReducedMotion();
+  const reduce = !!useReducedMotion() || perfTier === 'lite';
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { margin: '-15% 0px' });
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'center center'] });
+  const rotateX = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [38, 0]);
+  const rotateZ = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [-14, 0]);
+  const [lock, setLock] = useState(-1);
+  useEffect(() => {
+    if (!inView) return;
+    if (reduce) { setLock(1); return; }
+    let i = lock;
+    const id = setInterval(() => { i = (i + 1) % DISHES.length; setLock(i); }, 1500);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inView, reduce]);
+  const D = lock >= 0 ? DISHES[lock]! : null;
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[460px]">
-      <svg viewBox="0 0 400 400" className="absolute inset-0 size-full" aria-hidden>
+    <div ref={ref} className="relative mx-auto w-full max-w-[460px] [perspective:1200px]">
+      <motion.div style={{ rotateX, rotateZ }} className="relative aspect-square w-full">
+        {/* Neutral drop shadow so the plate sits on the table. */}
+        <div aria-hidden className="absolute inset-[6%] translate-y-[5%] rounded-full bg-black/25 blur-2xl" />
+        <svg viewBox="0 0 400 400" className="absolute inset-0 size-full" aria-hidden>
         <defs>
           <radialGradient id="thali-steel" cx="40%" cy="35%" r="75%">
             <stop offset="0" stopColor="#f2f2f4" />
@@ -425,18 +469,37 @@ export function ThaliPlate({ dishes }: { dishes: string[] }) {
             </g>
           ))}
         </g>
-        <g clipPath="url(#thali-clip)">
-          <rect className="thali-scan" x="0" y="0" width="400" height="3" fill="var(--lp-accent)" opacity="0.8" style={{ transformBox: 'view-box' }} />
-        </g>
       </svg>
-      {DISHES.map((d, i) => (
-        <motion.span key={i} initial={reduce ? false : { opacity: 0, scale: 0.6, y: 6 }} whileInView={{ opacity: 1, scale: 1, y: 0 }} viewport={{ once: true }}
-          transition={{ type: 'spring', stiffness: 320, damping: 22, delay: 0.3 + i * 0.12 }}
-          className="lp-card absolute flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold whitespace-nowrap"
-          style={{ left: `${(d.cx / 400) * 100}%`, top: `${((d.cy - d.r * 0.2) / 400) * 100}%`, translate: d.side === 'left' ? '-85% -50%' : '-15% -50%' }}>
-          <span className="size-1.5 rounded-full bg-[var(--lp-accent)]" />{dishes[i]}
-        </motion.span>
-      ))}
+        <svg viewBox="0 0 400 400" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
+          <AnimatePresence>
+            {D && (
+              <motion.g key={lock} initial={reduce ? false : { opacity: 0, scale: 1.25 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+                transition={{ type: 'spring', stiffness: 300, damping: 24 }} style={{ transformOrigin: `${D.cx}px ${D.cy}px`, transformBox: 'view-box' }}>
+                <path d={lockPath(D.cx, D.cy, D.r)} fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={D.cx} cy={D.cy} r="2.5" fill="#fff" />
+              </motion.g>
+            )}
+          </AnimatePresence>
+        </svg>
+        {DISHES.map((d, i) => {
+          const on = lock === i;
+          return (
+            <motion.span key={i} initial={reduce ? false : { opacity: 0, scale: 0.6, y: 6 }} whileInView={{ opacity: 1, scale: 1, y: 0 }} viewport={{ once: true }}
+              transition={{ type: 'spring', stiffness: 320, damping: 22, delay: 0.3 + i * 0.12 }}
+              className={`absolute flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold whitespace-nowrap shadow-[0_6px_16px_-8px_rgb(0_0_0/0.4)] transition-colors duration-300 ${on ? 'bg-text text-bg' : 'lp-card'}`}
+              style={{ left: `${(d.cx / 400) * 100}%`, top: `${((d.cy - d.r * 0.2) / 400) * 100}%`, translate: d.side === 'left' ? '-85% -50%' : '-15% -50%' }}>
+              <span className={`size-1.5 rounded-full ${on ? 'bg-bg' : 'bg-[var(--lp-accent)]'}`} />{dishes[i]}
+              <AnimatePresence initial={false}>
+                {on && (
+                  <motion.span initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 0.6 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="mono overflow-hidden text-[10px]">
+                    {CONF[i]}%
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.span>
+          );
+        })}
+      </motion.div>
     </div>
   );
 }
