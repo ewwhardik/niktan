@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { useTranslation } from 'react-i18next';
 import { grabFrame, useCamera } from '../../cv/camera';
-import { faceGeometry, loadFaceLandmarker, ROI, sampleSkin } from '../../cv/face';
+import { faceGeometry, LandmarkSmoother, loadFaceLandmarker, ROI, sampleSkin } from '../../cv/face';
+import { estimateMulti, type MultiSample } from '../../cv/rppg2';
 import { estimate, type RgbSample } from '../../cv/rppg';
 import { haptic } from '../../lib/perf';
 import { useScan } from '../../state/scan';
@@ -36,6 +37,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
   const wave = useRef<number[]>([]);
   const samples = useRef<RgbSample[]>([]);
   const rejectedTimes = useRef<number[]>([]);
+  const multi = useRef<MultiSample[]>([]);
+  const smoother = useRef(new LandmarkSmoother());
   const mesh = useRef<HTMLCanvasElement>(null);
   const telemetry = useRef({ light: 0, quality: 0, fps: 0, frames: 0, since: 0, progress: 0 });
   const [hud, setHud] = useState({ light: 0, quality: 0, fps: 0 });
@@ -69,7 +72,9 @@ export default function FaceVitals({ next, guide }: StepProps) {
 
   const finish = useCallback(() => {
     cam.stop();
-    const reading = estimate(samples.current, { rejectedTimes: rejectedTimes.current });
+    // v2 (multi-region fusion) is primary; v1 on the averaged trace is the fallback.
+    const v2 = estimateMulti(multi.current);
+    const reading = v2.heartRate !== null ? v2 : estimate(samples.current, { rejectedTimes: rejectedTimes.current });
     setResult({
       hr: reading.heartRate === null ? null : Math.round(reading.heartRate),
       rr: reading.breathingRate === null ? null : Math.round(reading.breathingRate),
@@ -139,6 +144,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
     if (!video || signal.aborted) return;
     const canvas = document.createElement('canvas');
     samples.current = [];
+    multi.current = [];
+    smoother.current.reset();
     rejectedTimes.current = [];
     wave.current = [];
     setLiveHr(null);
@@ -219,7 +226,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
           else {
             grabFrame(video, 320, canvas);
             const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-            skin = sampleSkin(ctx.getImageData(0, 0, canvas.width, canvas.height), lm);
+            // Smoothed landmarks keep each region on the same skin pixels from frame to frame.
+            skin = sampleSkin(ctx.getImageData(0, 0, canvas.width, canvas.height), smoother.current.filter(lm, mediaTime));
             if (skin) telemetry.current.light = skin.brightness;
             if (!skin || skin.brightness > 220) guidance = 'lighting';
             else if (skin.brightness < 50) guidance = 'dark';
@@ -233,7 +241,10 @@ export default function FaceVitals({ next, guide }: StepProps) {
           }
         }
         if (mediaTime - initialMediaTime >= WARMUP_SECONDS) {
-          if (guidance === 'ok' && skin) samples.current.push({ t: mediaTime, r: skin.r, g: skin.g, b: skin.b });
+          if (guidance === 'ok' && skin) {
+            samples.current.push({ t: mediaTime, r: skin.r, g: skin.g, b: skin.b });
+            multi.current.push({ t: mediaTime, rois: skin.rois });
+          }
           else rejectedTimes.current.push(mediaTime);
         }
         setHint(guidance);
@@ -244,9 +255,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           wave.current = [];
         } else if (now - lastLive >= 1000) {
           lastLive = now;
-          const live = estimate(samples.current.filter(({ t }) => t >= mediaTime - 11), {
-            rejectedTimes: rejectedTimes.current.filter((t) => t >= mediaTime - 11),
-          });
+          const live = estimateMulti(multi.current.filter(({ t }) => t >= mediaTime - 11));
           wave.current = Array.from(live.pulse.slice(-150));
           telemetry.current.quality = live.quality;
           setLiveHr(live.heartRate === null ? null : Math.round(live.heartRate));
