@@ -48,7 +48,8 @@ export function PulseSphere({ className = '', bpm = 72 }: { className?: string; 
     };
     window.addEventListener('pointermove', onMove, { passive: true });
 
-    const css = getComputedStyle(document.documentElement);
+    // Read colours where the canvas lives so dark panels (.chamber) get light dots.
+    const css = getComputedStyle(canvas);
     const ink = () => css.getPropertyValue('--text').trim() || '#1d1d1f';
     const signal = () => css.getPropertyValue('--signal').trim() || '#0a84ff';
     const period = 60 / bpm;
