@@ -77,6 +77,14 @@
     "symptoms": "Press and hold the microphone while you describe how you feel, then release it. You can also type or select symptoms. Check the list before you continue."
   },
   "face": {
+    "frozen": "The camera image is frozen. Check the live preview or restart the scan.",
+    "forehead": "Forehead",
+    "leftCheek": "Left cheek",
+    "rightCheek": "Right cheek",
+    "slow": "Camera frame rate is low. Close other apps and try again.",
+    "tracked": "Tracking pulse from the highlighted skin.",
+    "collecting": "Collecting steady frames for a pulse estimate…",
+    "realign": "Amber regions show where tracking needs attention.",
     "title": "Heart rate from your face",
     "instruction": "Hold the phone at arm's length. Keep your face inside the circle and stay still.",
     "light": "Sit facing a window or light. Avoid light behind you.",

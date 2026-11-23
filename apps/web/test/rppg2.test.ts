@@ -142,7 +142,19 @@ describe('tracking', () => {
 });
 
 describe('face helpers', async () => {
-  const { isSkin, LandmarkSmoother } = await import('../src/cv/face');
+  const { isSkin, LandmarkSmoother, regionPixelsChanged } = await import('../src/cv/face');
+
+  it('ignores landmark jitter and background changes on a frozen portrait', () => {
+    const frame = () => ({ width: 8, height: 8, data: Uint8ClampedArray.from({ length: 256 }, (_, i) => i) }) as ImageData;
+    const before = frame();
+    const after = frame();
+    const landmarks = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }));
+    after.data[0] = 99;
+    expect(regionPixelsChanged(before, after, landmarks)).toBe(false);
+    expect(regionPixelsChanged(before, after, landmarks.map(p => ({ ...p, x: 0.6 })))).toBe(false);
+    after.data[(4 * 8 + 4) * 4 + 1] = 99;
+    expect(regionPixelsChanged(before, after, landmarks)).toBe(true);
+  });
 
   it('skin gate accepts typical skin tones and rejects hair, sky and foliage', () => {
     for (const [r, g, b] of [[224, 172, 140], [198, 134, 100], [141, 85, 60], [92, 58, 42]]) expect(isSkin(r!, g!, b!)).toBe(true);

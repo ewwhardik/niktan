@@ -26,7 +26,7 @@ export default defineConfig({
         // Scan steps must work on a flaky venue network once the app has loaded.
         globPatterns: ['**/*.{js,css,html,svg,woff2,json,mp3,wav}'],
         // The 3D viewer only appears on the health card; fetch it on demand instead of on first visit.
-        globIgnores: ['**/AnatomyViewer-*.js'],
+        globIgnores: ['**/AnatomyViewer-*.js', '**/vision_wasm_internal-*.js'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
@@ -34,6 +34,11 @@ export default defineConfig({
             urlPattern: ({ url }) => url.pathname.startsWith('/models/') || /AnatomyViewer-.*\.js$/.test(url.pathname),
             handler: 'CacheFirst',
             options: { cacheName: 'anatomy', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === self.location.origin && /\/vision_wasm_internal-[^/]+\.(wasm|js)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'face-runtime', expiration: { maxEntries: 4 } },
           },
           {
             urlPattern: /^https:\/\/(cdn\.jsdelivr\.net|storage\.googleapis\.com)\/.*/,

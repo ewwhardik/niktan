@@ -1,14 +1,15 @@
 import type { FaceLandmarker, NormalizedLandmark } from '@mediapipe/tasks-vision';
 
-export const MEDIAPIPE_VERSION = '1.2.3';
-const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
+import wasmLoaderPath from '@mediapipe/tasks-vision/vision_wasm_internal.js?url';
+import wasmBinaryPath from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?url';
+
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 /** Match the JS/WASM versions. Each camera session closes its own native model and GPU context. */
-export async function loadFaceLandmarker(signal: AbortSignal, { pose = false } = {}): Promise<FaceLandmarker> {
+export async function loadFaceLandmarker(signal: AbortSignal, { pose = false, preferCpu = false } = {}): Promise<FaceLandmarker> {
   signal.throwIfAborted();
-  const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
-  const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+  const { FaceLandmarker } = await import('@mediapipe/tasks-vision');
+  const fileset = { wasmLoaderPath, wasmBinaryPath };
   const create = (delegate: 'GPU' | 'CPU') =>
     FaceLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate },
@@ -20,10 +21,10 @@ export async function loadFaceLandmarker(signal: AbortSignal, { pose = false } =
   signal.throwIfAborted();
   let model: FaceLandmarker;
   try {
-    model = await create('GPU');
+    model = await create(preferCpu ? 'CPU' : 'GPU');
   } catch {
     signal.throwIfAborted();
-    model = await create('CPU');
+    model = await create(preferCpu ? 'GPU' : 'CPU');
   }
   if (signal.aborted) {
     model.close();
@@ -72,6 +73,25 @@ export function isSkin(r: number, g: number, b: number): boolean {
   const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
   const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
   return cr >= 133 && cr <= 173 && cb >= 77 && cb <= 127;
+}
+
+/** Compare the same sensor pixels across frames, independent of jitter in the landmark model. */
+export function regionPixelsChanged(previous: ImageData, current: ImageData, landmarks: Pt[]): boolean {
+  if (previous.width !== current.width || previous.height !== current.height) return true;
+  for (const polygon of Object.values(ROI)) {
+    const cx = polygon.reduce((sum, index) => sum + landmarks[index]!.x, 0) / polygon.length;
+    const cy = polygon.reduce((sum, index) => sum + landmarks[index]!.y, 0) / polygon.length;
+    for (const index of polygon) {
+      const point = landmarks[index]!;
+      const x = Math.max(0, Math.min(current.width - 1, Math.floor((cx + point.x) * 0.5 * current.width)));
+      const y = Math.max(0, Math.min(current.height - 1, Math.floor((cy + point.y) * 0.5 * current.height)));
+      const offset = (y * current.width + x) * 4;
+      for (let channel = 0; channel < 3; channel++) {
+        if (previous.data[offset + channel] !== current.data[offset + channel]) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Mean RGB of skin pixels inside the ROI polygons, read from a downscaled frame. */

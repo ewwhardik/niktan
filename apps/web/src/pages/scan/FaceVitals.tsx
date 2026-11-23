@@ -1,10 +1,10 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Camera, Hand, HeartPulse, RefreshCw, Sun, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { useTranslation } from 'react-i18next';
 import { grabFrame, useCamera } from '../../cv/camera';
-import { faceGeometry, LandmarkSmoother, loadFaceLandmarker, ROI, sampleSkin } from '../../cv/face';
+import { faceGeometry, LandmarkSmoother, loadFaceLandmarker, ROI, regionPixelsChanged, sampleSkin } from '../../cv/face';
 import { estimateMulti, type MultiSample } from '../../cv/rppg2';
 import { estimate, type RgbSample } from '../../cv/rppg';
 import { haptic } from '../../lib/perf';
@@ -21,16 +21,19 @@ import { CameraProblem } from './CameraProblem';
 
 const SCAN_SECONDS = 30;
 const WARMUP_SECONDS = 2;
+const ACQUISITION_SECONDS = 20;
+const FACE_OUTLINE = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
 
 type Phase = 'intro' | 'loading' | 'scanning' | 'result';
-type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving' | 'framing' | 'lighting';
+type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving' | 'framing' | 'lighting' | 'frozen';
 
 export default function FaceVitals({ next, guide }: StepProps) {
   const { t } = useTranslation();
   const { record, skip } = useScan();
   const cam = useCamera('user');
   const [phase, setPhase] = useState<Phase>('intro');
-  const [hint, setHint] = useState<Hint>('ok');
+  const [hint, setHint] = useState<Hint>('noFace');
+  const reduceMotion = useReducedMotion();
   const [progress, setProgress] = useState(0);
   const [liveHr, setLiveHr] = useState<number | null>(null);
   const [result, setResult] = useState<{ hr: number | null; rr: number | null; quality: number } | null>(null);
@@ -54,22 +57,6 @@ export default function FaceVitals({ next, guide }: StepProps) {
     return () => clearInterval(id);
   }, [phase]);
 
-  // Once a pulse is estimated, the phone taps at that rate. A single timer reads the latest rate from
-  // a ref, so the rhythm doesn't restart every time the estimate updates.
-  const beatRate = useRef<number | null>(null);
-  beatRate.current = phase === 'scanning' && hint === 'ok' ? liveHr : null;
-  useEffect(() => {
-    if (phase !== 'scanning') return;
-    let timer = 0;
-    const tick = () => {
-      const bpm = beatRate.current;
-      if (bpm) haptic(28);
-      timer = window.setTimeout(tick, bpm ? 60000 / bpm : 400);
-    };
-    tick();
-    return () => clearTimeout(timer);
-  }, [phase]);
-
   const finish = useCallback(() => {
     cam.stop();
     // v2 (multi-region fusion) is primary; v1 on the averaged trace is the fallback.
@@ -91,7 +78,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     const cw = c.clientWidth;
     const ch = c.clientHeight;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (c.width !== Math.round(cw * dpr)) {
+    if (c.width !== Math.round(cw * dpr) || c.height !== Math.round(ch * dpr)) {
       c.width = Math.round(cw * dpr);
       c.height = Math.round(ch * dpr);
     }
@@ -106,13 +93,27 @@ export default function FaceVitals({ next, guide }: StepProps) {
     const oy = (vh * scale - ch) / 2;
     const px = (p: NormalizedLandmark) => cw - (p.x * vw * scale - ox);
     const py = (p: NormalizedLandmark) => p.y * vh * scale - oy;
-    const signal = ok ? 'rgba(100,210,255,' : 'rgba(247,178,59,';
+    const signal = ok ? 'rgba(89,248,200,' : 'rgba(247,178,59,';
+    ctx.beginPath();
+    FACE_OUTLINE.forEach((index, i) => {
+      const point = lm[index]!;
+      if (i === 0) ctx.moveTo(px(point), py(point));
+      else ctx.lineTo(px(point), py(point));
+    });
+    ctx.closePath();
+    ctx.strokeStyle = `${signal}0.46)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.38)';
     for (let i = 0; i < lm.length; i += 2) {
       const p = lm[i]!;
       ctx.fillRect(px(p) - 0.7, py(p) - 0.7, 1.4, 1.4);
     }
-    for (const poly of Object.values(ROI)) {
+    for (const [name, poly] of Object.entries(ROI)) {
+      const xs = poly.map(i => px(lm[i]!));
+      const ys = poly.map(i => py(lm[i]!));
+      const top = Math.min(...ys);
+      const bottom = Math.max(...ys);
       ctx.beginPath();
       poly.forEach((idx, k) => {
         const p = lm[idx]!;
@@ -123,19 +124,37 @@ export default function FaceVitals({ next, guide }: StepProps) {
       ctx.fillStyle = `${signal}0.16)`;
       ctx.fill();
       ctx.strokeStyle = `${signal}0.85)`;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.6;
       ctx.stroke();
+      if (ok && !reduceMotion) {
+        // Clip the sweep to the measured polygon, so it follows the skin as the face moves.
+        ctx.save();
+        ctx.clip();
+        const y = top + (bottom - top) * ((video.currentTime % 1.8) / 1.8);
+        ctx.fillStyle = 'rgba(202,255,237,.75)';
+        ctx.fillRect(Math.min(...xs), y, Math.max(...xs) - Math.min(...xs), 2);
+        ctx.restore();
+      }
+      ctx.font = '600 11px system-ui';
+      const label = t('face.' + name);
+      const width = ctx.measureText(label).width + 12;
+      const x = Math.max(3, Math.min(cw - width - 3, (Math.min(...xs) + Math.max(...xs) - width) / 2));
+      const y = Math.max(4, Math.min(ch - 22, name === 'forehead' ? top - 21 : (top + bottom) / 2 - 9));
+      ctx.fillStyle = 'rgba(8,22,26,.86)';
+      ctx.fillRect(x, y, width, 18);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, x + 6, y + 13);
     }
-  }, []);
+  }, [reduceMotion, t]);
 
   const begin = useCallback(async () => {
     setPhase('loading');
-    setHint('ok');
+    setHint('noFace');
     const signal = await cam.start();
     if (!signal) return;
     let model;
     try {
-      model = await loadFaceLandmarker(signal, { pose: true });
+      model = await loadFaceLandmarker(signal, { pose: true, preferCpu: true });
     } catch {
       if (!signal.aborted) cam.fail('model');
       return;
@@ -154,8 +173,28 @@ export default function FaceVitals({ next, guide }: StepProps) {
     haptic(20);
 
     const start = performance.now();
-    const initialMediaTime = video.currentTime;
+    telemetry.current = { light: 0, quality: 0, fps: 0, frames: 0, since: start, progress: 0 };
+    let initialMediaTime: number | null = null;
+    let captureTimer: number | undefined;
+    let generation = 0;
+    let pending = false;
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(new URL('../../cv/livePulse.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = ({ data }) => {
+        pending = false;
+        if (signal.aborted || data.generation !== generation) return;
+        telemetry.current.quality = data.quality;
+        wave.current = data.wave;
+        setLiveHr(data.heartRate === null ? null : Math.round(data.heartRate));
+      };
+      worker.onerror = () => { worker?.terminate(); worker = null; };
+    } catch {
+      // Final estimation still runs after capture when workers are unavailable.
+    }
     let previousMediaTime = -1;
+    let previousImage: ImageData | null = null;
+    let lastChange = -Infinity;
     let brightnessHistory: { t: number; value: number }[] = [];
     let previousGeometry: ReturnType<typeof faceGeometry> | null = null;
     let lastLive = 0;
@@ -163,7 +202,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     let restarting = false;
     let frame = 0;
     const hasVideoCallback = typeof video.requestVideoFrameCallback === 'function';
-    const timeout = window.setTimeout(finish, SCAN_SECONDS * 1000);
+    const acquisitionTimer = window.setTimeout(finish, ACQUISITION_SECONDS * 1000);
     const watchdog = window.setInterval(() => {
       if (performance.now() - lastFrameAt < 1000) return;
       if (restarting) {
@@ -176,7 +215,9 @@ export default function FaceVitals({ next, guide }: StepProps) {
       }
     }, 1000);
     signal.addEventListener('abort', () => {
-      clearTimeout(timeout);
+      clearTimeout(acquisitionTimer);
+      clearTimeout(captureTimer);
+      worker?.terminate();
       clearInterval(watchdog);
       if (hasVideoCallback) video.cancelVideoFrameCallback(frame);
       else cancelAnimationFrame(frame);
@@ -197,9 +238,12 @@ export default function FaceVitals({ next, guide }: StepProps) {
       lastFrameAt = now;
       restarting = false;
       try {
-        const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = model.detectForVideo(video, now);
+        grabFrame(video, 320, canvas);
+        const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = model.detectForVideo(canvas, now);
         let guidance: Hint = 'ok';
+        let changed = false;
         let skin: ReturnType<typeof sampleSkin> = null;
+        let tracked = faces.length === 1 ? faces[0]! : null;
         const tm = telemetry.current;
         tm.frames++;
         if (now - tm.since >= 1000) {
@@ -210,6 +254,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
         if (faces.length !== 1) {
           guidance = faces.length ? 'manyFaces' : 'noFace';
           previousGeometry = null;
+          previousImage = null;
+          smoother.current.reset();
           brightnessHistory = [];
         } else {
           const lm = faces[0]!;
@@ -224,13 +270,18 @@ export default function FaceVitals({ next, guide }: StepProps) {
           if (eyeSpan < 60 / 640) guidance = 'framing';
           else if (moved || rotated) guidance = 'moving';
           else {
-            grabFrame(video, 320, canvas);
             const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
             // Smoothed landmarks keep each region on the same skin pixels from frame to frame.
-            skin = sampleSkin(ctx.getImageData(0, 0, canvas.width, canvas.height), smoother.current.filter(lm, mediaTime));
+            tracked = smoother.current.filter(lm, mediaTime);
+            const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            changed = previousImage !== null && regionPixelsChanged(previousImage, image, tracked);
+            if (!previousImage || changed) lastChange = mediaTime;
+            previousImage = image;
+            skin = sampleSkin(image, tracked);
             if (skin) telemetry.current.light = skin.brightness;
             if (!skin || skin.brightness > 220) guidance = 'lighting';
             else if (skin.brightness < 50) guidance = 'dark';
+            else if (!changed && mediaTime - lastChange > 0.75) guidance = 'frozen';
             else {
               brightnessHistory = brightnessHistory.filter(({ t }) => t >= mediaTime - 1);
               const recent = brightnessHistory.map(({ value }) => value).sort((a, b) => a - b);
@@ -240,25 +291,31 @@ export default function FaceVitals({ next, guide }: StepProps) {
             }
           }
         }
-        if (mediaTime - initialMediaTime >= WARMUP_SECONDS) {
-          if (guidance === 'ok' && skin) {
+        if (initialMediaTime === null && guidance === 'ok' && changed) {
+          initialMediaTime = mediaTime;
+          clearTimeout(acquisitionTimer);
+          captureTimer = window.setTimeout(finish, SCAN_SECONDS * 1000);
+        }
+        if (initialMediaTime !== null && mediaTime - initialMediaTime >= WARMUP_SECONDS) {
+          if (guidance === 'ok' && changed && skin) {
             samples.current.push({ t: mediaTime, r: skin.r, g: skin.g, b: skin.b });
             multi.current.push({ t: mediaTime, rois: skin.rois });
           }
           else rejectedTimes.current.push(mediaTime);
         }
         setHint(guidance);
-        telemetry.current.progress = Math.min(1, (now - start) / (SCAN_SECONDS * 1000));
-        drawMesh(video, faces.length === 1 ? faces[0]! : null, guidance === 'ok');
+        telemetry.current.progress = initialMediaTime === null ? 0 : Math.min(1, (mediaTime - initialMediaTime) / SCAN_SECONDS);
+        drawMesh(video, tracked, guidance === 'ok');
         if (guidance !== 'ok') {
+          generation++;
+          tm.quality = 0;
+          if (!skin) tm.light = 0;
           setLiveHr(null);
           wave.current = [];
-        } else if (now - lastLive >= 1000) {
+        } else if (worker && !pending && now - lastLive >= 1000 && multi.current.length >= 120) {
           lastLive = now;
-          const live = estimateMulti(multi.current.filter(({ t }) => t >= mediaTime - 11));
-          wave.current = Array.from(live.pulse.slice(-150));
-          telemetry.current.quality = live.quality;
-          setLiveHr(live.heartRate === null ? null : Math.round(live.heartRate));
+          pending = true;
+          worker.postMessage({ samples: multi.current.filter(({ t }) => t >= mediaTime - 11), generation });
         }
         schedule();
       } catch {
@@ -270,6 +327,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
 
   const hints: Record<Hint, { text: string; icon: typeof Sun }> = {
     ok: { text: t('face.scanning'), icon: HeartPulse },
+    frozen: { text: t('face.frozen'), icon: Camera },
     noFace: { text: t('face.noFace'), icon: Camera },
     manyFaces: { text: t('face.manyFaces'), icon: Users },
     dark: { text: t('face.tooDark'), icon: Sun },
@@ -298,7 +356,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           <p className="mono mt-5 text-[11px] tracking-[0.2em] text-white/45 uppercase">rPPG · POS · 30 s</p>
         </div>
       )}
-      <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden>
+      {(phase !== 'scanning' || hint === 'noFace' || hint === 'manyFaces' || hint === 'framing') && <svg className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden>
         <defs>
           <mask id="face-oval">
             <rect width="300" height="400" fill="white" />
@@ -307,13 +365,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
         </defs>
         <rect width="300" height="400" fill="rgb(0 0 0 / 0.5)" mask="url(#face-oval)" />
         <ellipse cx="150" cy="185" rx="98" ry="132" fill="none" stroke={phase === 'scanning' && hint !== 'ok' ? '#F7B23B' : 'white'} strokeOpacity={0.55} strokeWidth="1" strokeDasharray={phase === 'scanning' ? '0' : '3 6'} />
-      </svg>
-      {phase === 'scanning' && (
-        <div className="pointer-events-none absolute top-[13.25%] left-[17.33%] h-[66%] w-[65.34%] overflow-hidden rounded-[50%]">
-          <div className="scan-sweep h-[2px] w-full bg-gradient-to-r from-transparent via-[var(--signal)] to-transparent shadow-[0_0_18px_4px_rgba(100,210,255,0.45)]" />
-        </div>
-      )}
-      {phase !== 'intro' && <ScanRing state={phase === 'scanning' ? (hint === 'ok' ? 'locked' : 'issue') : 'searching'} bpm={liveHr} className="top-[13.25%] left-[17.33%] h-[66%] w-[65.34%]" />}
+      </svg>}
+      {phase === 'loading' && <ScanRing state="searching" className="top-[13.25%] left-[17.33%] h-[66%] w-[65.34%]" />}
       {phase === 'scanning' && (
         <>
           <div className="absolute inset-x-0 top-0 h-[3px] bg-white/10">
@@ -327,7 +380,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           <div className="absolute top-4 right-4">
             <Hud label="t-minus" value={`${String(remaining).padStart(2, '0')}s`} />
           </div>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-5 pt-16 pb-4 text-white">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/60 to-transparent px-5 pt-4 pb-3 text-white">
             <div className="flex items-end justify-between">
               <div className="flex items-baseline gap-2">
                 <AnimatePresence mode="popLayout">
@@ -344,7 +397,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
               )}
             </div>
             <div className="mt-2 drop-shadow-[0_0_10px_rgba(100,210,255,0.55)]">
-              <Waveform source={wave} color="#64D2FF" height={54} />
+              <Waveform source={wave} color="#64D2FF" height={40} />
             </div>
           </div>
         </>
@@ -370,7 +423,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
               </div>
             )}
             {phase === 'scanning' && (
-              <p className="text-body text-text-3">{liveHr && 'vibrate' in navigator ? t('face.feel') : t('face.scanning')}</p>
+              <p className="text-body text-text-3">{hint === 'ok' ? t(hud.fps > 0 && hud.fps < 12 ? 'face.slow' : liveHr ? 'face.tracked' : 'face.collecting') : (hint === 'noFace' || hint === 'manyFaces' ? t('face.instruction') : t('face.realign'))}</p>
             )}
           </motion.div>
         ) : (
