@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Delete, Ear, Headphones, Play, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SoundBars } from '../../ui/SoundBars';
 import { DinPlayer } from '../../audio/dinPlayer';
 import { haptic } from '../../lib/perf';
 import { DIN, dinResult, respond, startDin, type DinState } from '../../tests/din';
@@ -226,7 +227,10 @@ export default function HearingTest({ next, guide }: StepProps) {
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-border">
         <motion.div className="h-full origin-left bg-accent" animate={{ scaleX: din.index / DIN.triplets }} transition={spring.reveal} />
       </div>
-      <div className="mt-8 flex justify-center gap-3" aria-live="polite">
+      <div className="mt-6 h-20 rounded-2xl bg-white/[0.04] px-4 py-3">
+        <SoundBars analyser={player.current?.analyser} active={playing} className="h-full" />
+      </div>
+      <div className="mt-6 flex justify-center gap-3" aria-live="polite">
         {[0, 1, 2].map((i) => (
           <motion.div key={i} className={`tnum flex h-16 w-14 items-center justify-center rounded-md text-title-1 font-semibold ${typed[i] ? 'bg-accent-soft text-accent-soft-ink' : 'bg-sunken'}`} animate={{ scale: typed.length === i + 1 ? [1, 1.08, 1] : 1 }} transition={{ duration: 0.2 }}>
             {typed[i] ?? ''}

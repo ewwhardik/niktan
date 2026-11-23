@@ -69,7 +69,13 @@ export default function ScanStep() {
         <AnimatePresence mode="wait" custom={dir} initial={false}>
           <motion.div key={id} custom={dir} variants={screenVariants} initial="enter" animate="center" exit="exit" className="flex flex-1 flex-col">
             <Suspense fallback={<div className="flex-1" />}>
-              <Step next={next} guide={<VoiceGuide step={id} />} />
+              {id === 'face' || id === 'eye' ? (
+                <Step next={next} guide={<VoiceGuide step={id} />} />
+              ) : (
+                <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col lg:pt-6">
+                  <Step next={next} guide={<VoiceGuide step={id} />} />
+                </div>
+              )}
             </Suspense>
           </motion.div>
         </AnimatePresence>

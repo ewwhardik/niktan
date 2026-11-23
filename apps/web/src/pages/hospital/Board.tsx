@@ -98,7 +98,7 @@ export default function Board() {
   const load = useCallback(async () => {
     if (!staff) return;
     try {
-      const r = await api.get<{ columns: Record<string, Tile[]>; updatedAt: number }>(`/api/hospital/${staff.hid}/board`);
+      const r = await api.getFresh<{ columns: Record<string, Tile[]>; updatedAt: number }>(`/api/hospital/${staff.hid}/board`);
       setColumns(r.columns);
       setUpdated(r.updatedAt);
     } catch {

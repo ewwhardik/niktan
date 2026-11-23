@@ -10,6 +10,7 @@ import { haptic } from '../../lib/perf';
 import { useScan } from '../../state/scan';
 import { Button } from '../../ui/Button';
 import { ToggleChip } from '../../ui/Chip';
+import { VoiceOrb } from '../../ui/VoiceOrb';
 import { Dock } from '../../ui/Layout';
 import { Sheet } from '../../ui/Sheet';
 import { spring } from '../../ui/motion';
@@ -256,12 +257,8 @@ export default function SymptomsStep({ next, guide }: StepProps) {
       <h2 className="text-title-2 font-semibold">{t('symptoms.title')}</h2>
 
       <div className="mt-6 flex flex-col items-center">
-        <div className="relative flex size-32 items-center justify-center">
-          <AnimatePresence>
-            {listening && (
-              <motion.span className="absolute inset-0 rounded-full bg-accent/20" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1 + level * 0.5, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} />
-            )}
-          </AnimatePresence>
+        <div className="relative flex size-44 items-center justify-center">
+          <VoiceOrb level={level} active={listening} />
           <motion.button
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture?.(e.pointerId);

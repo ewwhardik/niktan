@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { BellRing, Clock, Hospital, LogOut, Ticket, Users } from 'lucide-react';
+import { BellRing, Clock, Hospital, LogOut, PhoneCall, Ticket, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate } from 'react-router-dom';
@@ -146,6 +146,15 @@ export default function Queue() {
           <meta.icon size={14} aria-hidden /> {t(`card.${token.priority}`)}
         </span>
       </motion.div>
+
+      {token.priority === 'emergency' && !done && (
+        <motion.a href="tel:108" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} role="alert" className="cta-emergency mt-5 flex flex-col items-center gap-1 rounded-xl bg-emergency p-5 text-center text-emergency-on shadow-3">
+          <span className="inline-flex items-center gap-2 text-title-3 font-semibold">
+            <PhoneCall size={22} aria-hidden /> {t('card.call108')}
+          </span>
+          <span className="text-body opacity-90">{t('card.emergencySub')}</span>
+        </motion.a>
+      )}
 
       <AnimatePresence mode="wait">
         {called ? (
