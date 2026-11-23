@@ -10,6 +10,10 @@ import { useScan } from '../../state/scan';
 import { Button, LinkButton } from '../../ui/Button';
 import { Dock } from '../../ui/Layout';
 import { spring } from '../../ui/motion';
+import { AstigmatismStep, ColourStep, ContrastStep, VisionSteps } from './VisionExtras';
+import type { ColourResult } from '../../tests/colorVision';
+import { REDUCED_BELOW } from '../../tests/contrast';
+import type { Vision } from '@niktan/core';
 import type { StepProps } from './ScanStep';
 
 
@@ -27,7 +31,7 @@ function TumblingE({ size, dir }: { size: number; dir: Direction }) {
   );
 }
 
-type Phase = 'calibrate' | 'right' | 'left' | 'result';
+type Phase = 'calibrate' | 'right' | 'left' | 'dial-right' | 'dial-left' | 'contrast' | 'colour' | 'result';
 
 export default function VisionTest({ next, guide }: StepProps) {
   const { t } = useTranslation();
@@ -40,6 +44,9 @@ export default function VisionTest({ next, guide }: StepProps) {
   const [phase, setPhase] = useState<Phase>('calibrate');
   const [stair, setStair] = useState<StaircaseState>(() => startStaircase());
   const [results, setResults] = useState<{ right: number | null; left: number | null }>({ right: null, left: null });
+  const [astig, setAstig] = useState<{ right: boolean | null; left: boolean | null } | null>(null);
+  const [contrast, setContrast] = useState<number | null>(null);
+  const [colour, setColour] = useState<ColourResult | null>(null);
   const pxPerMm = cardPx / CARD_SHORT_EDGE_MM;
   const optotype = screenOptotype(stair.logMar, distanceMm, pxPerMm, dpr);
   const skipStep = () => {
@@ -56,9 +63,15 @@ export default function VisionTest({ next, guide }: StepProps) {
       setStair(startStaircase());
       setPhase('left');
     } else {
-      setPhase('result');
-      record('vision', { distanceMm, rightLogMar: nextResults.right, leftLogMar: nextResults.left });
+      setPhase('dial-right');
     }
+  };
+
+  /** Saves acuity plus whichever extra checks were done; skipped ones stay null. */
+  const finish = (extras: Pick<Vision, 'astigmatism' | 'contrastLogCs' | 'colour'>) => {
+    record('vision', { distanceMm, rightLogMar: results.right, leftLogMar: results.left, ...extras });
+    haptic([20, 40, 20]);
+    setPhase('result');
   };
 
   const respond = (d: Direction | 'unsure') => {
@@ -95,6 +108,7 @@ export default function VisionTest({ next, guide }: StepProps) {
   };
 
   const refer = visionNeedsReferral({ distanceMm, rightLogMar: results.right, leftLogMar: results.left });
+  const extraFlag = !!(astig?.right || astig?.left || colour?.flag || (contrast !== null && contrast < REDUCED_BELOW));
 
   if (phase === 'calibrate') {
     return (
@@ -150,6 +164,32 @@ export default function VisionTest({ next, guide }: StepProps) {
     );
   }
 
+  if (phase === 'dial-right' || phase === 'dial-left' || phase === 'contrast' || phase === 'colour') {
+    const step = phase === 'contrast' ? 2 : phase === 'colour' ? 3 : 1;
+    return (
+      <div className="flex flex-1 flex-col gap-4 pt-6 pb-6">
+        <VisionSteps active={step} />
+        <AnimatePresence mode="wait">
+          {phase === 'dial-right' && (
+            <AstigmatismStep key="dr" eye="right" onSkip={() => { setAstig(null); setPhase('contrast'); }}
+              onAnswer={(v) => { setAstig({ right: v, left: null }); setPhase('dial-left'); }} />
+          )}
+          {phase === 'dial-left' && (
+            <AstigmatismStep key="dl" eye="left" onSkip={() => setPhase('contrast')}
+              onAnswer={(v) => { setAstig((a) => ({ right: a?.right ?? null, left: v })); setPhase('contrast'); }} />
+          )}
+          {phase === 'contrast' && (
+            <ContrastStep key="c" pxPerMm={pxPerMm} onSkip={() => setPhase('colour')} onDone={(v) => { setContrast(v); setPhase('colour'); }} />
+          )}
+          {phase === 'colour' && (
+            <ColourStep key="col" onSkip={() => finish({ astigmatism: astig, contrastLogCs: contrast, colour: null })}
+              onDone={(r) => { setColour(r); finish({ astigmatism: astig, contrastLogCs: contrast, colour: r }); }} />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   if (phase === 'result') {
     const row = (label: string, v: number | null) => (
       <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-4 shadow-1">
@@ -163,8 +203,18 @@ export default function VisionTest({ next, guide }: StepProps) {
           <h2 className="text-title-2 font-semibold">{t(distanceMm === 2000 ? 'vision.far' : 'vision.near')}</h2>
           {row(t('vision.right'), results.right)}
           {row(t('vision.left'), results.left)}
-          <p className={`mt-2 rounded-md px-4 py-3 text-body ${refer ? 'bg-seetoday-tint text-seetoday-ink' : 'bg-routine-tint text-routine-ink'}`}>
-            {refer ? (distanceMm === 400 ? t('vision.nearRefer') : t('card.refer')) : t('vision.pass')}
+          {[
+            { label: t('vision.stepDial'), value: !astig || (astig.right === null && astig.left === null) ? '—' : astig.right || astig.left ? t('vision.dialFlag') : t('vision.dialOk'), warn: !!(astig?.right || astig?.left) },
+            { label: t('vision.stepContrast'), value: contrast === null ? '—' : `${contrast.toFixed(2)} logCS · ${contrast < REDUCED_BELOW ? t('vision.contrastLow') : t('vision.contrastOk')}`, warn: contrast !== null && contrast < REDUCED_BELOW },
+            { label: t('vision.stepColour'), value: !colour ? '—' : colour.flag === null ? t('vision.colourVoid') : `${colour.correct}/${colour.total} · ${colour.flag ? t('vision.colourFlag') : t('vision.colourOk')}`, warn: !!colour?.flag },
+          ].map((r) => (
+            <div key={r.label} className="flex items-center justify-between gap-4 rounded-lg bg-surface px-4 py-3.5 shadow-1">
+              <span className="text-body-lg">{r.label}</span>
+              <span className={`text-right text-body font-medium ${r.warn ? 'text-seetoday-text' : 'text-text-2'}`}>{r.value}</span>
+            </div>
+          ))}
+          <p className={`mt-2 rounded-md px-4 py-3 text-body ${refer || extraFlag ? 'bg-seetoday-tint text-seetoday-ink' : 'bg-routine-tint text-routine-ink'}`}>
+            {refer ? (distanceMm === 400 ? t('vision.nearRefer') : t('card.refer')) : extraFlag ? t('vision.extraRefer') : t('vision.pass')}
           </p>
           <p className="text-caption text-text-3">{t('app.notDiagnosis')}</p>
         </motion.div>
@@ -183,7 +233,8 @@ export default function VisionTest({ next, guide }: StepProps) {
   ];
 
   return (
-    <div className="flex flex-1 flex-col pt-4">
+    <div className="flex flex-1 flex-col pt-6">
+      <div className="mb-3"><VisionSteps active={0} /></div>
       <AnimatePresence mode="wait">
         <motion.div key={phase} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="sticky top-0 z-10 flex items-center justify-center gap-2 rounded-md bg-accent-soft px-4 py-2.5 text-body-lg font-medium text-accent-soft-ink">
           <Glasses size={20} aria-hidden /> {phase === 'right' ? t('vision.coverLeft') : t('vision.coverRight')} · {distanceMm === 2000 ? '2 m' : '40 cm'}

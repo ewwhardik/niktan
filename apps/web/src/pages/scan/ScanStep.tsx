@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
-import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Check, SkipForward } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { SCREENING_STEPS, useScan, type ScreeningStep } from '../../state/scan';
@@ -10,6 +11,8 @@ import { screenVariants } from '../../ui/motion';
 import { VoiceGuide } from './VoiceGuide';
 
 const STEPS = SCREENING_STEPS.map(({ route }) => route);
+/** Typical minutes per step, for the "about N min left" hint. */
+const MINUTES = { face: 1, eye: 0.7, vision: 2, hearing: 3, symptoms: 1 } as const;
 
 const components = {
   face: lazy(() => import('./FaceVitals')),
@@ -28,11 +31,20 @@ export default function ScanStep() {
   const { step } = useParams<{ step: ScreeningStep }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { profile } = useScan();
+  const { profile, results } = useScan();
   const index = step === undefined ? -1 : STEPS.indexOf(step);
   const prev = useRef(index);
   const dir = index >= prev.current ? 1 : -1;
+  const [saved, setSaved] = useState<{ step: ScreeningStep; skipped: boolean } | null>(null);
   useEffect(() => {
+    // Moving forward: confirm what happened to the step just left.
+    if (index > prev.current && prev.current >= 0) {
+      const left = SCREENING_STEPS[prev.current]!;
+      setSaved({ step: left.route, skipped: results[left.module] === null || results[left.module] === undefined });
+      const id = window.setTimeout(() => setSaved(null), 2200);
+      prev.current = index;
+      return () => clearTimeout(id);
+    }
     prev.current = index;
   }, [index]);
 
@@ -65,6 +77,18 @@ export default function ScanStep() {
         <StepRail steps={STEPS} index={index} labels={STEPS.map((s) => t(`steps.${s}`))} />
         <LangToggle compact />
       </header>
+      <p className="mx-auto max-w-[1280px] px-5 text-caption text-text-3 lg:px-10 xl:hidden" aria-live="polite">
+        {t('scan.stepOf', { n: index + 1, total: STEPS.length, name: t(`steps.${id}`), min: Math.max(1, Math.round(STEPS.slice(index).reduce((m, s) => m + MINUTES[s], 0))) })}
+      </p>
+      <AnimatePresence>
+        {saved && (
+          <motion.div key={saved.step} role="status" initial={{ opacity: 0, y: -12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8 }} transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            className="fixed top-[max(64px,calc(env(safe-area-inset-top)+56px))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-label font-medium text-black shadow-3">
+            {saved.skipped ? <SkipForward size={15} aria-hidden /> : <Check size={15} className="text-[#34c759]" aria-hidden />}
+            {t(saved.skipped ? 'scan.skipped' : 'scan.saved', { name: t(`steps.${saved.step}`) })}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="mx-auto flex min-h-[calc(100dvh-64px)] w-full max-w-[1280px] flex-col px-5 lg:px-10">
         <AnimatePresence mode="wait" custom={dir} initial={false}>
           <motion.div key={id} custom={dir} variants={screenVariants} initial="enter" animate="center" exit="exit" className="flex flex-1 flex-col">

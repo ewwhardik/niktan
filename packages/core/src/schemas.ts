@@ -52,12 +52,29 @@ export const Vision = z.object({
   distanceMm: z.union([z.literal(400), z.literal(2000)]).optional(),
   leftLogMar: z.number().min(-0.3).max(1.3).nullable(),
   rightLogMar: z.number().min(-0.3).max(1.3).nullable(),
+  /** Pelli-Robson style log contrast sensitivity, both eyes open. */
+  contrastLogCs: z.number().min(0).max(2.5).nullable().optional(),
+  /** Red-green plate screen; flag is null when the control plate was missed. */
+  colour: z.object({ correct: z.number().int().min(0), total: z.number().int().min(1), controlCorrect: z.boolean(), flag: z.boolean().nullable() }).nullable().optional(),
+  /** "Some dial lines look darker or sharper", per eye. */
+  astigmatism: z.object({ right: z.boolean().nullable(), left: z.boolean().nullable() }).nullable().optional(),
 });
 export type Vision = z.infer<typeof Vision>;
+
+const EarTones = z.record(z.string(), z.number().min(-120).max(0).nullable());
 
 export const Hearing = z.object({
   srtDb: z.number().min(-30).max(30),
   result: z.enum(['pass', 'refer']),
+  /** Per-ear tone screen in dBFS (uncalibrated): only between-ear and across-frequency differences are used. */
+  tones: z.object({
+    right: EarTones,
+    left: EarTones,
+    falseAlarms: z.number().min(0).max(1),
+    reliable: z.boolean(),
+    asymmetry: z.boolean().nullable(),
+    highDrop: z.boolean().nullable(),
+  }).nullable().optional(),
 });
 export type Hearing = z.infer<typeof Hearing>;
 

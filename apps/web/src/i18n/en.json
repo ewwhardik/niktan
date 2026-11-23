@@ -103,7 +103,9 @@
     "breathing": "Breathing (experimental)",
     "lowQuality": "The reading was not clear. Try again in better light, or skip.",
     "feel": "Feel that? Your phone taps at your estimated heart rate.",
-    "stability": "Reading held steady within {{n}} bpm across the scan."
+    "stability": "Reading held steady within {{n}} bpm across the scan.",
+    "soundOn": "Heartbeat sound on",
+    "soundOff": "Silent scan"
   },
   "eye": {
     "title": "Eye check",
@@ -143,7 +145,28 @@
     "up": "Up",
     "down": "Down",
     "leftArrow": "Left",
-    "rightArrow": "Right"
+    "rightArrow": "Right",
+    "stepAcuity": "Sharpness",
+    "stepDial": "Dial",
+    "stepContrast": "Contrast",
+    "stepColour": "Colour",
+    "dialQuestion": "Look at the centre dot. Do all the lines look equally dark and sharp?",
+    "dialSame": "All the same",
+    "dialUneven": "Some look darker",
+    "skipTest": "Skip this check",
+    "contrastBanner": "Both eyes open · phone at arm's length (about 40 cm)",
+    "colourBanner": "Both eyes open · plate {{n}} of {{total}}",
+    "colourQuestion": "Which number do you see?",
+    "noNumber": "I can't see a number",
+    "dialFlag": "Uneven lines",
+    "dialOk": "Even",
+    "contrastLow": "reduced",
+    "contrastOk": "normal",
+    "colourVoid": "Inconclusive (first plate missed)",
+    "colourFlag": "possible red-green difference",
+    "colourOk": "no difference seen",
+    "extraRefer": "Some results suggest an eye test. This is a screening hint, not a diagnosis.",
+    "notSure": "Not sure"
   },
   "hearing": {
     "title": "Hearing test",
@@ -164,7 +187,23 @@
     "start": "Start hearing test",
     "unable": "I couldn’t hear all three digits",
     "delete": "Delete last digit",
-    "confirmEars": "I heard each tone in the matching ear"
+    "confirmEars": "I heard each tone in the matching ear",
+    "toneOffer": "One more: a tone check for each ear",
+    "toneOfferBody": "About two minutes. Beeps play in one ear at a time and get quieter. Keep your earphones on and the volume where it is.",
+    "toneStart": "Start tone check",
+    "toneSkip": "Skip the tone check",
+    "toneRight": "Right ear",
+    "toneLeft": "Left ear",
+    "toneOf": "test {{n}} of {{total}}",
+    "toneIntro": "Tap the big button every time you hear a beep, even a very faint one.",
+    "toneListen": "Listening… tap when you hear the beep",
+    "heardIt": "I heard it",
+    "toneResult": "Tone check",
+    "toneOk": "Both ears heard the tones about equally.",
+    "toneAsym": "Your two ears heard the tones differently. A proper hearing test is worth arranging.",
+    "toneDrop": "High-pitched tones were harder to hear. A proper hearing test is worth arranging.",
+    "toneUnreliable": "Some taps came when no beep played, so this check can't be read. You can repeat the scan later.",
+    "toneNote": "Phone volume isn't calibrated, so only the difference between ears and between pitches is used. Experimental; not a diagnosis."
   },
   "symptoms": {
     "title": "What is troubling you?",
@@ -644,5 +683,10 @@
     "tooMany": "Too many prescriptions read from this network. Try again in an hour.",
     "another": "Read another prescription",
     "disclaimer": "Reading handwriting can go wrong. Never change a dose or stop a medicine because of this page; follow your doctor and pharmacist. Medicine information comes from public US databases (NLM RxNorm, openFDA) and may differ from Indian labels. The photo is sent to an AI service to read it and is not stored."
+  },
+  "scan": {
+    "stepOf": "Step {{n}} of {{total}} · {{name}} · about {{min}} min left",
+    "saved": "{{name}} saved",
+    "skipped": "{{name}} skipped"
   }
 }

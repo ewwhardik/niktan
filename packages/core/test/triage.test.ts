@@ -320,3 +320,30 @@ describe('acuity', () => {
     expect(worse.acuity).toBeGreaterThan(mild.acuity);
   });
 });
+
+describe('vision extras', () => {
+  const vision = (extra: Record<string, unknown>) => ({ distanceMm: 2000, leftLogMar: 0, rightLogMar: 0, ...extra }) as never;
+
+  it('adds routine eye-doctor reasons for low contrast, red-green flags and astigmatism', () => {
+    const r = triage({ ...adult, vision: vision({ contrastLogCs: 1.2, colour: { correct: 2, total: 5, controlCorrect: true, flag: true }, astigmatism: { right: true, left: false } }) });
+    expect(r.priority).toBe('routine');
+    expect(r.reasons.map((x) => x.code)).toEqual(expect.arrayContaining(['contrast_low', 'colour_red_green', 'astigmatism_flag']));
+    expect(r.department).toBe('ophthalmology');
+  });
+
+  it('stays quiet for normal results and for a voided colour screen', () => {
+    const r = triage({ ...adult, vision: vision({ contrastLogCs: 1.65, colour: { correct: 1, total: 5, controlCorrect: false, flag: null }, astigmatism: { right: false, left: false } }) });
+    expect(r.reasons).toEqual([]);
+  });
+});
+
+describe('hearing tones', () => {
+  it('turns an ear difference into a routine ENT reason, and ignores unreliable tone screens', () => {
+    const tones = (asymmetry: boolean | null) => ({ right: {}, left: {}, falseAlarms: 0, reliable: asymmetry !== null, asymmetry, highDrop: false });
+    const r = triage({ ...adult, hearing: { srtDb: -12, result: 'pass', tones: tones(true) } });
+    expect(r.priority).toBe('routine');
+    expect(r.reasons.map((x) => x.code)).toContain('hearing_asymmetry');
+    expect(r.department).toBe('ent');
+    expect(triage({ ...adult, hearing: { srtDb: -12, result: 'pass', tones: tones(null) } }).reasons).toEqual([]);
+  });
+});

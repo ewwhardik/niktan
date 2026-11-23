@@ -4,12 +4,13 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
-import { departments, symptoms as VOCAB, visionNeedsReferral, type DepartmentId, type EyeFlags, type Hearing, type Priority, type Symptoms, type TriageResult, type Vision, type Vitals } from '@niktan/core';
+import { departments, symptoms as VOCAB, visionExtraReasons, visionNeedsReferral, type DepartmentId, type EyeFlags, type Hearing, type Priority, type Symptoms, type TriageResult, type Vision, type Vitals } from '@niktan/core';
 import { pickLang } from '../i18n';
 import { api } from '../lib/api';
 import { haptic, perfTier } from '../lib/perf';
 import { useScan } from '../state/scan';
 import { snellen6 } from '../tests/vision';
+import { visionExtrasLine } from '../tests/visionSummary';
 import { Button } from '../ui/Button';
 import { PRIORITY_META, StatusChip, type RowStatus } from '../ui/Chip';
 import { Disclaimer, Screen, TopBar } from '../ui/Layout';
@@ -192,7 +193,7 @@ export default function HealthCard() {
 
   const hrOk = view.vitals && view.vitals.quality >= 0.5;
   const hr = hrOk ? view.vitals?.heartRate : null;
-  const visionRefer = view.vision ? visionNeedsReferral(view.vision) : null;
+  const visionRefer = view.vision ? visionNeedsReferral(view.vision) || visionExtraReasons(view.vision).length > 0 : null;
   const vocab = new Map(VOCAB.map((s) => [s.code, s]));
 
   async function openShare() {
@@ -216,7 +217,7 @@ export default function HealthCard() {
   const eyeTone: CalloutTone = [v.eye?.pallor, v.eye?.jaundice, v.eye?.cataract].every(flag => flag == null) ? 'none' : eyeFlagged ? 'check' : 'normal';
   const hrTone: CalloutTone = !hr ? 'none' : tr.priority === 'emergency' && tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'alert' : tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'check' : 'normal';
   const visionTone: CalloutTone = visionRefer === null ? 'none' : visionRefer ? 'check' : 'normal';
-  const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' ? 'check' : 'normal';
+  const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' || v.hearing.tones?.asymmetry || v.hearing.tones?.highDrop ? 'check' : 'normal';
   const visionValue = v.vision ? `${v.vision.rightLogMar !== null ? snellen6(v.vision.rightLogMar) : '—'} · ${v.vision.leftLogMar !== null ? snellen6(v.vision.leftLogMar) : '—'}` : undefined;
   const bodyCallouts: Callout[] = [
     { id: 'eye', label: t('card.eyeFlags'), tone: eyeTone, at: anchors.body.eyes, side: 'left', dy: -22 },
@@ -227,8 +228,8 @@ export default function HealthCard() {
   const observation = bodyCallouts.find(item => item.id === selectedObservation)!;
   const observationDetails: Record<string, string> = {
     heart: hr ? `${Math.round(hr)} bpm · ${t('face.quality')} ${Math.round(100 * (v.vitals?.quality ?? 0))}%` : t('common.notChecked'),
-    ear: v.hearing ? `${v.hearing.srtDb} dB SNR · ${t('hearing.' + v.hearing.result)} · ${t('hearing.experimental')}` : t('common.notChecked'),
-    vision: v.vision ? `${t(v.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · ${t('vision.right')} ${v.vision.rightLogMar == null ? '—' : snellen6(v.vision.rightLogMar)} · ${t('vision.left')} ${v.vision.leftLogMar == null ? '—' : snellen6(v.vision.leftLogMar)}` : t('common.notChecked'),
+    ear: v.hearing ? [`${v.hearing.srtDb} dB SNR · ${t('hearing.' + v.hearing.result)}`, v.hearing.tones ? (!v.hearing.tones.reliable ? t('hearing.toneUnreliable') : v.hearing.tones.asymmetry ? t('hearing.toneAsym') : v.hearing.tones.highDrop ? t('hearing.toneDrop') : t('hearing.toneOk')) : '', t('hearing.experimental')].filter(Boolean).join(' · ') : t('common.notChecked'),
+    vision: v.vision ? [`${t(v.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · ${t('vision.right')} ${v.vision.rightLogMar == null ? '—' : snellen6(v.vision.rightLogMar)} · ${t('vision.left')} ${v.vision.leftLogMar == null ? '—' : snellen6(v.vision.leftLogMar)}`, visionExtrasLine(v.vision, t)].filter(Boolean).join(' · ') : t('common.notChecked'),
     eye: [ ['card.pallor', v.eye?.pallor], ['card.jaundice', v.eye?.jaundice], ['card.cataract', v.eye?.cataract] ].map(([label, flag]) => `${t(String(label))} · ${flagRow(flag as boolean | null | undefined).label}`).join(' / '),
   };
   const heartCallouts: Callout[] = [

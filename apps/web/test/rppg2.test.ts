@@ -188,8 +188,8 @@ describe('rPPG v2 fusion', () => {
     expect(Math.abs(r.heartRate! - 88)).toBeLessThan(3);
   });
 
-  it('gives low quality on pure noise', () => {
-    const rand = rng(77);
+  it.each([77, 78, 79, 80, 81, 82])('gives no reading on pure noise (seed %i)', (seed) => {
+    const rand = rng(seed);
     const s: MultiSample[] = Array.from({ length: 900 }, (_, i) => ({
       t: i / 30,
       rois: Object.fromEntries((['forehead', 'leftCheek', 'rightCheek'] as RoiName[]).map((k) => [k, { r: 150 + 2 * rand(), g: 110 + 2 * rand(), b: 90 + 2 * rand(), n: 100 }])),

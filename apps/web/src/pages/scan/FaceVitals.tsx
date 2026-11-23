@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from 'motion/react';
-import { Camera, Hand, HeartPulse, RefreshCw, Sun, Users } from 'lucide-react';
+import { Camera, Hand, HeartPulse, RefreshCw, Sun, Users, Volume2, VolumeX } from 'lucide-react';
+import { load, save } from '../../lib/storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,8 @@ import type { StepProps } from './ScanStep';
 import { CameraProblem } from './CameraProblem';
 
 const SCAN_SECONDS = 30;
+/** `?debug` in the address records the whole pipeline and downloads it as JSON when the scan ends. */
+const DEBUG = (() => { try { return sessionStorage.getItem('niktan.debug') === '1'; } catch { return false; } })();
 const WARMUP_SECONDS = 2;
 const ACQUISITION_SECONDS = 20;
 const FACE_OUTLINE = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
@@ -43,6 +46,37 @@ export default function FaceVitals({ next, guide }: StepProps) {
   const heart = useRef<SVGSVGElement>(null);
   const rings = useRef<(HTMLSpanElement | null)[]>([]);
   const lastBeatAt = useRef(-Infinity);
+  // Two ways to scan: silent, or with a soft thump on each detected beat. The measurement is the same.
+  const [sound, setSound] = useState(() => load<boolean>('niktan.scanSound', false));
+  const audio = useRef<AudioContext | null>(null);
+  const thump = () => {
+    const ctx = audio.current;
+    if (!ctx || !sound) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const t0 = ctx.currentTime;
+    osc.frequency.setValueAtTime(70, t0);
+    osc.frequency.exponentialRampToValueAtTime(42, t0 + 0.14);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.5, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.18);
+  };
+  const toggleSound = () => {
+    const next = !sound;
+    setSound(next);
+    save('niktan.scanSound', next);
+    if (next && !audio.current) {
+      try {
+        audio.current = new AudioContext();
+      } catch {
+        // No WebAudio: the scan simply stays silent.
+      }
+    }
+  };
+  useEffect(() => () => void audio.current?.close(), []);
   const samples = useRef<RgbSample[]>([]);
   const rejectedTimes = useRef<number[]>([]);
   const multi = useRef<MultiSample[]>([]);
@@ -50,6 +84,8 @@ export default function FaceVitals({ next, guide }: StepProps) {
   const mesh = useRef<HTMLCanvasElement>(null);
   const telemetry = useRef({ light: 0, quality: 0, fps: 0, frames: 0, since: 0, progress: 0 });
   const [hud, setHud] = useState({ light: 0, quality: 0, fps: 0 });
+  const diag = useRef({ frames: 0, gates: {} as Record<string, number>, live: [] as unknown[], video: '', brightness: [] as number[], started: 0 });
+  const [diagView, setDiagView] = useState('');
 
   // Instrument read-outs refresh at 4 Hz; the camera loop itself never re-renders React.
   useEffect(() => {
@@ -58,6 +94,10 @@ export default function FaceVitals({ next, guide }: StepProps) {
       const tm = telemetry.current;
       setHud({ light: tm.light, quality: tm.quality, fps: tm.fps });
       setProgress(tm.progress);
+      if (DEBUG) {
+        const d = diag.current;
+        setDiagView(`${d.video} · ${tm.fps} fps · frames ${d.frames} · kept ${multi.current.length} · rejected ${rejectedTimes.current.length}\n${Object.entries(d.gates).map(([k, v]) => `${k}:${v}`).join(' ')}`);
+      }
     }, 250);
     return () => clearInterval(id);
   }, [phase]);
@@ -68,6 +108,24 @@ export default function FaceVitals({ next, guide }: StepProps) {
     const v2 = estimateMulti(multi.current, { rejectedTimes: rejectedTimes.current });
     const reading = v2.heartRate !== null ? v2 : estimate(samples.current, { rejectedTimes: rejectedTimes.current });
     const track = reading === v2 ? v2.track : [];
+    if (DEBUG) {
+      const d = diag.current;
+      const round = (v: number) => Math.round(v * 1000) / 1000;
+      const report = {
+        ua: navigator.userAgent, video: d.video, seconds: round((performance.now() - d.started) / 1000), framesProcessed: d.frames, gates: d.gates,
+        kept: multi.current.length, rejected: rejectedTimes.current.length,
+        roiPresence: Object.fromEntries(['forehead', 'leftCheek', 'rightCheek'].map((k) => [k, multi.current.filter((m) => (m.rois as Record<string, unknown>)[k]).length])),
+        v2: { hr: v2.heartRate, quality: round(v2.quality), snrDb: round(v2.snrDb), track: v2.track.map(round) },
+        v1: (() => { const r = estimate(samples.current, { rejectedTimes: rejectedTimes.current }); return { hr: r.heartRate, quality: round(r.quality), snrDb: round(r.snrDb) }; })(),
+        live: d.live, brightness: d.brightness.slice(-400),
+        samples: multi.current.map((m) => ({ t: round(m.t), rois: Object.fromEntries(Object.entries(m.rois).map(([k, v]) => [k, v && [round(v.r), round(v.g), round(v.b), v.n]])) })),
+        rejectedTimes: rejectedTimes.current.map(round),
+      };
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(report)], { type: 'application/json' }));
+      a.download = `niktan-scan-debug-${Date.now()}.json`;
+      a.click();
+    }
     setResult({
       spread: track.length >= 3 ? Math.round(Math.max(...track) - Math.min(...track)) : null,
       hr: reading.heartRate === null ? null : Math.round(reading.heartRate),
@@ -160,6 +218,15 @@ export default function FaceVitals({ next, guide }: StepProps) {
   }, [reduceMotion, t]);
 
   const begin = useCallback(async () => {
+    // The start tap is the user gesture browsers require before any sound can play.
+    if (sound && !audio.current) {
+      try {
+        audio.current = new AudioContext();
+      } catch {
+        // Silent scan.
+      }
+    }
+    void audio.current?.resume();
     setPhase('loading');
     setHint('noFace');
     const signal = await cam.start();
@@ -174,6 +241,9 @@ export default function FaceVitals({ next, guide }: StepProps) {
     const video = cam.videoRef.current;
     if (!video || signal.aborted) return;
     const canvas = document.createElement('canvas');
+    // Landmarks run on a small frame (fast); skin colour is averaged on the full frame, which has
+    // four times the pixels and so about half the sensor noise that otherwise buries the pulse.
+    const skinCanvas = document.createElement('canvas');
     // The first inference builds the graph and can block for seconds on a phone; do it before any
     // timer starts so it is never mistaken for a stalled camera.
     try {
@@ -196,6 +266,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     haptic(20);
 
     const start = performance.now();
+    diag.current = { frames: 0, gates: {}, live: [], video: `${video.videoWidth}x${video.videoHeight}`, brightness: [], started: start };
     telemetry.current = { light: 0, quality: 0, fps: 0, frames: 0, since: start, progress: 0 };
     let initialMediaTime: number | null = null;
     let captureTimer: number | undefined;
@@ -209,6 +280,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
         if (signal.aborted || data.generation !== generation) return;
         telemetry.current.quality = data.quality;
         const smoothed = data.heartRate === null ? null : rate.current.update(data.heartRate, data.quality);
+        if (DEBUG) diag.current.live.push({ t: Math.round(performance.now() - diag.current.started), hr: data.heartRate, q: Math.round(data.quality * 100) / 100, beats: data.beats.length });
         feed.current = { ...feed.current, wave: data.wave, waveEnd: data.waveEnd, beats: data.beats, bpm: smoothed };
         setLiveHr(smoothed === null ? null : Math.round(smoothed));
       };
@@ -225,6 +297,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     let lastOverlay = -Infinity;
     let previousGuidance: Hint = 'noFace';
     let lastProgressAt = start;
+    let lastNewFrameAt = start;
     let lastVideoTime = video.currentTime;
     let restarting = false;
     let frame = 0;
@@ -234,7 +307,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
     // a slow phone can take longer than a frame to analyse while the camera is perfectly healthy.
     const watchdog = window.setInterval(() => {
       const nowMs = performance.now();
-      if (video.currentTime !== lastVideoTime) {
+      if (video.currentTime !== lastVideoTime || nowMs - lastNewFrameAt < 1500) {
         lastVideoTime = video.currentTime;
         lastProgressAt = nowMs;
         restarting = false;
@@ -257,22 +330,38 @@ export default function FaceVitals({ next, guide }: StepProps) {
       else cancelAnimationFrame(frame);
     }, { once: true });
 
+    // Firefox reports a media time that never advances for live camera streams, so frames are
+    // timed with the presentation clock and recognised as new by the browser's frame counter
+    // (or, without frame callbacks, by a changed currentTime or at most ~30 per second).
+    let lastFrameId = -1;
+    // The landmark model is the slow part (about 8 frames/s in Firefox). Skin colour is sampled on
+    // every camera frame with the latest smoothed landmarks, which barely move while the person
+    // holds still; the model itself runs about ten times a second.
+    let detection: ReturnType<typeof model.detectForVideo> | null = null;
+    let lastDetectAt = -Infinity;
     const schedule = () => {
       frame = hasVideoCallback
-        ? video.requestVideoFrameCallback((now, meta) => tick(now, meta.mediaTime))
-        : requestAnimationFrame((now) => tick(now, video.currentTime));
+        ? video.requestVideoFrameCallback((now, meta) => tick(now, meta.presentedFrames))
+        : requestAnimationFrame((now) => tick(now, video.currentTime > 0 ? video.currentTime : Math.floor(now / 33)));
     };
-    const tick = (now: number, mediaTime: number) => {
+    const tick = (now: number, frameId: number) => {
       if (signal.aborted) return;
-      if (video.readyState < 2 || mediaTime <= previousMediaTime) {
+      const mediaTime = now / 1000;
+      if (video.readyState < 2 || frameId === lastFrameId || mediaTime <= previousMediaTime) {
         schedule();
         return;
       }
+      lastFrameId = frameId;
+      lastNewFrameAt = now;
       previousMediaTime = mediaTime;
       feed.current.clockOffset = now / 1000 - mediaTime;
       try {
-        grabFrame(video, 320, canvas);
-        const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = model.detectForVideo(canvas, now);
+        if (!detection || detection.faceLandmarks.length !== 1 || now - lastDetectAt >= 100) {
+          grabFrame(video, 320, canvas);
+          detection = model.detectForVideo(canvas, now);
+          lastDetectAt = now;
+        }
+        const { faceLandmarks: faces, facialTransformationMatrixes: matrices } = detection;
         let guidance: Hint = 'ok';
         let changed = false;
         let skin: ReturnType<typeof sampleSkin> = null;
@@ -303,10 +392,11 @@ export default function FaceVitals({ next, guide }: StepProps) {
           if (eyeSpan < 60 / 640) guidance = 'framing';
           else if (moved || rotated) guidance = 'moving';
           else {
-            const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+            grabFrame(video, 640, skinCanvas);
+            const ctx = skinCanvas.getContext('2d', { willReadFrequently: true })!;
             // Smoothed landmarks keep each region on the same skin pixels from frame to frame.
             tracked = smoother.current.filter(lm, mediaTime);
-            const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const image = ctx.getImageData(0, 0, skinCanvas.width, skinCanvas.height);
             changed = previousImage !== null && regionPixelsChanged(previousImage, image, tracked);
             if (!previousImage || changed) lastChange = mediaTime;
             previousImage = image;
@@ -337,6 +427,13 @@ export default function FaceVitals({ next, guide }: StepProps) {
           else rejectedTimes.current.push(mediaTime);
         }
         telemetry.current.progress = initialMediaTime === null ? 0 : Math.min(1, (mediaTime - initialMediaTime) / SCAN_SECONDS);
+        if (DEBUG) {
+          const d = diag.current;
+          d.frames++;
+          const key = guidance === 'ok' && !changed ? 'ok-unchanged' : guidance;
+          d.gates[key] = (d.gates[key] ?? 0) + 1;
+          if (skin) d.brightness.push(Math.round(skin.brightness));
+        }
         const guidanceChanged = guidance !== previousGuidance;
         if (guidanceChanged) {
           setHint(guidance);
@@ -370,7 +467,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
       }
     };
     schedule();
-  }, [cam.start, cam.fail, cam.videoRef, finish, drawMesh]);
+  }, [cam.start, cam.fail, cam.videoRef, finish, drawMesh, sound]);
 
   const hints: Record<Hint, { text: string; icon: typeof Sun }> = {
     ok: { text: t('face.scanning'), icon: HeartPulse },
@@ -430,6 +527,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           <div className="absolute top-4 right-4">
             <Hud label="t-minus" value={`${String(remaining).padStart(2, '0')}s`} />
           </div>
+          {DEBUG && <pre className="absolute inset-x-3 top-36 z-10 rounded-lg bg-black/75 p-2 text-[10px] leading-snug whitespace-pre-wrap text-[#7CFC9A]">{diagView}</pre>}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent px-5 pt-12 pb-4 text-white">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
@@ -453,6 +551,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
             <div className="mt-2">
               <PulseMonitor feed={feed} height={56} onBeat={(period) => {
                 lastBeatAt.current = performance.now();
+                thump();
                 lubDub(heart.current, period);
                 ripple(rings.current[0] ?? null, period);
                 window.setTimeout(() => ripple(rings.current[1] ?? null, period), 140);
@@ -471,6 +570,13 @@ export default function FaceVitals({ next, guide }: StepProps) {
           <motion.div key="panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.reveal} className="flex flex-col gap-5">
             <StepTitle eyebrow="01 / 05 · rPPG" title={t('face.title')} body={phase === 'scanning' ? null : <><p>{t('face.instruction')}</p><p className="mt-2 text-body text-text-3">{t('face.light')}</p></>} />
             {phase === 'intro' && guide}
+            {(
+              <button type="button" onClick={toggleSound} aria-pressed={sound}
+                className="inline-flex min-h-11 items-center gap-2 self-start rounded-full bg-white/[0.06] px-4 text-label text-text-2 ring-1 ring-white/10">
+                {sound ? <Volume2 size={16} aria-hidden /> : <VolumeX size={16} aria-hidden />}
+                {t(sound ? 'face.soundOn' : 'face.soundOff')}
+              </button>
+            )}
             {phase === 'scanning' && (
               <div aria-live="polite" className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 text-body-lg ${hint === 'ok' ? 'bg-white/[0.06] text-text' : 'bg-seetoday-tint text-seetoday-ink'}`}>
                 <motion.span key={hint} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring.chip}>

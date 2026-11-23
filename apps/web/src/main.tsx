@@ -20,6 +20,12 @@ document.documentElement.dataset.perf = perfTier;
 document.documentElement.lang = i18n.language === 'en' ? 'en' : 'hi';
 trackKeyboardInset();
 runBoot();
+// `?debug` anywhere turns on scan diagnostics for this browser session (see FaceVitals).
+try {
+  if (new URLSearchParams(location.search).has('debug')) sessionStorage.setItem('niktan.debug', '1');
+} catch {
+  // Private mode: diagnostics just stay off.
+}
 // autoUpdate: when a new deploy's worker takes control the page reloads once onto the new version,
 // and open tabs check for a deploy every 30 minutes.
 registerSW({

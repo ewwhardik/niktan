@@ -394,20 +394,20 @@ export class RateFilter {
 /** Full estimate over a scan, in the same result shape as v1 so the UI can use either. */
 export function estimateMulti(
   samples: MultiSample[],
-  { motion = 0, rejectedTimes = [] }: { motion?: number; rejectedTimes?: number[] } = {},
+  { motion = 0, rejectedTimes = [], windowSeconds = WINDOW_SECONDS }: { motion?: number; rejectedTimes?: number[]; windowSeconds?: number } = {},
 ): MultiResult {
   const empty: MultiResult = { heartRate: null, breathingRate: null, snrDb: -Infinity, quality: 0, pulse: new Float64Array(0), beats: [], wave: new Float64Array(0), waveEnd: 0, track: [] };
   const unique = samples.filter((s, i) => i === 0 || s.t > samples[i - 1]!.t);
   if (unique.length < 2) return empty;
   const start = Math.min(unique[0]!.t, rejectedTimes[0] ?? Infinity);
   const end = Math.max(unique.at(-1)!.t, rejectedTimes.at(-1) ?? -Infinity);
-  if (end - start < WINDOW_SECONDS) return empty;
+  if (end - start < windowSeconds) return empty;
 
   const windows: WindowEstimate[] = [];
   let total = 0;
-  for (let ws = start; ws + WINDOW_SECONDS <= end + 1e-9; ws += STEP_SECONDS) {
+  for (let ws = start; ws + windowSeconds <= end + 1e-9; ws += STEP_SECONDS) {
     total++;
-    const we = ws + WINDOW_SECONDS;
+    const we = ws + windowSeconds;
     const win = unique.filter((s) => s.t >= ws && s.t <= we);
     const rejected = rejectedTimes.filter((t) => t >= ws && t <= we).length;
     if (!win.length || rejected > win.length / 4 || !windowUsable(win.map((s) => s.t), ws, we)) continue;
@@ -423,6 +423,8 @@ export function estimateMulti(
   const { times, wave } = detectBeats(last.pulse, FS, path.at(-1)!);
   const t0 = last.t0 ?? 0;
   return {
+    // Tried: accepting weaker signals when the track looked steady. Viterbi smoothing makes noise look
+    // steady too (a pure-noise test read 82 bpm), so the 0 dB gate stays.
     heartRate: coverage >= 0.5 && quality >= 0.5 ? median(path) : null,
     breathingRate: null,
     snrDb,

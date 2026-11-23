@@ -155,6 +155,21 @@ function todayReasons(input: TriageInput, hr: number | null): Reason[] {
   return reasons;
 }
 
+/** Contrast, colour and astigmatism findings: each is a reason to see an eye doctor, never urgent. */
+export function visionExtraReasons(vision?: Vision | null): Reason[] {
+  const reasons: Reason[] = [];
+  if (vision?.contrastLogCs != null && vision.contrastLogCs < rules.contrastReducedBelowLogCs) {
+    reasons.push({ code: 'contrast_low', hi: 'कम कॉन्ट्रास्ट दिखना: आँख के डॉक्टर को दिखाएँ', en: 'Reduced contrast sensitivity: see an eye doctor' });
+  }
+  if (vision?.colour?.flag) {
+    reasons.push({ code: 'colour_red_green', hi: 'लाल-हरे रंग पहचानने में अंतर हो सकता है: आँख के डॉक्टर से पुष्टि करें', en: 'Possible red-green colour vision difference: confirm with an eye doctor' });
+  }
+  if (vision?.astigmatism?.right || vision?.astigmatism?.left) {
+    reasons.push({ code: 'astigmatism_flag', hi: 'डायल की कुछ रेखाएँ गहरी दिखीं: संभावित एस्टिग्मैटिज़्म, आँख की जाँच करवाएँ', en: 'Some dial lines looked darker: possible astigmatism, arrange an eye test' });
+  }
+  return reasons;
+}
+
 function routineReasons(input: TriageInput): Reason[] {
   const reasons: Reason[] = [];
   if (input.eye?.pallor) reasons.push({ code: 'pallor_flag', hi: 'खून की कमी की जाँच करवाएँ (Hb)', en: 'Pallor seen: get an Hb blood test' });
@@ -162,6 +177,9 @@ function routineReasons(input: TriageInput): Reason[] {
   if (visionNeedsReferral(input.vision)) reasons.push(input.vision?.distanceMm === 400
     ? { code: 'vision_refer', hi: 'पास की नज़र की जाँच करवाएँ', en: 'Arrange a near-vision check' }
     : { code: 'vision_refer', hi: 'नज़र कमज़ोर: आँख के डॉक्टर को दिखाएँ', en: 'Reduced vision: see an eye doctor' });
+  reasons.push(...visionExtraReasons(input.vision));
+  if (input.hearing?.tones?.asymmetry) reasons.push({ code: 'hearing_asymmetry', hi: 'दोनों कानों में सुनने में अंतर: सुनने की जाँच करवाएँ', en: 'The two ears heard tones differently: arrange a hearing check' });
+  if (input.hearing?.tones?.highDrop) reasons.push({ code: 'hearing_high_drop', hi: 'ऊँची आवाज़ (4 kHz) कम सुनाई दी: सुनने की जाँच करवाएँ', en: 'High-pitched tones were harder to hear: arrange a hearing check' });
   if (input.hearing?.result === 'refer') reasons.push({ code: 'hearing_refer', hi: 'प्रायोगिक श्रवण जाँच: ENT से पुष्टि करवाएँ', en: 'Experimental hearing screen: arrange a hearing check' });
   for (const s of input.symptoms ?? []) reasons.push(symptomReason(s.code));
   return reasons;
@@ -190,8 +208,8 @@ export function routeDepartment(input: TriageInput, priority: Priority): Departm
     if (dept && dept !== 'paediatrics') return dept;
   }
   if (input.eye?.jaundice || input.eye?.pallor) return 'medicine';
-  if (input.eye?.cataract || visionNeedsReferral(input.vision)) return 'ophthalmology';
-  if (input.hearing?.result === 'refer') return 'ent';
+  if (input.eye?.cataract || visionNeedsReferral(input.vision) || visionExtraReasons(input.vision).length) return 'ophthalmology';
+  if (input.hearing?.result === 'refer' || input.hearing?.tones?.asymmetry || input.hearing?.tones?.highDrop) return 'ent';
   return 'medicine';
 }
 

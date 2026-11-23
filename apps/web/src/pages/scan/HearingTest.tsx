@@ -11,8 +11,10 @@ import { Button, LinkButton } from '../../ui/Button';
 import { Dock } from '../../ui/Layout';
 import { spring } from '../../ui/motion';
 import type { StepProps } from './ScanStep';
+import { ToneStep } from './HearingTones';
+import type { ToneResult } from '../../tests/tones';
 
-type Phase = 'intro' | 'check' | 'test' | 'result' | 'missing';
+type Phase = 'intro' | 'check' | 'test' | 'result' | 'tones' | 'final' | 'missing';
 
 export default function HearingTest({ next, guide }: StepProps) {
   const { t } = useTranslation();
@@ -26,7 +28,8 @@ export default function HearingTest({ next, guide }: StepProps) {
   const [checked, setChecked] = useState({ left: false, right: false });
   const [practised, setPractised] = useState(false);
   const [earsConfirmed, setEarsConfirmed] = useState(false);
-  const result = phase === 'result' ? dinResult(din) : null;
+  const result = phase === 'result' || phase === 'tones' || phase === 'final' ? dinResult(din) : null;
+  const [tones, setTones] = useState<ToneResult | null>(null);
 
   useEffect(() => {
     const stop = () => {
@@ -117,7 +120,7 @@ export default function HearingTest({ next, guide }: StepProps) {
   const tooYoung = !!profile && profile.age < 18;
   if (phase === 'missing' || tooYoung) {
     return (
-      <div className="flex flex-1 flex-col pt-10 text-center">
+      <div className="flex flex-1 flex-col pt-6 text-center">
         <Headphones className="mx-auto text-text-3" size={44} strokeWidth={1.25} aria-hidden />
         <p className="mx-auto mt-4 max-w-xs text-body-lg text-text-2">{t(tooYoung ? 'hearing.adults' : 'hearing.missing')}</p>
         <Dock>
@@ -192,17 +195,41 @@ export default function HearingTest({ next, guide }: StepProps) {
     );
   }
 
-  if (phase === 'result' && result) {
-    const pass = result.result === 'pass';
+  if (phase === 'tones' && result) {
     return (
-      <div className="flex flex-1 flex-col pt-10">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-col items-center gap-3 text-center">
-          <span className={`flex size-20 items-center justify-center rounded-full ${pass ? 'bg-routine-tint text-routine-ink' : 'bg-seetoday-tint text-seetoday-ink'}`}>
-            <Ear size={36} strokeWidth={1.5} aria-hidden />
-          </span>
-          <p className="text-title-2 font-semibold">{pass ? t('hearing.pass') : t('hearing.refer')}</p>
-          <p className="text-body text-text-2">{t('hearing.experimental')}</p>
-          <p className="tnum text-body text-text-3">SRT {result.srtDb} dB SNR</p>
+      <div className="flex flex-1 flex-col pt-6 pb-6">
+        <ToneStep onSkip={next} onDone={(r) => {
+          setTones(r);
+          record('hearing', { ...result, tones: r });
+          haptic([20, 40, 20]);
+          setPhase('final');
+        }} />
+      </div>
+    );
+  }
+
+  if (phase === 'final' && result && tones) {
+    const flag = tones.asymmetry || tones.highDrop;
+    const cell = (v: number | null) => (v === null ? '—' : `${v}`);
+    return (
+      <div className="flex flex-1 flex-col gap-4 pt-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-col gap-4">
+          <h2 className="text-title-2 font-semibold">{t('hearing.toneResult')}</h2>
+          <div className="overflow-hidden rounded-[20px] bg-white/[0.06] ring-1 ring-white/10">
+            <div className="grid grid-cols-4 border-b border-white/10 px-4 py-2.5 text-caption text-text-3">
+              <span>dBFS</span><span className="text-right">1 kHz</span><span className="text-right">2 kHz</span><span className="text-right">4 kHz</span>
+            </div>
+            {(['right', 'left'] as const).map((ear) => (
+              <div key={ear} className="tnum grid grid-cols-4 px-4 py-3 text-body-lg">
+                <span className="text-body text-text-2">{t(`hearing.${ear}`)}</span>
+                {([1000, 2000, 4000] as const).map((f) => <span key={f} className="text-right font-semibold">{cell(tones[ear][f])}</span>)}
+              </div>
+            ))}
+          </div>
+          <p className={`rounded-2xl px-4 py-3 text-body ${!tones.reliable ? 'bg-white/[0.06] text-text-2' : flag ? 'bg-seetoday-tint text-seetoday-ink' : 'bg-routine-tint text-routine-ink'}`}>
+            {!tones.reliable ? t('hearing.toneUnreliable') : tones.asymmetry ? t('hearing.toneAsym') : tones.highDrop ? t('hearing.toneDrop') : t('hearing.toneOk')}
+          </p>
+          <p className="text-caption text-text-3">{t('hearing.toneNote')}</p>
         </motion.div>
         <Dock>
           <Button onClick={next}>{t('common.next')}</Button>
@@ -211,9 +238,33 @@ export default function HearingTest({ next, guide }: StepProps) {
     );
   }
 
+  if (phase === 'result' && result) {
+    const pass = result.result === 'pass';
+    return (
+      <div className="flex flex-1 flex-col pt-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring.reveal} className="flex flex-col items-center gap-3 text-center">
+          <span className={`flex size-20 items-center justify-center rounded-full ${pass ? 'bg-routine-tint text-routine-ink' : 'bg-seetoday-tint text-seetoday-ink'}`}>
+            <Ear size={36} strokeWidth={1.5} aria-hidden />
+          </span>
+          <p className="text-title-2 font-semibold">{pass ? t('hearing.pass') : t('hearing.refer')}</p>
+          <p className="text-body text-text-2">{t('hearing.experimental')}</p>
+          <p className="tnum text-body text-text-3">SRT {result.srtDb} dB SNR</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring.reveal, delay: 0.15 }} className="mt-8 rounded-[24px] bg-white/[0.06] p-5 ring-1 ring-white/10">
+          <p className="text-title-3 font-semibold">{t('hearing.toneOffer')}</p>
+          <p className="mt-1 text-body text-text-2">{t('hearing.toneOfferBody')}</p>
+        </motion.div>
+        <Dock>
+          <Button onClick={() => setPhase('tones')}>{t('hearing.toneStart')}</Button>
+          <LinkButton onClick={next}>{t('hearing.toneSkip')}</LinkButton>
+        </Dock>
+      </div>
+    );
+  }
+
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'submit'];
   return (
-    <div className="flex flex-1 flex-col pt-4">
+    <div className="flex flex-1 flex-col pt-6">
       <div className="flex items-center justify-between text-caption text-text-3">
         <span className="tnum">{t('hearing.progress', { n: Math.min(din.index + 1, DIN.triplets), total: DIN.triplets })}</span>
         <AnimatePresence>

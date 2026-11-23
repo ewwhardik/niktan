@@ -286,7 +286,7 @@ export interface ChatInput {
   messages: { role: 'user' | 'assistant'; content: string }[];
 }
 
-/** Free-text conversation for the help assistant: Groq first (as asked for), Workers AI as backup. */
+/** Free-text conversation for the help assistant: Groq first, then Gemini, Workers AI and the backup account. */
 export const chatProviders: Provider<ChatInput, string>[] = [
   {
     name: 'groq',
@@ -312,12 +312,43 @@ export const chatProviders: Provider<ChatInput, string>[] = [
     },
   },
   {
+    name: 'gemini',
+    timeoutMs: 12000,
+    available: hasGeminiKey,
+    run: async (env, input, signal) => {
+      const request = (key: string) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel(env)}:generateContent`, {
+        method: 'POST',
+        signal,
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: input.system }] },
+          contents: input.messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          generationConfig: { temperature: 0.3, maxOutputTokens: 700 },
+        }),
+      });
+      const res = await fetchWithBackupKey(env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, request, geminiInvalidKey);
+      if (!res.ok) throw new Error(`gemini ${res.status}`);
+      const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      return data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() ?? '';
+    },
+  },
+  {
     name: 'workers-ai',
     cloudflareAccount: 'primary',
     timeoutMs: 12000,
     available: (env) => !!env.AI,
     run: async (env, input) => {
       const out = await env.AI!.run(WORKERS_TEXT_MODEL, { max_tokens: 700, messages: [{ role: 'system', content: input.system }, ...input.messages] });
+      return workersAiText(out).trim();
+    },
+  },
+  {
+    name: 'workers-ai-backup',
+    cloudflareAccount: 'backup',
+    timeoutMs: 15000,
+    available: hasBackupWorkersAi,
+    run: async (env, input, signal) => {
+      const out = await backupWorkersAi(env, WORKERS_TEXT_MODEL, { max_tokens: 700, messages: [{ role: 'system', content: input.system }, ...input.messages] }, signal);
       return workersAiText(out).trim();
     },
   },

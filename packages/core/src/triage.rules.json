@@ -1,5 +1,5 @@
 {
-  "version": "2026.11-v3",
+  "version": "2026.11-v4",
   "qualityMin": 0.5,
   "feverDaysToday": 3,
   "childAgeUnder": 5,
@@ -7,6 +7,7 @@
   "elderlyAgeFrom": 65,
   "visionReferLogMar": 0.3,
   "visionAsymmetryLogMar": 0.2,
+  "contrastReducedBelowLogCs": 1.5,
   "emergencySymptoms": [
     "chest_pain",
     "severe_bleeding",
