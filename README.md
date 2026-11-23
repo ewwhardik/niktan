@@ -106,7 +106,7 @@ flowchart TD
         UI --> DIN
     end
 
-    Client -->|HTTPS JSON (Numbers & Flags Only)| Worker
+    Client -->|"HTTPS (screening results and optional uploads)"| Worker
 
     subgraph ServerlessBackend ["Cloudflare Serverless Infrastructure"]
         Worker["Cloudflare Worker (Hono REST API)"]
