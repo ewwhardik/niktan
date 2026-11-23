@@ -1,10 +1,11 @@
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { ArrowRight, ArrowUpRight, Check, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ClipboardList, Cpu, FileText, HeartPulse, Languages, Lock, Siren, Soup, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { SCREENING_STEPS, useScan } from '../state/scan';
+import { BrandMark } from '../ui/BrandMark';
 import { LangToggle } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
 import { Marquee } from '../ui/visuals/Marquee';
@@ -20,10 +21,6 @@ interface Step {
   k: StepKey;
   t: string;
   d: string;
-}
-
-export function Glyph({ className = 'size-7' }: { className?: string }) {
-  return <img src="/brand/niktan-mark.svg" width="28" height="28" alt="" className={`${className} object-contain dark:brightness-0 dark:invert`} />;
 }
 
 function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
@@ -73,7 +70,7 @@ function Nav({ onStart }: { onStart: () => void }) {
       <motion.nav initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7, ease }}
         className={`lp-nav mx-auto flex h-14 items-center gap-4 rounded-full pr-2 pl-4 transition-[max-width] duration-500 ${scrolled ? 'max-w-[980px]' : 'max-w-[1080px]'}`}>
         <a href="#top" className="flex shrink-0 items-center gap-2">
-          <Glyph className="size-6" />
+          <BrandMark className="size-6 dark:brightness-0 dark:invert" />
           <span className="text-title-3 font-semibold tracking-tight">NikTan</span>
           <span className="serif hidden text-title-3 text-text-3 sm:inline">निकतन</span>
         </a>
@@ -267,11 +264,9 @@ export function Landing() {
                 <ArrowRight size={18} aria-hidden />
               </span>
             </motion.button></Magnetic>
-            {profile && !nextStep && (
-              <button onClick={() => navigate('/card')} className="inline-flex h-14 items-center rounded-full bg-sunken px-6 text-body-lg font-semibold">
-                {t('landing.resume')}
-              </button>
-            )}
+            <Link to="/card" className="inline-flex min-h-14 items-center gap-2 rounded-full border border-border bg-sunken px-5 text-body-lg font-semibold transition-colors hover:bg-border">
+              <ClipboardList size={20} strokeWidth={1.75} aria-hidden /> {t('landing.healthCard')}
+            </Link>
             <a href="#hospitals" className="lp-link inline-flex h-14 items-center gap-1 px-4 text-body-lg font-medium">
               {t('home.secondary')} <ArrowUpRight size={18} aria-hidden />
             </a>
@@ -542,7 +537,7 @@ export function Landing() {
       <footer className="relative overflow-hidden border-t border-border">
         <div className="mx-auto grid max-w-[1240px] gap-10 px-5 pt-14 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:px-10">
           <div>
-            <div className="flex items-center gap-2.5"><Glyph className="size-6" /> <span className="font-semibold">NikTan</span></div>
+            <div className="flex items-center gap-2.5"><BrandMark className="size-6 dark:brightness-0 dark:invert" /> <span className="font-semibold">NikTan</span></div>
             <p className="mt-4 max-w-sm text-body text-text-3">{t('home.footer')}</p>
             <p className="mt-4 text-body text-text-2">
               {t('home.builtBy')} <span className="font-semibold text-text">Sai Ram Dash</span>
@@ -568,8 +563,8 @@ export function Landing() {
             </div>
           ))}
         </div>
-        <p aria-hidden className="mt-10 text-center text-sunken text-[clamp(5rem,22vw,20rem)] leading-[0.8] font-semibold tracking-[-0.06em] select-none">NikTan</p>
-        <div className="pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-6" />
+        <p aria-hidden className="lp-footer-wordmark mx-auto mt-10 w-fit px-1 text-center font-semibold select-none sm:mt-14">NikTan</p>
+        <div className="pb-[calc(144px+env(safe-area-inset-bottom))] sm:pb-6" />
       </footer>
 
       {/* Mobile sticky CTA */}

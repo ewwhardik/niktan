@@ -91,6 +91,28 @@
   text-decoration: underline;
 }
 
+.lp-footer-wordmark {
+  color: var(--surface-sunken);
+  font-size: clamp(2.5rem, 22vw, 20rem);
+  line-height: 0.92;
+  letter-spacing: -0.075em;
+}
+
+@supports (background-clip: text) and (color: color-mix(in srgb, black, white)) {
+  .lp-footer-wordmark {
+    background-image: linear-gradient(170deg, color-mix(in srgb, var(--text) 32%, var(--bg)), var(--surface-sunken) 68%, color-mix(in srgb, var(--text) 7%, var(--bg)));
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+@media (forced-colors: active) {
+  .lp-footer-wordmark {
+    background: none;
+    color: GrayText;
+  }
+}
+
 /* Console pulse chart: a seamless PPG strip that scrolls one beat per period. */
 .lp-strip {
   animation: lp-strip 6.67s linear infinite;

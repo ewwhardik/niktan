@@ -3,6 +3,7 @@ import { Activity, BadgeCheck, Bell, Cpu, Ear, Eye, Glasses, HeartPulse, Lock, M
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BeatingHeart } from '../BeatingHeart';
+import { BrandMark } from '../BrandMark';
 import { CountUp } from '../Numbers';
 import { ease } from '../motion';
 
@@ -36,7 +37,7 @@ export function HeroConsole({ progress }: { progress: MotionValue<number> }) {
       <motion.div style={{ rotateX: tilt, y: lift, scale, transformOrigin: '50% 0%' }} className="lp-card relative overflow-hidden rounded-[28px] p-3 ring-1 ring-[var(--lp-line)] sm:p-4" aria-label={t('home.example')} role="img">
         {/* Top bar */}
         <div className="flex items-center gap-3 rounded-2xl bg-sunken px-3 py-2.5 sm:px-4">
-          <img src="/brand/niktan-mark.svg" alt="" width="22" height="22" className="size-5 dark:brightness-0 dark:invert" />
+          <BrandMark className="size-5 dark:brightness-0 dark:invert" />
           <span className="text-label font-semibold">NikTan <span className="font-normal text-text-3">· {c.brand}</span></span>
           <div className="mx-auto hidden items-center gap-1 rounded-full bg-bg p-1 md:flex">
             {c.tabs.map((tab, i) => (

@@ -1,8 +1,8 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowUpRight, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, OctagonAlert, PhoneCall, QrCode, Stethoscope, Thermometer, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ClipboardList, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, OctagonAlert, PhoneCall, QrCode, Stethoscope, Thermometer, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { departments, symptoms as VOCAB, visionExtraReasons, visionNeedsReferral, type DepartmentId, type EyeFlags, type Hearing, type Priority, type Symptoms, type TriageResult, type Vision, type Vitals } from '@niktan/core';
 import { pickLang } from '../i18n';
@@ -11,6 +11,7 @@ import { haptic, perfTier } from '../lib/perf';
 import { useScan } from '../state/scan';
 import { snellen6 } from '../tests/vision';
 import { visionExtrasLine } from '../tests/visionSummary';
+import { BrandMark } from '../ui/BrandMark';
 import { Button } from '../ui/Button';
 import { PRIORITY_META, StatusChip, type RowStatus } from '../ui/Chip';
 import { Disclaimer, Screen, TopBar } from '../ui/Layout';
@@ -162,8 +163,22 @@ export default function HealthCard() {
       </Screen>
     );
   }
+  if (!view && isOwn) {
+    return (
+      <Screen>
+        <TopBar onBack={() => navigate('/')} />
+        <div className="mx-auto flex max-w-sm flex-col items-center px-4 pt-16 pb-10 text-center sm:pt-24">
+          <span className="grid size-16 place-items-center rounded-3xl bg-sunken text-text">
+            <ClipboardList size={30} strokeWidth={1.5} aria-hidden />
+          </span>
+          <h1 className="mt-6 text-title-1 font-semibold">{t('card.title')}</h1>
+          <p className="mt-3 text-body-lg text-text-2">{t('card.empty')}</p>
+          <Button trailingIcon={ArrowRight} onClick={() => navigate('/start')} className="mt-7">{t('landing.cta')}</Button>
+        </div>
+      </Screen>
+    );
+  }
   if (!view) {
-    if (isOwn) return <Navigate to="/" replace />;
     const failed = !sharedId || remote?.key === sharedId;
     return (
       <Screen>
@@ -263,8 +278,8 @@ export default function HealthCard() {
         {/* Header */}
         <header className="flex flex-wrap items-center gap-3">
           <button onClick={() => navigate('/')} className="flex items-center gap-2.5" aria-label="NikTan">
-            <span className="flex size-11 items-center justify-center rounded-full bg-[#1d1d1f] text-white">
-              <HeartPulse size={20} aria-hidden />
+            <span className="flex size-11 items-center justify-center rounded-full bg-[#1d1d1f]">
+              <BrandMark className="size-5 brightness-0 invert" />
             </span>
             <span className="text-title-2 font-semibold">NikTan</span>
           </button>

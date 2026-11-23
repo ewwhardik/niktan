@@ -32,6 +32,7 @@
     "privacy": "Your face and eye images never leave your phone.",
     "hospital": "Hospital staff login",
     "thali": "Scan your meal",
+    "healthCard": "Health Card",
     "resume": "Open my health card",
     "continue": "Continue screening"
   },
@@ -226,6 +227,7 @@
   },
   "card": {
     "title": "Your health card",
+    "empty": "Complete a screening to see your results and next steps here.",
     "emergency": "Go to Emergency now",
     "emergencySub": "Call 108 or go to the hospital emergency immediately. Do not wait in the OPD queue.",
     "call108": "Call 108",

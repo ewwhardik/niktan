@@ -3,6 +3,7 @@ import { ArrowLeft, Ear, Eye, Glasses, HeartPulse, Languages, Mic } from 'lucide
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGS } from '../i18n';
+import { BrandMark } from './BrandMark';
 import { Sheet } from './Sheet';
 import { spring } from './motion';
 
@@ -12,10 +13,7 @@ function Aside({ title }: { title?: ReactNode }) {
   return (
     <aside className="chamber sticky top-0 hidden h-dvh flex-col justify-between overflow-hidden p-12 text-text lg:flex">
       <a href="/" className="flex items-center gap-2.5">
-        <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
-          <rect width="32" height="32" rx="9" fill="currentColor" />
-          <path d="M6 17h5l2.5-6 3.5 11 3-8 1.6 3H26" fill="none" stroke="var(--bg)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <BrandMark className="size-7 brightness-0 invert" />
         <span className="text-title-3 font-semibold">NikTan</span>
       </a>
       <ol className="relative flex max-w-sm flex-col gap-1">

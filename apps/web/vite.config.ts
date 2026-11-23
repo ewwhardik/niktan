@@ -17,7 +17,7 @@ export default defineConfig({
         short_name: 'NikTan',
         description: 'A 3-minute phone health check that gets you triaged before you reach the OPD.',
         lang: 'hi',
-        theme_color: '#5B3FD6',
+        theme_color: '#FBFAF7',
         background_color: '#FBFAF7',
         display: 'standalone',
         orientation: 'portrait',

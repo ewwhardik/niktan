@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { BrandMark } from './BrandMark';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -131,7 +132,7 @@ export function Assistant() {
             style={{ transformOrigin: 'bottom right' }}
             className="fixed inset-x-2 bottom-2 z-50 flex max-h-[min(640px,calc(100dvh-16px))] flex-col overflow-hidden rounded-[26px] bg-bg shadow-4 ring-1 ring-border sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[400px]">
             <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-              <span className="grid size-9 place-items-center rounded-full bg-text text-bg"><img src="/brand/niktan-mark.svg" alt="" className="size-4 brightness-0 invert dark:invert-0" /></span>
+              <span className="grid size-9 place-items-center rounded-full bg-text text-bg"><BrandMark className="size-4 brightness-0 invert dark:invert-0" /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-label font-semibold">{t('assistant.title')}</p>
                 <p className="text-caption text-text-3">{t('assistant.subtitle')}</p>
