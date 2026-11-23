@@ -24,14 +24,13 @@ for name, img, mask in cases:
     px = F.select_pixels(img, mask)
     f = F.features_from_pixels(px)
     x = F.feature_vector(f, model['features'])
-    z = (x - np.array(model['standardization']['mean'])) / np.array(model['standardization']['std'])
-    logit = float(np.dot(model['coefficients'], z) + model['intercept'])
+    logit = F.model_logit(x, model)
     p = F.predict_proba(x, model)
     lab = F.rgb8_to_lab(px[:3])
     out['cases'].append({'name': name, 'height': img.shape[0], 'width': img.shape[1], 'pixels': img.tolist(),
         'mask': None if mask is None else mask.astype(int).tolist(), 'nKeptPixels': int(len(px)),
         'firstKeptPixels': px[:3].tolist(), 'firstKeptPixelsLab': lab.tolist(),
-        'features': f, 'standardized': z.tolist(), 'logit': logit, 'probability': p,
+        'features': f, 'logit': logit, 'probability': p,
         'flagAnaemia': bool(p >= model['threshold'])})
     print(name, len(px), {k: round(v, 3) for k, v in f.items()}, round(p, 4), p >= model['threshold'])
 # extra: unit tests of colour conversion on reference colours

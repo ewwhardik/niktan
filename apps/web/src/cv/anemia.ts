@@ -1,7 +1,7 @@
 import model from './models/anemiaModel.json';
 
 /**
- * Conjunctival pallor features and logistic model, ported line-for-line from the Python reference
+ * Conjunctival pallor features and the logistic + boosted-tree blend, ported line-for-line from the Python reference
  * (ml/anemia/features.py). Golden vectors in test/fixtures keep both implementations identical.
  */
 
@@ -106,12 +106,38 @@ export function featuresFromPixels(px: number[][]): Features | null {
   } as Features;
 }
 
+interface Tree {
+  f: number[];
+  t: number[];
+  l: number[];
+  r: number[];
+  m: number[];
+  v: number[];
+}
+
+/** Boosted-tree logit: baseline plus one leaf per tree; go left when x <= threshold (NaN follows `m`). */
+function treeLogit(x: number[]): number {
+  let total = model.baseline;
+  for (const tree of model.trees as Tree[]) {
+    let i = 0;
+    while (tree.f[i]! >= 0) {
+      const v = x[tree.f[i]!]!;
+      const left = Number.isNaN(v) ? tree.m[i] === 1 : v <= tree.t[i]!;
+      i = left ? tree.l[i]! : tree.r[i]!;
+    }
+    total += tree.v[i]!;
+  }
+  return total;
+}
+
+/** v2 blends the logistic and boosted-tree logits; trees alone fit better but transfer worse across populations. */
 export function predict(features: Features): { probability: number; logit: number; flag: boolean } {
-  let logit = model.intercept;
-  model.features.forEach((name, i) => {
-    const z = ((features[name as keyof Features] ?? 0) - model.standardization.mean[i]!) / model.standardization.std[i]!;
-    logit += model.coefficients[i]! * z;
+  const x = model.features.map((name) => features[name as keyof Features] ?? 0);
+  let linear = model.intercept;
+  x.forEach((v, i) => {
+    linear += model.coefficients[i]! * ((v - model.standardization.mean[i]!) / model.standardization.std[i]!);
   });
+  const logit = model.gbmWeight * treeLogit(x) + (1 - model.gbmWeight) * linear;
   const probability = 1 / (1 + Math.exp(-logit));
   return { probability, logit, flag: probability >= model.threshold };
 }

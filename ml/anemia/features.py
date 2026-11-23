@@ -177,15 +177,38 @@ def feature_vector(feats: Dict[str, float], names: Sequence[str] = FEATURE_NAMES
     return np.array([feats[n] for n in names], dtype=np.float64)
 
 
+def tree_logit(x: Sequence[float], model: dict) -> float:
+    """Boosted trees (model kind "gbm"): baseline + sum of one leaf value per tree."""
+    total = float(model["baseline"])
+    for tr in model["trees"]:
+        i = 0
+        while tr["f"][i] >= 0:
+            v = x[tr["f"][i]]
+            left = bool(tr["m"][i]) if math.isnan(v) else v <= tr["t"][i]
+            i = tr["l"][i] if left else tr["r"][i]
+        total += tr["v"][i]
+    return total
+
+
 def predict_proba(x: np.ndarray, model: dict) -> float:
-    """model = parsed anemiaModel.json. z = (x-mean)/std; p = 1/(1+exp(-(w.z+b)))."""
+    """model = parsed anemiaModel.json. Logistic (v1): z = (x-mean)/std; p = 1/(1+exp(-(w.z+b))).
+    Blend (v2): the logit mixes the tree and logistic logits; see model_logit."""
+    return 1.0 / (1.0 + math.exp(-model_logit(x, model)))
+
+
+def model_logit(x: np.ndarray, model: dict) -> float:
+    """Logit of either model kind. "blend" mixes the tree and logistic logits by gbmWeight."""
     names = model["features"]
+    x = np.asarray(x, dtype=np.float64)[: len(names)]
     mu = np.array(model["standardization"]["mean"], dtype=np.float64)
     sd = np.array(model["standardization"]["std"], dtype=np.float64)
     w = np.array(model["coefficients"], dtype=np.float64)
-    z = (np.asarray(x, dtype=np.float64)[: len(names)] - mu) / sd
+    z = (x - mu) / sd
     logit = float(np.dot(w, z) + model["intercept"])
-    return 1.0 / (1.0 + math.exp(-logit))
+    if model.get("kind") == "blend":
+        k = float(model["gbmWeight"])
+        return k * tree_logit(x, model) + (1 - k) * logit
+    return logit
 
 
 def load_rgba_png(path: str):

@@ -74,10 +74,30 @@ def thr_for_sens(y, p, target=TARGET_SENS):
     k = int(math.ceil(target * len(pos)))
     return float(pos[k - 1])
 
+GBM_WEIGHT = 0.3  # share of the tree logit in the shipped blend
+
+
+class Blend:
+    """Logit blend of the logistic model and the boosted trees. Trees alone score higher in pooled CV
+    but transfer worse across countries; at 0.3 the blend keeps most of the gain and the transfer."""
+    def __init__(self, C=1.0):
+        self.lr = make('lr', C); self.gbm = make('gbm')
+    def fit(self, X, y):
+        self.lr.fit(X, y); self.gbm.fit(X, y); return self
+    def predict_proba(self, X):
+        lg = lambda p: np.log(np.clip(p, 1e-12, 1) / np.clip(1 - p, 1e-12, 1))
+        z = GBM_WEIGHT * lg(self.gbm.predict_proba(X)[:, 1]) + (1 - GBM_WEIGHT) * lg(self.lr.predict_proba(X)[:, 1])
+        p = 1 / (1 + np.exp(-z)); return np.stack([1 - p, p], axis=1)
+
+
 def make(kind, C=1.0):
+    if kind == 'blend':
+        return Blend(C)
     if kind == 'lr':
         return make_pipeline(StandardScaler(), LogisticRegression(C=C, max_iter=5000))
-    return HistGradientBoostingClassifier(max_depth=2, max_iter=150, learning_rate=0.05, min_samples_leaf=20, random_state=0)
+    # Chosen by grouped 5x5-fold CV over depth 1-3, 150-400 trees and leaf sizes 20-40: near-best AUC
+    # with the smallest trees and lowest fold-to-fold variance.
+    return HistGradientBoostingClassifier(max_depth=2, max_iter=200, learning_rate=0.05, min_samples_leaf=40, l2_regularization=1.0, random_state=0)
 
 def cv_oof(kind, X, y, grp, strat, C=1.0, seed=42, nested_thr=True):
     oof = np.zeros(len(y)); thr_used = np.zeros(len(y))
@@ -120,7 +140,7 @@ results['gbm_auc_mean_sd_5x5fold'] = [round(float(np.mean(gb_auc)), 3), round(fl
 
 # ---------------- main pooled evaluation (seed 42), nested threshold ----------------
 pooled = {}
-for kind in ['lr', 'gbm']:
+for kind in ['lr', 'gbm', 'blend']:
     oof, thr_used = cv_oof(kind, X, y, grp, strat, bestC, seed=42)
     pred_thr = thr_used
     res = {'all': summarise(y, oof, pred_thr, grp)}
@@ -142,25 +162,35 @@ within, cross = {}, {}
 for dname, mk in [('ghana', ds == 'ghana'), ('eda_all', ds != 'ghana'), ('eda_india', ds == 'eda_india')]:
     oof, tu = cv_oof('lr', X[mk], y[mk], grp[mk], strat[mk], bestC, seed=42)
     within[dname] = summarise(y[mk], oof, tu, grp[mk])
-for a, b in [('ghana', 'eda'), ('eda', 'ghana')]:
-    tr = (ds == 'ghana') if a == 'ghana' else (ds != 'ghana'); te = ~tr
-    m = make('lr', bestC).fit(X[tr], y[tr])
-    inner, _ = cv_oof('lr', X[tr], y[tr], grp[tr], strat[tr], bestC, seed=7, nested_thr=False)
-    t = thr_for_sens(y[tr], inner)
-    cross[f'train_{a}_test_{b}'] = summarise(y[te], m.predict_proba(X[te])[:, 1], t, grp[te])
+for kind in ['lr', 'gbm', 'blend']:
+    for a, b in [('ghana', 'eda'), ('eda', 'ghana')]:
+        tr = (ds == 'ghana') if a == 'ghana' else (ds != 'ghana'); te = ~tr
+        m = make(kind, bestC).fit(X[tr], y[tr])
+        inner, _ = cv_oof(kind, X[tr], y[tr], grp[tr], strat[tr], bestC, seed=7, nested_thr=False)
+        t = thr_for_sens(y[tr], inner)
+        cross[f'{kind}_train_{a}_test_{b}'] = summarise(y[te], m.predict_proba(X[te])[:, 1], t, grp[te])
 results['within_dataset_lr'] = within
 results['cross_dataset_lr'] = cross
 
 # ---------------- final model ----------------
-oof_final, _ = cv_oof('lr', X, y, grp, strat, bestC, seed=42, nested_thr=False)
+oof_final, _ = cv_oof('blend', X, y, grp, strat, bestC, seed=42, nested_thr=False)
 thr = thr_for_sens(y, oof_final)
-final = make('lr', bestC).fit(X, y)
-sc, lr = final.named_steps['standardscaler'], final.named_steps['logisticregression']
+final = make('blend', bestC).fit(X, y)
+sc, lr = final.lr.named_steps['standardscaler'], final.lr.named_steps['logisticregression']
 results['final_threshold_from_oof'] = thr
 results['final_oof_at_threshold'] = summarise(y, oof_final, np.full(len(y), thr), grp)
+
+def export_tree(pred):
+    """Compact parallel arrays; f = -1 marks a leaf. Go left when x[f] <= t (NaN follows m)."""
+    n = pred.nodes
+    return {'f': [int(-1 if leaf else fi) for fi, leaf in zip(n['feature_idx'], n['is_leaf'])],
+            't': [float(v) for v in n['num_threshold']], 'l': [int(v) for v in n['left']], 'r': [int(v) for v in n['right']],
+            'm': [int(v) for v in n['missing_go_to_left']], 'v': [float(v) for v in n['value']]}
+
 model = {
-    'name': 'niktan-anaemia-conjunctiva-lr',
-    'version': '1.0.0',
+    'name': 'niktan-anaemia-conjunctiva-blend',
+    'version': '2.0.0',
+    'kind': 'blend',
     'task': 'P(anaemia) from palpebral conjunctiva colour',
     'featureSpec': 'features.py (wb=none, HIGHLIGHT_MAX=250, SHADOW_MIN=20, MIN_PIXELS=50, sRGB D65 CIELAB)',
     'whiteBalance': 'none',
@@ -168,22 +198,25 @@ model = {
     'standardization': {'mean': sc.mean_.tolist(), 'std': sc.scale_.tolist()},
     'coefficients': lr.coef_[0].tolist(),
     'intercept': float(lr.intercept_[0]),
-    'link': 'logistic: p = 1/(1+exp(-(sum_i coef_i*(x_i-mean_i)/std_i + intercept)))',
+    'gbmWeight': GBM_WEIGHT,
+    'baseline': float(np.ravel(final.gbm._baseline_prediction)[0]),
+    'trees': [export_tree(p[0]) for p in final.gbm._predictors],
+    'link': 'p = 1/(1+exp(-z)), z = gbmWeight*(baseline + sum of tree leaf values) + (1-gbmWeight)*(sum_i coef_i*(x_i-mean_i)/std_i + intercept)',
     'threshold': thr,
     'thresholdRule': f'largest p with out-of-fold sensitivity >= {TARGET_SENS} (pooled training data)',
-    'regularization': {'type': 'L2', 'C': bestC},
+    'hyperparameters': {'max_depth': 2, 'max_iter': 200, 'learning_rate': 0.05, 'min_samples_leaf': 40, 'l2_regularization': 1.0},
     'labels': 'Ghana children 6-59 mo: dataset label (lab Hb, WHO <11 g/dL); Eyes-defy-anemia adults: WHO Hb <12 (F) / <13 (M) g/dL',
     'training': {'n': int(len(y)), 'n_anaemic': int(y.sum()), 'datasets': results['per_dataset_counts']},
     'metrics': {
         'cv': 'patient-grouped stratified 5-fold, threshold re-chosen inside each training fold (nested)',
-        'pooled': pooled['lr']['all'], 'ghana': pooled['lr']['ghana'], 'eda_india': pooled['lr']['eda_india'],
-        'eda_italy': pooled['lr']['eda_italy'], 'cross_dataset': cross,
+        'pooled': pooled['blend']['all'], 'ghana': pooled['blend']['ghana'], 'eda_india': pooled['blend']['eda_india'],
+        'eda_italy': pooled['blend']['eda_italy'], 'lr_pooled': pooled['lr']['all'], 'gbm_pooled': pooled['gbm']['all'], 'cross_dataset': cross,
     },
-    'intendedUse': 'Screening prompt only (\"possible anaemia - get a Hb blood test\"); not diagnostic.',
+    'intendedUse': 'Screening prompt only ("possible anaemia - get a Hb blood test"); not diagnostic.',
 }
-json.dump(model, open(OUT + '/anemiaModel.json', 'w'), indent=2)
+json.dump(model, open(OUT + '/anemiaModel.json', 'w'))
 json.dump(results, open(OUT + '/metrics.json', 'w'), indent=2, default=str)
 # sanity: our manual predict == sklearn
-p_manual = np.array([F.predict_proba(x, model) for x in X[:20]])
-assert np.allclose(p_manual, final.predict_proba(X[:20])[:, 1], atol=1e-12)
+p_manual = np.array([F.predict_proba(x, model) for x in X[:50]])
+assert np.allclose(p_manual, final.predict_proba(X[:50])[:, 1], atol=1e-9)
 print(json.dumps(results, indent=1, default=str))
