@@ -49,13 +49,10 @@ function OfflineBanner() {
 }
 
 function Loader() {
+  const { t } = useTranslation();
   return (
-    <div className="flex min-h-dvh items-center justify-center" aria-busy>
-      <motion.div
-        className="size-10 rounded-full border-2 border-border border-t-accent"
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-      />
+    <div className="brand-loader" role="status" aria-label={t('common.loading')}>
+      <img src="/brand/niktan-mark.svg" alt="" width="56" height="56" />
     </div>
   );
 }

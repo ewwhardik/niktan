@@ -10,10 +10,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" href="/brand/niktan-mark.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/brand/app-180.png" />
+    <style>
+      body { margin:0; }
+      .brand-loader { min-height:100svh; display:grid; place-items:center; }
+      .brand-loader img { width:56px; height:56px; animation:brand-unfold 1.2s ease-in-out infinite alternate; }
+      @keyframes brand-unfold { from { opacity:.46; transform:perspective(200px) rotateY(-24deg) scale(.92); } to { opacity:1; transform:perspective(200px) rotateY(0) scale(1); } }
+      @media (prefers-color-scheme:dark) { .brand-loader { background:#131617; } .brand-loader img { filter:brightness(0) invert(1); } }
+      @media (prefers-reduced-motion:reduce) { .brand-loader img { animation:none; } }
+    </style>
     <title>NikTan · निकतन</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="brand-loader" role="status" aria-label="Loading NikTan"><img src="/brand/niktan-mark.svg" alt="" width="56" height="56" /></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
