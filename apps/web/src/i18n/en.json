@@ -92,7 +92,8 @@
     "bpm": "beats/min",
     "quality": "Signal quality",
     "breathing": "Breathing (experimental)",
-    "lowQuality": "The reading was not clear. Try again in better light, or skip."
+    "lowQuality": "The reading was not clear. Try again in better light, or skip.",
+    "feel": "Feel that? Your phone is tapping along with your pulse."
   },
   "eye": {
     "title": "Eye check",

@@ -66,12 +66,18 @@ export class DinPlayer {
   private speechRms: number[] = [];
   private readonly abort = new AbortController();
   private noise: AudioBuffer | null = null;
+  /** Tap for the on-screen sound visualiser; it never changes what the listener hears. */
+  readonly analyser: AnalyserNode;
 
   constructor() {
     const nav = navigator as Navigator & { audioSession?: { type: string } };
     // iOS: play even with the ring/silent switch on.
     if (nav.audioSession) nav.audioSession.type = 'playback';
     this.ctx = new AudioContext();
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 128;
+    this.analyser.smoothingTimeConstant = 0.7;
+    this.analyser.connect(this.ctx.destination);
   }
 
   /** Must be called from a tap handler the first time (autoplay policy). */
@@ -110,7 +116,7 @@ export class DinPlayer {
     gain.gain.linearRampToValueAtTime(0.2, t + 0.02);
     gain.gain.setValueAtTime(0.2, t + 0.6);
     gain.gain.linearRampToValueAtTime(0, t + 0.65);
-    osc.connect(gain).connect(pan).connect(this.ctx.destination);
+    osc.connect(gain).connect(pan).connect(this.analyser);
     osc.start(t);
     osc.stop(t + 0.7);
   }
@@ -130,7 +136,7 @@ export class DinPlayer {
       const g = this.ctx.createGain();
       src.buffer = buf;
       g.gain.value = speechGainForSnr(speechSnr, this.speechRms[Number(ch)]!, NOISE_RMS);
-      src.connect(g).connect(this.ctx.destination);
+      src.connect(g).connect(this.analyser);
       src.start(t);
       t += buf.duration + 0.3;
     }
@@ -144,10 +150,14 @@ export class DinPlayer {
       g.gain.linearRampToValueAtTime(noiseGain, t0 + 0.1);
       g.gain.setValueAtTime(noiseGain, end - 0.1);
       g.gain.linearRampToValueAtTime(0, end);
-      n.connect(g).connect(this.ctx.destination);
+      n.connect(g).connect(this.analyser);
       n.start(t0, Math.random() * noise.duration);
       const finished = new Promise<void>((resolve) => {
+        // onended never fires if iOS suspends the context mid-triplet (a call, a Bluetooth route
+        // change), so a wall-clock fallback keeps the keypad from locking up.
+        const fallback = window.setTimeout(() => done(), (end - this.ctx.currentTime + 1) * 1000);
         const done = () => {
+          window.clearTimeout(fallback);
           this.abort.signal.removeEventListener('abort', done);
           resolve();
         };

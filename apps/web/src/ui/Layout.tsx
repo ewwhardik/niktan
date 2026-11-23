@@ -5,14 +5,43 @@ import { useTranslation } from 'react-i18next';
 import { LANGS } from '../i18n';
 import { Sheet } from './Sheet';
 import { spring } from './motion';
+import { PulseSphere } from './visuals/PulseSphere';
 
-export function Screen({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`screen mx-auto flex w-full max-w-[480px] flex-col ${className}`}>{children}</div>;
+/** Desktop brand panel beside citizen screens: keeps laptops from showing a lone phone-width column. */
+function Aside({ title }: { title?: ReactNode }) {
+  const { t } = useTranslation();
+  return (
+    <aside className="chamber grain sticky top-0 hidden h-dvh flex-col justify-between overflow-hidden p-12 text-text lg:flex">
+      <a href="/" className="flex items-center gap-2.5">
+        <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
+          <rect width="32" height="32" rx="9" fill="currentColor" />
+          <path d="M6 17h5l2.5-6 3.5 11 3-8 1.6 3H26" fill="none" stroke="var(--bg)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="text-title-3 font-semibold">NikTan</span>
+      </a>
+      <div className="pointer-events-none absolute -right-24 top-1/2 size-[34rem] -translate-y-1/2 opacity-90">
+        <PulseSphere bpm={66} />
+      </div>
+      <div className="relative max-w-md">
+        <p className="serif text-[clamp(2.75rem,4.5vw,4.5rem)] leading-[1.02]">{title ?? t('home.endTitle')}</p>
+        <p className="mt-6 max-w-sm text-body text-text-3">{t('home.footer')}</p>
+      </div>
+    </aside>
+  );
+}
+
+export function Screen({ children, className = '', aside, wide = false }: { children: ReactNode; className?: string; aside?: ReactNode; wide?: boolean }) {
+  return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(380px,0.85fr)_minmax(0,1.15fr)]">
+      <Aside title={aside} />
+      <div className={`screen mx-auto flex w-full flex-col lg:px-12 lg:pt-10 ${wide ? 'max-w-[760px]' : 'max-w-[520px] lg:max-w-[600px]'} ${className}`}>{children}</div>
+    </div>
+  );
 }
 
 export function Dock({ children }: { children: ReactNode }) {
   return (
-    <div className="cta-dock glass z-20 -mx-5 mt-auto px-5">
+    <div className="cta-dock glass z-20 -mx-5 mt-auto px-5 lg:mx-0 lg:px-0 lg:pb-10">
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
