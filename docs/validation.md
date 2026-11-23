@@ -11,12 +11,12 @@
 In Indian government district hospitals and medical college outpatient departments (OPDs):
 1. **Disproportionate Wait-to-Consult Ratio:**
    - A peer-reviewed study in a North Indian government teaching hospital of 255 outpatients revealed an average wait of **242.8 minutes** from arrival until the physician called the patient, against an average consultation duration of just **12.8 minutes** (*International Journal of Community Medicine and Public Health*, [DOI: 10.18203/2394-6040.ijcmph202416572](https://www.ijcmph.com/index.php/ijcmph/article/view/16572)).
-   - In tertiary neurology OPDs, studies have documented a mean wait of **110.9 minutes** for a **5.3-minute** consultation.
+   - In tertiary neurology OPDs, a mean wait of **110.9 minutes** for a **5.3-minute** consultation has been reported (neurology OPD time-motion study; see README sources).
    - Tertiary institutions like AIIMS Delhi manage **14,000 to 15,000 OPD visits per day** (over 50 lakh visits annually).
 2. **First-Come, First-Served Bottleneck:**
    - Conventional outpatient queues operate purely on arrival order. A breathless hypertensive patient or an anemic pregnant woman in silent distress waits behind ten routine dermatological follow-ups.
 3. **Wasted Physician Bandwidth:**
-   - Doctors spend 40% to 60% of their critical 5-minute consultation on repetitive baseline history-taking ("What is bothering you? How many days? Do you have fever or chest pain?") and taking manual vitals, rather than examining and prescribing.
+   - Doctors spend an estimated 40% to 60% of their critical 5-minute consultation (estimate, to be verified) on repetitive baseline history-taking ("What is bothering you? How many days? Do you have fever or chest pain?") and taking manual vitals, rather than examining and prescribing.
 4. **Undiagnosed Silent Morbidities:**
    - Nutritional anemia affects over 50% of Indian women (NFHS-5), uncorrected refractive errors impede productivity, and early cataract or progressive sensorineural hearing loss go unnoticed until advanced.
 
@@ -46,18 +46,16 @@ ABDM Scan & Share ──► NikTan 3-Min Phone Screening ──► Priority-Tria
 
 ---
 
-## 3. Observed Field Pain Points & Stakeholder Insights
+## 3. Planned validation (not yet done)
 
-During user discovery and public hospital observations in Raipur, Chhattisgarh:
+No field observations or interviews have been carried out yet. The team plans the following steps; the results will be added here once they are done.
 
-> *"हम सुबह 7 बजे से लाइन में लगे हैं, 11 बज गया है। अभी भी नंबर नहीं आया। डॉक्टर साहब सिर्फ 2 मिनट देखकर दवाई लिख देते हैं।"*  
-> — **Rameshwar Sahu (48, Farmer from Abhanpur, visiting District Hospital)**
-
-> *"सबसे बड़ी दिक्कत यह है कि जब तक मरीज हमारे सामने नहीं बैठता, हमें पता ही नहीं होता कि उसे छाती में दर्द है या सिर्फ सिरदर्द। अगर कोई गंभीर मरीज कतार में पीछे है, तो वह बेहोश होने के बाद ही इमरजेंसी में पहुंचता है।"*  
-> — **OPD Resident Physician, General Medicine**
-
-> *"मरीजों से बार-बार वही सवाल पूछने में आधा समय निकल जाता है। अगर नब्ज, मुख्य लक्षण और खून की कमी का प्राथमिक अंदेशा पहले से लिखा मिल जाए, तो हम दवा और जांच पर ध्यान दे सकते हैं।"*  
-> — **OPD Staff Nurse, Triage Counter**
+1. **Survey:** a survey of 30+ people on OPD waiting times and on the pain points this project targets.
+2. **OPD observation:** a 1–2 hour observation visit to a government OPD, carried out only with consent from the hospital and from the people observed.
+3. **Recorded quotes:** 3 quotes from patients and OPD staff, recorded with consent. The team will fill these in after the visits:
+   - Quote 1: *[to be filled in by the team]*
+   - Quote 2: *[to be filled in by the team]*
+   - Quote 3: *[to be filled in by the team]*
 
 ---
 
@@ -68,4 +66,4 @@ During user discovery and public hospital observations in Raipur, Chhattisgarh:
 2. **Emergency Protocol (Fail-Safe):**  
    Any confirmed red-flag symptom (acute chest pain, respiratory distress, active obstetrical hemorrhage, altered consciousness) instantly short-circuits the OPD flow, overrides the queue, and presents a direct one-tap emergency banner (`tel:108` and *"Proceed to Emergency Department immediately"*).
 3. **Zero-Knowledge On-Device Privacy:**  
-   Face video streams and ocular macrolens photos are processed exclusively inside the browser's WebAssembly sandbox. Raw biometric frames never leave the patient's device, ensuring compliance with India's **Digital Personal Data Protection (DPDP) Act 2023**.
+   Face video streams and ocular macrolens photos are processed exclusively inside the browser's WebAssembly sandbox. Raw biometric frames never leave the patient's device, designed to align with India's **Digital Personal Data Protection (DPDP) Act 2023**.

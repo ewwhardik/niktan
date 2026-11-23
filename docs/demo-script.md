@@ -33,16 +33,16 @@
   - *Voice line:* **"सीने में दर्द हो रहा है और बहुत तेज साँस फूल रही है।"** ("Chest pain and severe breathlessness.")
 - *"Our multi-tiered AI pipeline transcribes the Hindi speech, validates symptoms against a fixed clinical dictionary, and triggers our safety confirmation."*
 - *(Screen instantly updates to 🔴 EMERGENCY)*
-  - *"Notice what just happened: It didn't just give an advice card. It recognized an acute cardiac red flag, immediately surfaced a direct one-tap call to 108, and look at the Hospital Triage Board on the main screen!"*
+  - *"Notice what just happened: It didn't just give an advice card. It recognized an acute cardiac red flag and immediately surfaced a direct one-tap call to 108 with the instruction to go to the Emergency Department now. This patient does not join the OPD queue."*
   - *(Presenter 1 points to the laptop screen showing `/hospital`)*:  
-    *"On the doctor’s board, this patient bypassed all 14 routine patients and was elevated to Priority #1 instantly."*
+    *"On the hospital board, the hidden-emergency SIMULATED scenario is shown at the top: a simulated chest-pain patient who arrived 15th."*
 
 ---
 
 ### [1:45 – 2:20] The Doctor's Pre-Consultation Card & Live Queue
 - *(Presenter 1 clicks the token on the Triage Board)*
   - *"When the doctor calls token #15, look at the Pre-Consult Card: Vitals, conjunctival pallor status, Snellen vision score, hearing tier, and AI-structured symptoms are already filled in."*
-  - *"In our stopwatch evaluation, this saves 2 to 3 minutes per patient—recovering over 30 doctor-hours every day in a busy district hospital."*
+  - *"Target: this saves 2 to 3 minutes per patient (to be measured at the event), which would recover over 30 doctor-hours every day in a busy district hospital."*
 
 ---
 
@@ -54,6 +54,6 @@
 ---
 
 ### [2:45 – 3:00] The Engineering & Scale Summary
-- *"Everything you saw runs on 100% free-tier serverless infrastructure (Cloudflare Workers + D1) with edge processing on the phone. Personal biometric images NEVER leave the device."*
+- *"Everything you saw runs on free-tier serverless infrastructure (Cloudflare Workers + D1) with edge processing on the phone. Personal biometric images NEVER leave the device."*
 - *"Cost per screening at scale? Under 4 paise. It works today, and it will keep working next month because nothing sleeps."*
 - *"NikTan: Empowering citizens, unburdening doctors, and saving lives in the OPD queue. Thank you!"*

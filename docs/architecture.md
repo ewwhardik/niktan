@@ -25,8 +25,8 @@ flowchart TD
         UI --> AUD
     end
 
-    subgraph SecurityBoundary ["Privacy Sandbox (DPDP Act 2023 Compliant)"]
-        Note["RAW VIDEO & EYE FRAMES NEVER LEAVE THE DEVICE\nOnly numerical feature vectors and verified flags upload"]
+    subgraph SecurityBoundary ["Privacy Sandbox (DPDP Act 2023-aligned design (not a legal certification))"]
+        Note["RAW VIDEO & EYE FRAMES NEVER LEAVE THE DEVICE\nNumerical feature vectors, verified flags, voice recordings and meal photos upload"]
     end
 
     Client -->|HTTPS JSON Payload| Worker
@@ -34,16 +34,14 @@ flowchart TD
     subgraph CloudflareBackend ["Cloudflare Serverless Infrastructure"]
         Worker["Cloudflare Worker (Hono REST API)"]
         D1[("Cloudflare D1 (Serverless SQLite)")]
-        Cache[("D1 / KV Cache")]
         Rules["packages/core (Deterministic Triage & Nutrition Engine)"]
         
         Worker --> Rules
         Worker --> D1
-        Worker --> Cache
     end
 
     subgraph AIAdapters ["Multi-Provider Resilient AI Failover"]
-        Adapter["AI Adapter (Timeout: 8s + Exponential Backoff)"]
+        Adapter["AI Adapter (tries providers in order; 8s timeout each)"]
         Gemini["Google Gemini 2.5 Flash / Flash-Lite"]
         Groq["Groq (Whisper-Large-v3-Turbo + gpt-oss-120b)"]
         WAI["Cloudflare Workers AI (Whisper-Turbo + Gemma)"]
@@ -68,6 +66,10 @@ flowchart TD
         Simulator --> Worker
     end
 ```
+
+---
+
+**Data flow note:** voice recordings and meal photos ARE sent to AI providers (Groq / Gemini / Workers AI) when online; face video and eye photos never leave the phone.
 
 ---
 

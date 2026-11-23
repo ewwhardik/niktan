@@ -12,9 +12,9 @@ NikTan's edge-first architecture eliminates server-side video, image, and signal
 
 Consequently, server-side compute is limited to lightweight JSON serialization, deterministic rule evaluations, and intermittent natural-language structuring.
 
-- **Per-Screening Server Cost:** **~₹0.038 (under 4 paise)**.
-- **Monthly Cost for 100,000 Screenings:** **~₹3,800 to ₹4,500 ($45 to $55 USD)**.
-- **Cost Comparison:** A single diagnostic venous haemoglobin test costs ₹50 to ₹200. NikTan pre-screens an entire patient (vitals, eyes, vision, hearing, symptoms, and nutrition) for less than 1/1,000th of that cost.
+- **Per-Screening Server Cost (estimate):** **~₹0.022 (about 2 paise)**, calculated from the monthly total below.
+- **Monthly Cost for 100,000 Screenings (estimate):** **₹2,190 ($26.15 USD)**.
+- **Cost Comparison (estimate):** Server cost of about ₹0.02 per screening, against roughly ₹50 to ₹200 for a single venous haemoglobin test. This covers server cost only; the citizen's phone and data are not included.
 
 ---
 
@@ -32,7 +32,9 @@ Assuming a district-wide deployment across **1 District Hospital + 4 Community H
 | **Gemini Flash Vision** (Thali Recognition) | ~30,000 meal photos | $0.00013 per image call | ₹325 | $3.90 |
 | **Cloudflare Workers AI** (Failover Fallback) | Overflow neuron consumption | $0.011 / 1k neurons | ₹200 | $2.40 |
 | **Logging & Monitoring** | Sentry / Cloudflare Analytics free tiers | Free tier | ₹0 | $0.00 |
-| **TOTAL MONTHLY OPERATING COST** | **100,000 Citizens Screened** | — | **₹2,190 – ₹2,900** | **$26 – $35 USD** |
+| **TOTAL MONTHLY OPERATING COST** | **100,000 Citizens Screened** | — | **₹2,190** | **$26.15** |
+
+> AI prices (Groq, Google Gemini, Cloudflare Workers AI) must be re-checked on the providers' pricing pages before this plan is used, because they change over time.
 
 ---
 
@@ -42,7 +44,7 @@ NikTan does not require specialized medical kiosks:
 
 1. **Option A: Bring Your Own Device (BYOD) — 80% of OPD Footfall**
    - Patients scan a QR code at the OPD entrance (alongside ABDM Scan & Share).
-   - Runs directly on Android Chrome, Samsung Internet, or mobile Safari (tested on ₹8,000 low-end Android devices).
+   - Runs directly on Android Chrome, Samsung Internet, or mobile Safari (designed for ₹8,000 low-end Android devices).
    - **Hardware cost to hospital:** **₹0**.
 
 2. **Option B: Assisted Triage Tablet (For digitally illiterate / non-smartphone citizens) — 20% of Footfall**

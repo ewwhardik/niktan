@@ -1,8 +1,8 @@
 # Model Card: Conjunctival Pallor Risk Estimator
 
 > **Model Identifier:** `niktan-pallor-v1`  
-> **Model Type:** Regularized Logistic Regression with MinMax Scaler  
-> **Input:** 11 normalized colorimetric and photometric features extracted from palpebral conjunctiva crop  
+> **Model Type:** Regularized Logistic Regression with scikit-learn StandardScaler (z-scores)  
+> **Input:** 11 standardized (z-scored) colorimetric and photometric features extracted from palpebral conjunctiva crop  
 > **Output:** Binary screening flag (`pallor_detected` vs `normal`) + Continuous Risk Score $[0.0, 1.0]$  
 > **Implementation:** In-browser pure TypeScript (`apps/web/src/cv/anemia.ts`) and Python (`ml/anemia/features.py`)
 
@@ -18,19 +18,19 @@
 
 ## 2. Feature Pipeline (11 Colorimetric Descriptors)
 
-The eye scan pipeline crops the lower-eyelid palpebral conjunctiva region using MediaPipe facial landmarks, converts pixel values to normalized color spaces, and extracts 11 deterministic features:
+The eye scan pipeline crops the lower-eyelid palpebral conjunctiva region using MediaPipe facial landmarks, computes colour statistics on the conjunctiva pixels, and passes 11 deterministic features through a StandardScaler (z-scores) before the logistic regression. The features, in model order:
 
-1. **Mean CIELAB $L^*$:** Relative lightness / photometric luminance.
-2. **Mean CIELAB $a^*$:** Redness-greenness chromaticity (primary blood vessel perfusion indicator).
-3. **Mean CIELAB $b^*$:** Yellowness-blueness chromaticity.
-4. **90th Percentile $a^*$:** Peak capillary redness.
-5. **10th Percentile $a^*$:** Baseline tissue redness.
-6. **Mean Normalized Red ($r$):** $R / (R + G + B)$.
-7. **Mean Normalized Green ($g$):** $G / (R + G + B)$.
-8. **Red-Green Ratio:** $R / (G + \epsilon)$.
-9. **Erythema Index:** $\log(R) - \log(G)$.
-10. **Relative Erythema Contrast:** Capillary dilation proxy.
-11. **Color Variation Coefficient:** Texture homogeneity.
+1. `a_mean`: mean CIELAB $a^*$ (redness-greenness) of conjunctiva pixels.
+2. `a_median`: median CIELAB $a^*$.
+3. `a_p25`: 25th percentile of $a^*$.
+4. `a_p75`: 75th percentile of $a^*$.
+5. `L_mean`: mean CIELAB $L^*$ (lightness).
+6. `L_median`: median CIELAB $L^*$.
+7. `b_mean`: mean CIELAB $b^*$ (yellowness-blueness).
+8. `ei_mean`: mean erythema index.
+9. `ei_median`: median erythema index.
+10. `rch_mean`: mean red chromaticity.
+11. `gr_mean`: mean green/red ratio.
 
 Parity between Python feature extraction and browser TypeScript execution is strictly validated to $< 10^{-9}$ numerical precision using golden vector unit tests (`apps/web/test/anemia.test.ts`).
 
