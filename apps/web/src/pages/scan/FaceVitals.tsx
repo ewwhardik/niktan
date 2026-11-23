@@ -26,7 +26,6 @@ const SCAN_SECONDS = 30;
 const DEBUG = (() => { try { return sessionStorage.getItem('niktan.debug') === '1'; } catch { return false; } })();
 const WARMUP_SECONDS = 2;
 const ACQUISITION_SECONDS = 20;
-const FACE_OUTLINE = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
 
 type Phase = 'intro' | 'loading' | 'scanning' | 'result';
 type Hint = 'ok' | 'noFace' | 'manyFaces' | 'dark' | 'moving' | 'framing' | 'lighting' | 'frozen';
@@ -142,86 +141,149 @@ export default function FaceVitals({ next, guide }: StepProps) {
     haptic([30, 60, 30]);
   }, [cam.stop]);
 
-  /** Paints the landmark mesh and the sampled skin regions over the mirrored, object-cover video. */
+  /** Latest face for the overlay; the capture loop writes it, the overlay's own animation loop reads it. */
+  const overlay = useRef<{ video: HTMLVideoElement | null; lm: NormalizedLandmark[] | null; ok: boolean; at: number }>({ video: null, lm: null, ok: false, at: 0 });
   const drawMesh = useCallback((video: HTMLVideoElement, lm: NormalizedLandmark[] | null, ok: boolean) => {
+    overlay.current = { video, lm, ok, at: performance.now() };
+  }, []);
+
+  /**
+   * The scan overlay at display rate, independent of how fast the face model runs: brackets glide to
+   * the face and lock on, the full face mesh is shaded by depth with a light wave sweeping down it, and
+   * the sampled skin regions flush on each detected beat.
+   */
+  useEffect(() => {
+    if (phase !== 'scanning') return;
     const c = mesh.current;
-    if (!c) return;
-    const cw = c.clientWidth;
-    const ch = c.clientHeight;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (c.width !== Math.round(cw * dpr) || c.height !== Math.round(ch * dpr)) {
-      c.width = Math.round(cw * dpr);
-      c.height = Math.round(ch * dpr);
-    }
-    const ctx = c.getContext('2d')!;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cw, ch);
-    if (!lm) return;
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    const scale = Math.max(cw / vw, ch / vh);
-    const ox = (vw * scale - cw) / 2;
-    const oy = (vh * scale - ch) / 2;
-    const px = (p: NormalizedLandmark) => cw - (p.x * vw * scale - ox);
-    const py = (p: NormalizedLandmark) => p.y * vh * scale - oy;
-    const signal = ok ? 'rgba(89,248,200,' : 'rgba(247,178,59,';
-    // Skin regions flush briefly on each detected beat, the way the pulse actually reaches the skin.
-    const flush = ok ? Math.max(0, 1 - (performance.now() - lastBeatAt.current) / 420) : 0;
-    ctx.beginPath();
-    FACE_OUTLINE.forEach((index, i) => {
-      const point = lm[index]!;
-      if (i === 0) ctx.moveTo(px(point), py(point));
-      else ctx.lineTo(px(point), py(point));
-    });
-    ctx.closePath();
-    ctx.strokeStyle = `${signal}0.46)`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    // Shade the mesh by MediaPipe's depth (z < 0 is nearer the camera) so the face reads in 3D.
-    for (let i = 0; i < lm.length; i += 2) {
-      const p = lm[i]!;
-      const near = Math.max(0, Math.min(1, 0.5 - (p.z ?? 0) * 8));
-      const size = 0.7 + near * 1.3;
-      ctx.fillStyle = `rgba(255,255,255,${(0.14 + near * 0.5).toFixed(3)})`;
-      ctx.fillRect(px(p) - size / 2, py(p) - size / 2, size, size);
-    }
-    for (const [name, poly] of Object.entries(ROI)) {
-      const xs = poly.map(i => px(lm[i]!));
-      const ys = poly.map(i => py(lm[i]!));
-      const top = Math.min(...ys);
-      const bottom = Math.max(...ys);
-      ctx.beginPath();
-      poly.forEach((idx, k) => {
-        const p = lm[idx]!;
-        if (k === 0) ctx.moveTo(px(p), py(p));
-        else ctx.lineTo(px(p), py(p));
-      });
-      ctx.closePath();
-      ctx.fillStyle = `${signal}${(0.14 + 0.26 * flush).toFixed(3)})`;
-      ctx.fill();
-      ctx.strokeStyle = `${signal}0.85)`;
-      ctx.lineWidth = 1.6;
-      ctx.stroke();
-      if (ok && !reduceMotion) {
-        // Clip the sweep to the measured polygon, so it follows the skin as the face moves.
-        ctx.save();
-        ctx.clip();
-        const y = top + (bottom - top) * ((video.currentTime % 1.8) / 1.8);
-        ctx.fillStyle = 'rgba(202,255,237,.75)';
-        ctx.fillRect(Math.min(...xs), y, Math.max(...xs) - Math.min(...xs), 2);
-        ctx.restore();
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return;
+    let tess: { start: number; end: number }[] = [];
+    void import('@mediapipe/tasks-vision').then((m) => { tess = m.FaceLandmarker.FACE_LANDMARKS_TESSELATION; }).catch(() => undefined);
+    const box = { x: 0, y: 0, w: 0, h: 0, set: false };
+    let lockAt = -Infinity;
+    let hadFace = false;
+    let last = performance.now();
+    let raf = 0;
+    const draw = (now: number) => {
+      raf = requestAnimationFrame(draw);
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const cw = c.clientWidth;
+      const ch = c.clientHeight;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      if (c.width !== Math.round(cw * dpr) || c.height !== Math.round(ch * dpr)) {
+        c.width = Math.round(cw * dpr);
+        c.height = Math.round(ch * dpr);
       }
-      ctx.font = '600 11px system-ui';
-      const label = t('face.' + name);
-      const width = ctx.measureText(label).width + 12;
-      const x = Math.max(3, Math.min(cw - width - 3, (Math.min(...xs) + Math.max(...xs) - width) / 2));
-      const y = Math.max(4, Math.min(ch - 22, name === 'forehead' ? top - 21 : (top + bottom) / 2 - 9));
-      ctx.fillStyle = 'rgba(8,22,26,.86)';
-      ctx.fillRect(x, y, width, 18);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(label, x + 6, y + 13);
-    }
-  }, [reduceMotion, t]);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cw, ch);
+      const { video, lm: raw, ok, at } = overlay.current;
+      const lm = raw && now - at < 700 ? raw : null;
+      const fresh = lm && video && video.videoWidth ? video : null;
+      let px = (_: NormalizedLandmark) => 0;
+      let py = (_: NormalizedLandmark) => 0;
+      // Target: the face's box, or the centre guide while searching.
+      let target = { x: cw * 0.17, y: ch * 0.13, w: cw * 0.66, h: ch * 0.66 };
+      if (lm && fresh) {
+        const scale = Math.max(cw / fresh.videoWidth, ch / fresh.videoHeight);
+        const ox = (fresh.videoWidth * scale - cw) / 2;
+        const oy = (fresh.videoHeight * scale - ch) / 2;
+        px = (p) => cw - (p.x * fresh.videoWidth * scale - ox);
+        py = (p) => p.y * fresh.videoHeight * scale - oy;
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (const p of lm) {
+          const x = px(p), y = py(p);
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+        const pad = 0.09 * (x1 - x0);
+        target = { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad };
+        if (!hadFace) lockAt = now;
+      }
+      hadFace = !!lm;
+      // Critically damped glide toward the target.
+      const k = box.set ? 1 - Math.exp(-dt / 0.08) : 1;
+      box.x += (target.x - box.x) * k; box.y += (target.y - box.y) * k;
+      box.w += (target.w - box.w) * k; box.h += (target.h - box.h) * k;
+      box.set = true;
+      const tone = !lm ? '255,255,255' : ok ? '120,240,210' : '247,178,59';
+      // Lock-on: the brackets start wide and snap in when a face is found.
+      const lockT = (now - lockAt) / 1000;
+      const snap = lm && !reduceMotion ? 1 + 0.22 * Math.exp(-lockT * 9) * Math.cos(lockT * 18) : 1;
+      const breathe = !lm && !reduceMotion ? 1 + 0.025 * Math.sin(now / 420) : 1;
+      const s = snap * breathe;
+      const bx = box.x + (box.w * (1 - s)) / 2, by = box.y + (box.h * (1 - s)) / 2, bw = box.w * s, bh = box.h * s;
+      const arm = Math.min(bw, bh) * 0.16;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = `rgba(${tone},${lm ? 0.95 : 0.6})`;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      for (const [cx, cy, dx, dy] of [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]] as const) {
+        ctx.moveTo(cx, cy + dy * arm); ctx.quadraticCurveTo(cx, cy, cx + dx * arm * 0.35, cy); ctx.lineTo(cx + dx * arm, cy);
+      }
+      ctx.stroke();
+      if (!lm || !fresh) return;
+      // Face mesh, faint and depth-shaded, brightened by a light wave sweeping down the face.
+      const phaseT = reduceMotion ? -1 : ((now / 2600) % 1);
+      const wave = box.y + box.h * (0.04 + 0.92 * (phaseT < 0 ? 0 : 0.5 - 0.5 * Math.cos(Math.PI * phaseT)));
+      const spread = box.h * 0.07;
+      if (tess.length) {
+        const buckets: Path2D[] = Array.from({ length: 6 }, () => new Path2D());
+        for (const { start, end } of tess) {
+          const a = lm[start], b = lm[end];
+          if (!a || !b) continue;
+          const ax = px(a), ay = py(a), bx2 = px(b), by2 = py(b);
+          const near = Math.max(0, Math.min(1, 0.5 - ((a.z ?? 0) + (b.z ?? 0)) * 4));
+          const lift = phaseT < 0 ? 0 : Math.exp(-((((ay + by2) / 2 - wave) / spread) ** 2));
+          const level = Math.min(5, Math.floor((0.25 + 0.35 * near + 0.9 * lift) * 4));
+          buckets[level]!.moveTo(ax, ay);
+          buckets[level]!.lineTo(bx2, by2);
+        }
+        ctx.lineWidth = 0.6;
+        buckets.forEach((path, i) => {
+          ctx.strokeStyle = `rgba(${i >= 3 ? tone : '255,255,255'},${(0.05 + i * 0.09).toFixed(2)})`;
+          ctx.stroke(path);
+        });
+      }
+      const signal = ok ? 'rgba(89,248,200,' : 'rgba(247,178,59,';
+      // Skin regions flush briefly on each detected beat, the way the pulse actually reaches the skin.
+      const flush = ok ? Math.max(0, 1 - (now - lastBeatAt.current) / 420) : 0;
+      for (const [name, poly] of Object.entries(ROI)) {
+        const xs = poly.map((i) => px(lm[i]!));
+        const ys = poly.map((i) => py(lm[i]!));
+        ctx.beginPath();
+        poly.forEach((idx, j) => (j ? ctx.lineTo(px(lm[idx]!), py(lm[idx]!)) : ctx.moveTo(px(lm[idx]!), py(lm[idx]!))));
+        ctx.closePath();
+        ctx.fillStyle = `${signal}${(0.1 + 0.3 * flush).toFixed(3)})`;
+        ctx.fill();
+        ctx.strokeStyle = `${signal}${(0.55 + 0.4 * flush).toFixed(2)})`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Labels introduce the regions when the face locks on, then fade so the face stays clear.
+        const labelAlpha = reduceMotion ? 1 : Math.max(0, Math.min(1, 1 - (lockT - 2.2) / 0.6));
+        if (!labelAlpha) continue;
+        ctx.globalAlpha = labelAlpha;
+        ctx.font = '600 10px system-ui';
+        const label = t('face.' + name);
+        const width = ctx.measureText(label).width + 14;
+        const top = Math.min(...ys), bottom = Math.max(...ys);
+        const lx = Math.max(3, Math.min(cw - width - 3, (Math.min(...xs) + Math.max(...xs) - width) / 2));
+        const ly = Math.max(4, Math.min(ch - 22, name === 'forehead' ? top - 22 : (top + bottom) / 2 - 9));
+        ctx.fillStyle = 'rgba(8,14,16,.72)';
+        ctx.beginPath();
+        ctx.roundRect(lx, ly, width, 18, 9);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fillText(label, lx + 7, ly + 12.5);
+        ctx.globalAlpha = 1;
+      }
+    };
+    raf = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(raf);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+    };
+  }, [phase, reduceMotion, t]);
 
   const begin = useCallback(async () => {
     // The start tap is the user gesture browsers require before any sound can play.
@@ -301,7 +363,6 @@ export default function FaceVitals({ next, guide }: StepProps) {
     let brightnessHistory: { t: number; value: number }[] = [];
     let previousGeometry: ReturnType<typeof faceGeometry> | null = null;
     let lastLive = 0;
-    let lastOverlay = -Infinity;
     let previousGuidance: Hint = 'noFace';
     let lastProgressAt = start;
     let lastNewFrameAt = start;
@@ -447,10 +508,7 @@ export default function FaceVitals({ next, guide }: StepProps) {
           previousGuidance = guidance;
         }
         // Keep signal sampling at camera rate. Painting the overlay needs fewer updates.
-        if (guidanceChanged || now - lastOverlay >= 65) {
-          lastOverlay = now;
-          drawMesh(video, tracked, guidance === 'ok');
-        }
+        drawMesh(video, tracked, guidance === 'ok');
         if (guidance !== 'ok') {
           generation++;
           tm.quality = 0;
@@ -519,10 +577,6 @@ export default function FaceVitals({ next, guide }: StepProps) {
       {phase === 'loading' && <ScanRing state="searching" className="top-[13.25%] left-[17.33%] h-[66%] w-[65.34%]" />}
       {phase === 'scanning' && (
         <>
-          <div aria-hidden className="orbit-3d pointer-events-none absolute top-[44%] left-1/2 size-[78%]">
-            <span className={hint === 'ok' ? 'orbit-3d__ring is-locked' : 'orbit-3d__ring'} />
-            <span className="orbit-3d__ring orbit-3d__ring--b" />
-          </div>
           <div className="absolute inset-x-0 top-0 h-[3px] bg-white/10">
             <div className="h-full origin-left bg-[var(--signal)] transition-transform duration-300 ease-linear" style={{ transform: `scaleX(${progress})` }} />
           </div>

@@ -2,7 +2,8 @@
   "film": {
     "title": "Before the waiting room",
     "play": "Play the NikTan product film",
-    "watch": "Watch the film"
+    "watch": "Watch the film",
+    "music": "Music: \"EDM Detection Mode\" by"
   },
   "app": {
     "name": "NikTan",

@@ -223,3 +223,26 @@
 @media (prefers-reduced-motion: reduce) {
   .web-spider, .web-thread { animation: none; }
 }
+
+/* Footer details: spiders sway on their threads; the hammer rests tilted and rocks a little. */
+.hanging-spider {
+  transform-origin: top center;
+  animation: spider-sway 5.5s ease-in-out infinite;
+}
+@keyframes spider-sway {
+  0%, 100% { transform: rotate(-4deg) translateY(0); }
+  50% { transform: rotate(4deg) translateY(6px); }
+}
+.footer-hammer {
+  transform: rotate(-24deg);
+  transform-origin: 50% 90%;
+  animation: hammer-rock 7s ease-in-out infinite;
+}
+@keyframes hammer-rock {
+  0%, 82%, 100% { transform: rotate(-24deg); }
+  88% { transform: rotate(-30deg); }
+  94% { transform: rotate(-20deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hanging-spider, .footer-hammer { animation: none; }
+}

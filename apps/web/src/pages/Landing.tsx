@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { SCREENING_STEPS, useScan } from '../state/scan';
 import { ProductFilm } from '../ui/ProductFilm';
 import { Assemble } from '../ui/visuals/Assemble';
+import { GLYPHS, HangingSpider } from '../ui/visuals/HeroGlyphs';
 import { BrandMark } from '../ui/BrandMark';
 import { LangToggle } from '../ui/Layout';
 import { CountUp } from '../ui/Numbers';
@@ -544,6 +545,10 @@ export function Landing() {
       </section>
 
       <footer className="relative overflow-hidden border-t border-border">
+        {/* Small Avengers details for the hackathon theme; decoration only. */}
+        <HangingSpider drop={46} className="left-[2.5%] hidden text-text-3 lg:block" />
+        <HangingSpider drop={92} delay={-1.6} className="left-[47%] hidden text-text-3 md:block" />
+        <HangingSpider drop={64} delay={-3.1} className="right-[9%] text-text-3" />
         <div className="mx-auto grid max-w-[1240px] gap-10 px-5 pt-14 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:px-10">
           <div>
             <div className="flex items-center gap-2.5"><BrandMark className="size-6 dark:brightness-0 dark:invert" /> <span className="font-semibold">NikTan</span></div>
@@ -572,7 +577,13 @@ export function Landing() {
             </div>
           ))}
         </div>
-        <p aria-hidden className="lp-footer-wordmark mx-auto mt-10 w-fit px-1 text-center font-semibold select-none sm:mt-14">NikTan</p>
+        <div className="relative mx-auto w-fit">
+          <p aria-hidden className="lp-footer-wordmark mt-10 w-fit px-1 text-center font-semibold select-none sm:mt-14">NikTan</p>
+          {/* Thor's hammer resting on the wordmark, as if someone left it there. */}
+          <span aria-hidden className="footer-hammer pointer-events-none absolute -top-1 right-[3%] text-text-3 select-none sm:top-2">
+            {GLYPHS.Thor!({ className: 'size-9 sm:size-12 lg:size-16' })}
+          </span>
+        </div>
         <div className="pb-[calc(144px+env(safe-area-inset-bottom))] sm:pb-6" />
       </footer>
 

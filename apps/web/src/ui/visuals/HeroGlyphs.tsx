@@ -56,3 +56,17 @@ export function WebCorner({ className = '' }: { className?: string }) {
     </svg>
   );
 }
+
+/** A spider hanging from the top edge on a thread of `drop` px; it sways and bobs on its own clock. */
+export function HangingSpider({ drop, delay = 0, className = '' }: { drop: number; delay?: number; className?: string }) {
+  return (
+    <span aria-hidden className={`hanging-spider pointer-events-none absolute top-0 select-none ${className}`} style={{ ['--drop' as string]: `${drop}px`, animationDelay: `${delay}s` }}>
+      <span className="block w-px bg-current opacity-50" style={{ height: drop }} />
+      <svg viewBox="0 0 24 24" className="-mt-0.5 -ml-[9px] size-[19px]" fill="currentColor">
+        <ellipse cx="12" cy="14" rx="3.4" ry="4.2" />
+        <circle cx="12" cy="8.2" r="2.4" />
+        <path d="M9 12 4 9M9 14l-5.5 0M9 16l-4.5 3.5M15 12l5-3M15 14h5.5M15 16l4.5 3.5M10.5 7 9 4.5M13.5 7 15 4.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+      </svg>
+    </span>
+  );
+}
