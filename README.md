@@ -1,10 +1,15 @@
+<p align="center">
+  <img src="apps/web/public/brand/niktan-mark.png" width="84" alt="NikTan logo" />
+</p>
+
 # NikTan (निकतन)
 
 > **"तबियत कइसन हे? तीन मिनट म जाँच लव।"**  
 > *"Your phone is the first checkup. The OPD knows you before you arrive."*
 
 [![Hackathon](https://img.shields.io/badge/Hackasol%205.0-Track%201%3A%20Open%20Innovation%20(OI--01)-8b5cf6.svg)](https://iiitnr.ac.in)
-[![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare%20Workers%20%2B%20Pages%20%2B%20D1-orange.svg)](https://workers.cloudflare.com)
+[![Live app on Vercel](https://img.shields.io/badge/Live%20app-Vercel-000000.svg)](https://niktan.vercel.app/)
+[![API on Cloudflare](https://img.shields.io/badge/API-Cloudflare%20Workers%20%2B%20D1-orange.svg)](https://workers.cloudflare.com)
 [![Privacy](https://img.shields.io/badge/Privacy-On--Device%20Edge%20CV%20(WASM)-success.svg)](docs/architecture.md)
 [![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](packages/core/test)
 
@@ -16,8 +21,33 @@ In Indian public hospitals, patients routinely wait 2 to 4 hours in outpatient d
 
 ---
 
+## Product walkthrough
+
+[![NikTan production home page with Start 3-minute check and Health Card actions](docs/images/live/home.webp)](https://niktan.vercel.app/)
+
+```mermaid
+flowchart LR
+    Start["Consent and profile"] --> Scan["Pulse · Eyes · Vision · Hearing · Symptoms"]
+    Scan --> Card["Health Card"]
+    Card -->|Immediate care| Emergency["Call 108 / Emergency"]
+    Card -->|OPD visit| Queue["Patient queue token"]
+    Queue --> Board["Staff triage board"] --> Consult["Pre-consult card"]
+    Card --> Thali["Meal nutrition"]
+```
+
+| Face pulse | Eye check | Vision | Hearing | Symptoms |
+|---|---|---|---|---|
+| [<img src="docs/images/live/face-vitals.webp" width="160" alt="Contactless pulse scan screen" />](docs/images/live/face-vitals.webp) | [<img src="docs/images/live/eye-check.webp" width="160" alt="Eye screening screen" />](docs/images/live/eye-check.webp) | [<img src="docs/images/live/vision-test.webp" width="160" alt="Vision calibration screen" />](docs/images/live/vision-test.webp) | [<img src="docs/images/live/hearing-test.webp" width="160" alt="Hearing test setup screen" />](docs/images/live/hearing-test.webp) | [<img src="docs/images/live/symptoms.webp" width="160" alt="Voice and manual symptom entry" />](docs/images/live/symptoms.webp) |
+
+| Health Card | Hospital triage board |
+|---|---|
+| [![Health Card with an example screening summary](docs/images/live/health-card.webp)](docs/images/live/health-card.webp) | [![Triage board with synthetic OPD visits](docs/images/live/staff-board.webp)](docs/images/live/staff-board.webp) |
+
+Screenshots come from the deployed web app. Sample health results, queue tokens and staff views use synthetic data. The anatomy models are adapted from BodyParts3D © DBCLS, CC BY 4.0. [Full screenshot gallery and walkthrough](docs/product-tour.md) · [Anatomy attribution](apps/web/public/models/ATTRIBUTION.txt)
+
 ## Quick Navigation
 
+- [Product walkthrough](#product-walkthrough)
 - [Problem Validation & Real-World Evidence](#problem-validation-and-evidence)
 - [Measurable Quantitative Impact](#measurable-impact-before--after)
 - [System Architecture & Privacy Pipeline](#architecture-and-data-flow)
@@ -281,6 +311,8 @@ For comprehensive implementation blueprints, benchmarks, and clinical reviews:
 
 | Document | Description |
 |---|---|
+| [`docs/product-tour.md`](docs/product-tour.md) | Screenshots of citizen, screening and hospital workflows with capture details |
+| [`docs/design-roadmap.md`](docs/design-roadmap.md) | Interaction design decisions, responsive checks and screening recovery |
 | 📄 [`docs/validation.md`](docs/validation.md) | Clinical problem validation, OPD wait studies, ABDM Scan & Share analysis, planned validation |
 | 📊 [`docs/metrics.md`](docs/metrics.md) | Quantitative evaluation metrics, before/after comparisons, queue integration test benchmarks |
 | 💰 [`docs/cost.md`](docs/cost.md) | Costed plan for population-scale deployment (100k screenings/month, hospital tablet options) |

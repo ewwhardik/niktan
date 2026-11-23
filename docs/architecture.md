@@ -7,8 +7,11 @@
 
 ## 1. System Topology & Data Boundaries
 
+The production PWA is served by Vercel. The browser calls the Cloudflare Worker API configured through `VITE_API_URL`. Cloudflare D1 stores screening sessions, queue tokens, and staff records. [Production app](https://niktan.vercel.app/) · [Screen-by-screen walkthrough](product-tour.md)
+
 ```mermaid
 flowchart TD
+    Vercel["Vercel · Static PWA"] --> UI
     subgraph Client ["Citizen Phone (Browser / PWA)"]
         UI["React 18 + Vite + Tailwind PWA"]
         subgraph OnDeviceCV ["On-Device Edge Computing (WASM/WebGL)"]
@@ -17,7 +20,7 @@ flowchart TD
             EYE["Conjunctiva Auto-Crop & 11 Color Features"]
             ANEMIA["Logistic Regression Pallor Estimator"]
             VIS["Tumbling-E Calibrated Acuity (2m / 40cm)"]
-            AUD["DIN Hindi Triplets Speech Audiometry (WebAudio)"]
+            AUD["Hindi digits-in-noise and per-ear tone screening (Web Audio)"]
         end
         UI --> MP --> RPPG
         UI --> MP --> EYE --> ANEMIA

@@ -11,6 +11,8 @@
 
 ## Timeline & Talking Points
 
+Open the [production app](https://niktan.vercel.app/) on the phone and the [staff sign-in page](https://niktan.vercel.app/hospital) on the laptop. The [product walkthrough](product-tour.md) shows the screens in order. Use **Health Card** on the home page to reopen a saved screening, and use simulated visits for the staff demonstration.
+
 ### [0:00 – 0:25] The Hook: The Two-Hour Wait for a Five-Minute Consult
 - *"Good afternoon judges. Raise your hand if you or your family have ever waited 2 to 3 hours in a government hospital OPD just to see the doctor for barely 5 minutes."*
 - *"India’s ABDM Scan & Share was a massive triumph—it cut registration queues from 1 hour to 2 minutes. But it stopped right there. Once you have a token, you still wait in a single, blind, first-come queue. A breathless hypertensive patient waits behind 15 routine checkups, and when they finally see the doctor, the doctor spends half the consult asking basic questions."*
@@ -34,7 +36,7 @@
 - *"Our multi-tiered AI pipeline transcribes the Hindi speech, validates symptoms against a fixed clinical dictionary, and triggers our safety confirmation."*
 - *(Screen instantly updates to 🔴 EMERGENCY)*
   - *"Notice what just happened: It didn't just give an advice card. It recognized an acute cardiac red flag and immediately surfaced a direct one-tap call to 108 with the instruction to go to the Emergency Department now. This patient does not join the OPD queue."*
-  - *(Presenter 1 points to the laptop screen showing `/hospital`)*:  
+  - *(Presenter 1 points to the laptop screen showing `/hospital/board` after staff sign-in)*:
     *"On the hospital board, the hidden-emergency SIMULATED scenario is shown at the top: a simulated chest-pain patient who arrived 15th."*
 
 ---

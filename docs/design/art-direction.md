@@ -2,6 +2,8 @@
 
 The landing page and meal introduction use transparent cut-paper illustrations generated with the built-in ImageGen tool. The phone illustration shows the capture posture. The meal illustration shows the type of plate a user can photograph. Both are exported as WebP with alpha. The approved logo is a single teal silhouette, with an SVG for small navigation marks and PNG versions for installed apps.
 
+The [approved logo assets](../../apps/web/public/brand/) include the SVG used by the shared React logo and favicon, plus the install icons. The landing footer wordmark uses the site's typography and a static, theme-aware gradient. [See the logo and typography in the production captures](../product-tour.md)
+
 ## Generation prompts
 
 ### logo

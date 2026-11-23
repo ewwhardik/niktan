@@ -45,6 +45,8 @@ Ship each numbered group as an independently reviewable change with before-and-a
 
 ## Implemented and checked
 
+The home page exposes **Health Card** beside the screening action. Returning users can reopen their saved screening, and a first visit shows how to start one. The footer uses the oversized NikTan wordmark with a static, theme-aware gradient. [Production screen gallery](product-tour.md) · [Footer screenshot](images/live/footer.webp)
+
 The landing page pairs a cut-paper screening illustration with example results. Patient actions are available as soon as the page renders. The revised health card puts the care recommendation first and links body-map controls to a text observation. Emergency calling is immediate. The vision test accepts direction keys, the meal editor recalculates portion weights and nutrient totals, and the staff board groups visits by consultation state. Poll failures preserve the last successful board. The service and administrative screens expose missing or stale data. [Visual assets and prompts](design/art-direction.md)
 
 Browser checks covered landing, consent, profile, card, meal, staff login and service status at 360, 390, 768 and 1280 CSS pixels, with English and Hindi, reduced motion and both colour preferences represented. At phone width, scripted interactions exercised camera denial, retry and skip, keyboard completion of both distance-vision trials, manual symptom input, adding and removing meal portions, and recovery of the board after a failed request. Staff visits and network failures were simulated. The comparison shows the same three synthetic visits before and after the change, at 390 CSS pixels. [Staff board comparison](design/board-comparison.webp)
