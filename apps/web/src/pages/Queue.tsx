@@ -11,6 +11,7 @@ import { useScan } from '../state/scan';
 import { Button } from '../ui/Button';
 import { PRIORITY_META } from '../ui/Chip';
 import { Screen, TopBar } from '../ui/Layout';
+import { QueueLine } from '../ui/visuals/Infographics';
 import { Sheet } from '../ui/Sheet';
 import { riseChild, spring, staggerParent } from '../ui/motion';
 
@@ -170,6 +171,9 @@ export default function Queue() {
           </motion.p>
         ) : (
           <motion.div key="waiting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 grid grid-cols-2 gap-3">
+            <div className="col-span-2 rounded-lg bg-surface p-4 shadow-1">
+              <QueueLine ahead={ahead} you={t('queue.you')} />
+            </div>
             <div className="rounded-lg bg-surface p-4 shadow-1">
               <Users size={20} className="text-text-3" aria-hidden />
               <Rolling value={ahead} className="mt-2 text-title-1 font-semibold" />

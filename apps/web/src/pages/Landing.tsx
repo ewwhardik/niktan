@@ -11,6 +11,7 @@ import { Marquee } from '../ui/visuals/Marquee';
 import { MiniBoard } from '../ui/visuals/MiniBoard';
 import { PulseSphere } from '../ui/visuals/PulseSphere';
 import { StepVisual, type StepKey } from '../ui/visuals/StepVisual';
+import { DataFlow, QueueRace, TimeDonut } from '../ui/visuals/Infographics';
 import { ease } from '../ui/motion';
 
 interface Step {
@@ -276,6 +277,17 @@ export function Landing() {
           ))}
         </div>
         <p className="mt-4 text-caption text-text-3">{t('home.statSource')}</p>
+        <div className="mt-16 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <Reveal className="rounded-xl bg-surface p-7 shadow-1">
+            <p className="eyebrow">{t('home.problemVisual')}</p>
+            <div className="mt-5">
+              <TimeDonut wait={110.9} consult={5.3} labels={t('home.donut', { returnObjects: true }) as { wait: string; consult: string }} />
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <QueueRace labels={t('home.race', { returnObjects: true }) as { fcfs: string; niktan: string; wait: string; note: string }} />
+          </Reveal>
+        </div>
       </section>
 
       <HowItWorks steps={steps} />
@@ -350,6 +362,9 @@ export function Landing() {
             <h2 className="mt-4 text-[clamp(2.25rem,5vw,4rem)] leading-[1.04] font-semibold">{t('home.privTitle')}</h2>
             <p className="mt-6 max-w-2xl text-body-lg text-text-2">{t('home.privBody')}</p>
           </div>
+        </Reveal>
+        <Reveal className="mt-14">
+          <DataFlow labels={t('home.flow', { returnObjects: true }) as Parameters<typeof DataFlow>[0]['labels']} />
         </Reveal>
       </section>
 

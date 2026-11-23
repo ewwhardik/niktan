@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { haptic } from '../lib/perf';
 import { useScan } from '../state/scan';
 import { Button, LinkButton } from '../ui/Button';
+import { NutrientRings } from '../ui/visuals/Infographics';
 import { Dock, Screen, TopBar } from '../ui/Layout';
 import { Sheet } from '../ui/Sheet';
 import { riseChild, spring, staggerParent } from '../ui/motion';
@@ -180,6 +181,17 @@ export default function Thali() {
 
         {phase === 'result' && result && (
           <motion.div key="result" variants={staggerParent} initial="hidden" animate="show" className="flex flex-col gap-4 pt-2">
+            <motion.div variants={riseChild} className="rounded-xl bg-surface p-5 shadow-1">
+              <NutrientRings
+                center={`${Math.round(result.totals.kcal)} kcal`}
+                rings={[
+                  { label: t('thali.protein'), share: result.share.protein, color: '#0A84FF' },
+                  { label: t('thali.iron'), share: result.share.iron, color: '#FF375F' },
+                  { label: t('thali.fibre'), share: result.share.fibre, color: '#30D158' },
+                  { label: t('thali.vitaminC'), share: result.share.vitaminC, color: '#FF9F0A' },
+                ]}
+              />
+            </motion.div>
             <motion.div variants={riseChild} className="rounded-lg bg-surface p-5 shadow-1">
               <p className="text-caption text-text-3">{t('thali.perMeal')}</p>
               <div className="mt-3 flex flex-col gap-4">

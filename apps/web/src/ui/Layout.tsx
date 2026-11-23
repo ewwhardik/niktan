@@ -60,7 +60,7 @@ export function LangToggle({ compact = false }: { compact?: boolean }) {
         aria-label={t('common.language')}
       >
         <Languages size={18} strokeWidth={1.75} aria-hidden />
-        <span className={compact ? 'hidden sm:inline' : ''}>{LANGS.find((l) => l.id === i18n.language)?.label ?? 'हिंदी'}</span>
+        <span className={compact ? 'hidden sm:inline' : ''}>{LANGS.find((l) => l.id === i18n.language)?.label ?? 'English'}</span>
       </motion.button>
       <Sheet open={open} onClose={() => setOpen(false)} title={t('common.language')}>
         <div className="flex flex-col gap-2 py-2">

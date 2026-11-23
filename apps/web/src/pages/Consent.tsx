@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Dock, Screen, TopBar } from '../ui/Layout';
 import { riseChild, staggerParent } from '../ui/motion';
+import { DataFlow } from '../ui/visuals/Infographics';
 
 export function Consent() {
   const { t } = useTranslation();
@@ -22,6 +23,9 @@ export function Consent() {
           {t('consent.title')}
         </motion.h1>
         <p className="mt-3 text-body-lg text-text-2">{t('consent.purpose')}</p>
+        <motion.div variants={riseChild} className="mt-6">
+          <DataFlow compact labels={t('home.flow', { returnObjects: true }) as Parameters<typeof DataFlow>[0]['labels']} />
+        </motion.div>
         <ul className="mt-6 flex flex-col gap-3">
           {rows.map(({ icon: Icon, title, body, tone }) => (
             <motion.li key={title} variants={riseChild} className="flex gap-4 rounded-lg bg-surface p-4 shadow-1">

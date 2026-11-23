@@ -87,7 +87,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       try {
         let { sessionId } = latest.current;
         if (!sessionId) {
-          const lang = load('niktan.lang', 'hi');
+          const lang = load('niktan.lang', 'en');
           const res = await api.post<{ id: string }>('/api/sessions', { ...latest.current.profile, lang });
           if (!current()) return null;
           sessionId = res.id;

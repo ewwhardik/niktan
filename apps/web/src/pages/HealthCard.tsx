@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowUpRight, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, PhoneCall, QrCode, Stethoscope, Trash2, Volume2 } from 'lucide-react';
+import { ArrowUpRight, Ear, Eye, Glasses, HeartPulse, Hospital, Mic, OctagonAlert, PhoneCall, QrCode, Stethoscope, Thermometer, Trash2, TriangleAlert, Volume2 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -17,6 +17,28 @@ import type { Callout, CalloutTone } from '../ui/three/AnatomyViewer';
 import { anchors } from '../ui/three/anchors';
 
 const AnatomyViewer = lazy(() => import('../ui/three/AnatomyViewer'));
+
+/** Icon and tint per reason type, so the "why" list scans at a glance. */
+function ReasonIcon({ code }: { code: string }) {
+  const [Icon, cls] = code.startsWith('red_flag') || code.startsWith('hr_very')
+    ? [OctagonAlert, 'bg-emergency-tint text-emergency-ink']
+    : code.startsWith('hr_')
+      ? [HeartPulse, 'bg-[#ffe5ea] text-[#c2185b]']
+      : /pallor|jaundice|cataract|vision/.test(code)
+        ? [Eye, 'bg-[#e3f1ff] text-[#0a6fd6]']
+        : code.startsWith('hearing')
+          ? [Ear, 'bg-[#e2f7ea] text-[#167c3f]']
+          : /fever/.test(code)
+            ? [Thermometer, 'bg-seetoday-tint text-seetoday-ink']
+            : code.startsWith('declined') || code.startsWith('severe')
+              ? [TriangleAlert, 'bg-seetoday-tint text-seetoday-ink']
+              : [Stethoscope, 'bg-[#f2f2f5] text-[#515154]'];
+  return (
+    <span className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${cls}`}>
+      <Icon size={16} strokeWidth={1.9} aria-hidden />
+    </span>
+  );
+}
 import { Sheet } from '../ui/Sheet';
 import { ease, riseChild, springs, staggerParent } from '../ui/motion';
 
@@ -395,9 +417,9 @@ export default function HealthCard() {
             <ul className="mt-3 grid gap-x-8 gap-y-2 md:grid-cols-2">
               {tr.reasons.length === 0 && <li className="text-body text-[#6e6e73]">—</li>}
               {tr.reasons.slice(0, 8).map((r) => (
-                <li key={r.code} className="flex items-start gap-2.5 text-body-lg">
-                  <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-[#8e8e93]" />
-                  {pickLang(r, lang)}
+                <li key={r.code} className="flex items-start gap-3 text-body-lg">
+                  <ReasonIcon code={r.code} />
+                  <span className="pt-1">{pickLang(r, lang)}</span>
                 </li>
               ))}
             </ul>

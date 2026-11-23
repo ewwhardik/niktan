@@ -7,16 +7,16 @@ import { load, save } from '../lib/storage';
 
 export type Lang = 'hi' | 'hne' | 'en';
 export const LANGS: { id: Lang; label: string }[] = [
+  { id: 'en', label: 'English' },
   { id: 'hi', label: 'हिंदी' },
   { id: 'hne', label: 'छत्तीसगढ़ी' },
-  { id: 'en', label: 'English' },
 ];
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, hi: { translation: hi }, hne: { translation: hne } },
-  lng: load<Lang>('niktan.lang', 'hi'),
+  lng: load<Lang>('niktan.lang', 'en'),
   // Chhattisgarhi covers greetings and key lines; Hindi fills the rest.
-  fallbackLng: { hne: ['hi'], default: ['hi'] },
+  fallbackLng: { hne: ['hi', 'en'], hi: ['en'], default: ['en'] },
   interpolation: { escapeValue: false },
   returnNull: false,
 });

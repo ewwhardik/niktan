@@ -232,7 +232,8 @@
     "leave": "Leave queue",
     "priorityNote": "Patients who need care sooner are seen first.",
     "aheadLabel": "people ahead of you",
-    "etaLabel": "estimated wait"
+    "etaLabel": "estimated wait",
+    "you": "You"
   },
   "thali": {
     "title": "Scan your meal",
@@ -400,6 +401,42 @@
     "staff": "Staff login",
     "thali": "Scan a meal",
     "demoBoard": "Example board · simulated",
-    "example": "example"
+    "example": "example",
+    "race": {
+      "fcfs": "First come, first served",
+      "niktan": "NikTan priority",
+      "wait": "red patient waits ≈ {{n}} min",
+      "note": "Illustration: 14 patients, about 6 minutes each. The breathless patient (red) arrived last."
+    },
+    "donut": {
+      "wait": "waiting",
+      "consult": "with the doctor"
+    },
+    "flow": {
+      "phone": "Your phone",
+      "server": "NikTan server",
+      "stays": "Processed on-device",
+      "sent": "numbers only",
+      "never": "Never collected",
+      "items": [
+        "Face video",
+        "Eye photos",
+        "Vision test",
+        "Hearing test"
+      ],
+      "sentItems": [
+        "84 bpm",
+        "6/9",
+        "pass",
+        "pallor: no"
+      ],
+      "neverItems": [
+        "Name",
+        "Phone",
+        "Aadhaar",
+        "Photos"
+      ]
+    },
+    "problemVisual": "Where the time goes"
   }
 }
