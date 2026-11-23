@@ -289,26 +289,6 @@
   display: none;
 }
 
-/* Emergency CTA: three slow glow breaths, then still. */
-.cta-emergency {
-  position: relative;
-}
-.cta-emergency::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: 0 0 0 6px color-mix(in oklab, var(--emergency) 35%, transparent);
-  opacity: 0;
-  animation: glow-breathe 2s var(--ease-in-out-soft) 0.9s 3;
-}
-@keyframes glow-breathe {
-  50% {
-    opacity: 1;
-  }
-}
-
 /* Skeleton: slow opacity shimmer, no moving gradient. */
 .skeleton {
   background: var(--surface-sunken);

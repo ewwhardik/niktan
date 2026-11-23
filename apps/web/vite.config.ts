@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['brand/app-*.png', 'art/*.webp'],
       manifest: {
         name: 'NikTan — तीन मिनट की स्वास्थ्य जाँच',
         short_name: 'NikTan',
@@ -20,7 +20,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+        icons: [192, 512].map(size => ({ src: `/brand/app-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any maskable' })),
       },
       workbox: {
         // Scan steps must work on a flaky venue network once the app has loaded.

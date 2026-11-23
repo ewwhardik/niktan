@@ -28,14 +28,14 @@ const TONE: Record<CalloutTone, string> = {
 };
 
 /** Medical-illustration callout: label, hairline leader and a hollow ring on the anatomy. */
-function CalloutPin({ c, dark }: { c: Callout; dark: boolean }) {
+function CalloutPin({ c, dark, selected, onSelect }: { c: Callout; dark: boolean; selected: boolean; onSelect?: ((id: string) => void) | undefined }) {
   const left = c.side === 'left';
   return (
     <Html position={c.at} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <div className={`flex items-center ${dark ? 'text-white' : 'text-[#1d1d1f]'}`} style={{ transform: `translateX(${left ? '-50%' : '50%'})` }}>
         <div className={`flex items-center ${left ? 'flex-row' : 'flex-row-reverse'}`}>
           <div className={`max-w-[6.5rem] sm:max-w-none sm:whitespace-nowrap ${left ? 'text-right' : 'text-left'}`} style={{ transform: c.dy ? `translateY(${c.dy}px)` : undefined }}>
-            <p className="text-[13px] leading-tight font-medium opacity-80">{c.label}</p>
+            {onSelect ? <button type="button" aria-pressed={selected} onClick={() => onSelect(c.id)} className={`pointer-events-auto min-h-11 rounded-full px-3 text-label shadow-1 ${selected ? 'bg-[#1d1d1f] text-white' : 'bg-white text-[#1d1d1f]'}`}>{c.label}</button> : <p className="text-[13px] leading-tight font-medium opacity-80">{c.label}</p>}
             {c.value && <p className="tnum text-[13px] leading-tight font-semibold">{c.value}</p>}
           </div>
           <svg width="64" height="40" className="mx-1 shrink-0 overflow-visible" aria-hidden>
@@ -189,6 +189,8 @@ export interface AnatomyViewerProps {
   model: Model;
   callouts?: Callout[];
   bpm?: number | null;
+  selectedId?: string;
+  onSelect?: (id: string) => void;
   interactive?: boolean;
   /** Light callout text for dark cards. */
   dark?: boolean;
@@ -199,9 +201,15 @@ export interface AnatomyViewerProps {
   fallback?: ReactNode;
 }
 
-export default function AnatomyViewer({ model, callouts = [], bpm, interactive = true, dark = false, className = '', zoom, fallback = null }: AnatomyViewerProps) {
+export default function AnatomyViewer({ model, callouts = [], bpm, selectedId, onSelect, interactive = true, dark = false, className = '', zoom, fallback = null }: AnatomyViewerProps) {
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
+  const [foreground, setForeground] = useState(!document.hidden);
+  useEffect(() => {
+    const update = () => setForeground(!document.hidden);
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
   const [gl] = useState(webglAvailable);
   const [failed, setFailed] = useState(false);
   const [exists, setExists] = useState<boolean | null>(null);
@@ -232,7 +240,7 @@ export default function AnatomyViewer({ model, callouts = [], bpm, interactive =
   return (
     <div ref={host} className={`relative ${className}`}>
       <Canvas
-        frameloop={!visible ? 'never' : reduce ? 'demand' : 'always'}
+        frameloop={!visible || !foreground ? 'never' : reduce ? 'demand' : 'always'}
         dpr={perfTier === 'lite' ? 1 : [1, 2]}
         camera={{ position: [0, model === 'body' ? 0.1 : 0, distance], fov: 35 }}
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power', toneMapping: NeutralToneMapping }}
@@ -252,7 +260,7 @@ export default function AnatomyViewer({ model, callouts = [], bpm, interactive =
         </ModelBoundary>
         <ContactShadows position={[0, -1.02, 0]} opacity={dark ? 0.6 : 0.35} scale={4} blur={2.6} far={2} resolution={256} />
         {callouts.map((c) => (
-          <CalloutPin key={c.id} c={c} dark={dark} />
+          <CalloutPin key={c.id} c={c} dark={dark} selected={selectedId === c.id} onSelect={onSelect} />
         ))}
         {interactive && !coarse && <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.6} maxPolarAngle={Math.PI / 1.7} minAzimuthAngle={-Math.PI / 3} maxAzimuthAngle={Math.PI / 3} rotateSpeed={0.5} />}
       </Canvas>

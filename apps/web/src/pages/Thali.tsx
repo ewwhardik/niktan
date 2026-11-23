@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Camera, ImagePlus, Lightbulb, Minus, Plus, Search, Soup, X } from 'lucide-react';
+import { Camera, ImagePlus, Lightbulb, Minus, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -101,9 +101,9 @@ export default function Thali() {
     haptic(10);
   };
 
+  const preview = analyseThali(items, person);
   const compute = () => {
-    const r = analyseThali(items, person);
-    setResult(r);
+    setResult(preview);
     setPhase('result');
     haptic([20, 40, 20]);
     void api.post('/api/thali/compute', { sessionId: scan.sessionId ?? undefined, person, items }).catch(() => undefined);
@@ -123,9 +123,7 @@ export default function Thali() {
       <AnimatePresence mode="wait">
         {phase === 'photo' && (
           <motion.div key="photo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-            <motion.div animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }} className="flex size-28 items-center justify-center rounded-full bg-accent-soft text-accent-soft-ink">
-              <Soup size={52} strokeWidth={1.25} aria-hidden />
-            </motion.div>
+            <img src="/art/thali-fold.webp" width="780" height="520" alt="" className="h-auto max-h-[32svh] w-full max-w-[420px] object-contain" />
             <p className="max-w-xs text-body-lg text-text-2">{t('thali.instruction')}</p>
           </motion.div>
         )}
@@ -147,6 +145,12 @@ export default function Thali() {
             {phase === 'confirm' && (
               <>
                 <h2 className="text-title-3 font-semibold">{t('thali.confirm')}</h2>
+                <div role="status" aria-live="polite" className="grid grid-cols-3 gap-3 rounded-xl bg-accent-soft p-4 text-accent-soft-ink">
+                  {(['kcal', 'protein', 'iron'] as const).map(n => <div key={n}>
+                    <span className="block text-caption">{t(`thali.${n}`)}</span>
+                    <span className="tnum text-title-3 font-semibold">{preview.totals[n]}</span> <small>{UNITS[n]}</small>
+                  </div>)}
+                </div>
                 <motion.ul layout className="flex flex-col gap-2">
                   <AnimatePresence initial={false}>
                     {items.map((i) => {
@@ -156,14 +160,14 @@ export default function Thali() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-body-lg">{pickLang(d, lang)}</span>
                             <span className="text-caption text-text-3">
-                              {d.unit} · {Math.round(d.grams)} g
+                              {d.unit} · {Math.round(d.grams * i.count)} g
                             </span>
                           </span>
-                          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCount(i.dishId, -0.5)} aria-label="-" className="flex size-11 items-center justify-center rounded-md bg-sunken">
+                          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCount(i.dishId, -0.5)} aria-label={t('design.less', { dish: pickLang(d, lang) })} className="flex size-11 items-center justify-center rounded-md bg-sunken">
                             {i.count <= 0.5 ? <X size={18} /> : <Minus size={18} />}
                           </motion.button>
                           <span className="tnum w-8 text-center text-title-3 font-semibold">{i.count}</span>
-                          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCount(i.dishId, 0.5)} aria-label="+" className="flex size-11 items-center justify-center rounded-md bg-sunken">
+                          <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCount(i.dishId, 0.5)} disabled={i.count >= 10} aria-label={t('design.more', { dish: pickLang(d, lang) })} className="flex size-11 items-center justify-center rounded-md bg-sunken">
                             <Plus size={18} />
                           </motion.button>
                         </motion.li>

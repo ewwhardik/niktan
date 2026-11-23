@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CreditCard, EyeOff, Glasses } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { visionNeedsReferral } from '@niktan/core';
 import { load, save } from '../../lib/storage';
@@ -76,6 +76,18 @@ export default function VisionTest({ next, guide }: StepProps) {
     else setStair(s);
   };
 
+  useEffect(() => {
+    if (phase !== 'right' && phase !== 'left') return;
+    const directions: Record<string, Direction> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+    const onKey = (event: KeyboardEvent) => {
+      const dir = directions[event.key];
+      if (!dir || event.repeat || event.altKey || event.metaKey || event.ctrlKey || document.querySelector('dialog[open]')) return;
+      event.preventDefault();
+      respond(dir);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   const onSwipe = (_: unknown, info: PanInfo) => {
     const { x, y } = info.offset;
     if (Math.max(Math.abs(x), Math.abs(y)) < 40) return;
@@ -170,11 +182,11 @@ export default function VisionTest({ next, guide }: StepProps) {
   return (
     <div className="flex flex-1 flex-col pt-4">
       <AnimatePresence mode="wait">
-        <motion.div key={phase} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center justify-center gap-2 rounded-md bg-accent-soft px-4 py-2.5 text-body-lg font-medium text-accent-soft-ink">
-          <Glasses size={20} aria-hidden /> {phase === 'right' ? t('vision.coverLeft') : t('vision.coverRight')}
+        <motion.div key={phase} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="sticky top-0 z-10 flex items-center justify-center gap-2 rounded-md bg-accent-soft px-4 py-2.5 text-body-lg font-medium text-accent-soft-ink">
+          <Glasses size={20} aria-hidden /> {phase === 'right' ? t('vision.coverLeft') : t('vision.coverRight')} · {distanceMm === 2000 ? '2 m' : '40 cm'}
         </motion.div>
       </AnimatePresence>
-      <motion.div className="relative mt-4 flex h-[34vh] min-h-48 items-center justify-center rounded-xl bg-white text-black shadow-1" drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} dragElastic={0.15} onDragEnd={onSwipe} style={{ touchAction: 'none' }}>
+      <motion.div className="relative mt-4 flex h-[34vh] min-h-48 items-center justify-center rounded-xl bg-white text-black shadow-1" drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} dragElastic={0} onDragEnd={onSwipe} style={{ touchAction: 'none' }}>
         <TumblingE size={optotype.size} dir={stair.current} />
         <span className="tnum absolute right-3 bottom-2 text-caption text-black/40">{snellen6(stair.logMar)}</span>
       </motion.div>

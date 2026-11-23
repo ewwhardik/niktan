@@ -72,6 +72,13 @@ export default function Login() {
           </button>
         ))}
       </div>
+      {demoMode && <label className="mt-5 flex min-h-11 items-center justify-center gap-2 text-body">
+        <input type="checkbox" checked={privateStaff} disabled={busy} onChange={(e) => { setPrivateStaff(e.target.checked); setPin(''); setError(null); }} />
+        {i18n.language === 'en' ? 'Private staff access (8 digits)' : 'निजी स्टाफ प्रवेश (8 अंक)'}
+      </label>}
+      {demoMode && !privateStaff && <p className="mt-2 text-center text-caption text-text-3">{i18n.language === 'en'
+        ? 'Simulated patients only · Nurse 2468 · Doctor 1357 · Admin 9090'
+        : 'केवल काल्पनिक मरीज़ · नर्स 2468 · डॉक्टर 1357 · एडमिन 9090'}</p>}
       <motion.div key={shake} animate={shake ? { x: [0, -10, 10, -6, 6, 0] } : {}} transition={{ duration: 0.35 }} className="mt-8 flex justify-center gap-2.5" aria-label={t('hospital.pin')}>
         {Array.from({ length }, (_, i) => i).map((i) => (
           <motion.span key={i} animate={{ scale: pin.length > i ? 1 : 0.7, opacity: pin.length > i ? 1 : 0.35 }} transition={spring.chip} className="size-4 rounded-full bg-text" />
@@ -89,13 +96,7 @@ export default function Login() {
           ),
         )}
       </div>
-      {demoMode && <label className="mt-5 flex min-h-11 items-center justify-center gap-2 text-body">
-        <input type="checkbox" checked={privateStaff} disabled={busy} onChange={(e) => { setPrivateStaff(e.target.checked); setPin(''); setError(null); }} />
-        {i18n.language === 'en' ? 'Private staff access (8 digits)' : 'निजी स्टाफ प्रवेश (8 अंक)'}
-      </label>}
-      {demoMode && !privateStaff && <p className="mt-2 text-center text-caption text-text-3">{i18n.language === 'en'
-        ? 'Simulated patients only · Nurse 2468 · Doctor 1357 · Admin 9090'
-        : 'केवल काल्पनिक मरीज़ · नर्स 2468 · डॉक्टर 1357 · एडमिन 9090'}</p>}
+
     </Screen>
   );
 }

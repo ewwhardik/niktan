@@ -20,14 +20,8 @@ interface Step {
   d: string;
 }
 
-/** Brand glyph: a pulse line inside a squircle. */
 export function Glyph({ className = 'size-7' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="9" fill="currentColor" />
-      <path d="M6 17h5l2.5-6 3.5 11 3-8 1.6 3H26" fill="none" stroke="var(--bg)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <img src="/brand/niktan-mark.svg" width="28" height="28" alt="" className={`${className} object-contain dark:brightness-0 dark:invert`} />;
 }
 
 function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
@@ -176,8 +170,8 @@ export function Landing() {
   const hero = useRef<HTMLElement>(null);
   const { scrollYProgress: heroP } = useScroll({ target: hero, offset: ['start start', 'end start'] });
   const reduce = useReducedMotion();
-  const sphereY = useTransform(heroP, [0, 1], [0, reduce ? 0 : 120]);
-  const sphereScale = useTransform(heroP, [0, 1], [1, reduce ? 1 : 0.82]);
+  const artY = useTransform(heroP, [0, 1], [0, reduce ? 0 : 32]);
+  const artScale = useTransform(heroP, [0, 1], [1, reduce ? 1 : 0.97]);
 
   const bento = [
     { icon: Lock, t: t('home.b1t'), d: t('home.b1d'), span: 'md:col-span-2 md:row-span-2', dark: true },
@@ -205,7 +199,7 @@ export function Landing() {
           <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease, delay: 0.6 }} className="mt-6 max-w-xl text-[1.1875rem] leading-relaxed text-text-2 text-pretty">
             {t('home.sub')}
           </motion.p>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease, delay: 0.75 }} className="mt-9 flex flex-wrap items-center gap-3">
+          <motion.div initial={false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease }} className="mt-9 flex flex-wrap items-center gap-3">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={start} className="group inline-flex h-14 items-center gap-2 rounded-full bg-accent pr-2 pl-7 text-body-lg font-semibold text-on-accent">
               {t('landing.cta')}
               <span className="flex size-10 items-center justify-center rounded-full bg-on-accent/10 transition-transform group-hover:translate-x-0.5">
@@ -230,22 +224,20 @@ export function Landing() {
           </motion.ul>
         </div>
 
-        <motion.div style={{ y: sphereY, scale: sphereScale }} className="relative mx-auto aspect-square w-full max-w-[560px]">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.4, ease, delay: 0.2 }} className="size-full">
-            <PulseSphere />
-          </motion.div>
-          {[
-            { k: 'bpm', label: t('card.hr'), value: '72', unit: 'bpm', pos: 'left-0 top-[18%]', d: 1.0 },
-            { k: 'vis', label: t('card.visionRow'), value: '6/9', unit: '', pos: 'right-0 top-[32%]', d: 1.15 },
-            { k: 'tri', label: 'Triage', value: t('card.routine'), unit: '', pos: 'left-[8%] bottom-[14%]', d: 1.3 },
-          ].map((c) => (
-            <motion.div key={c.k} initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.8, ease, delay: c.d }} className={`glass absolute ${c.pos} rounded-2xl px-4 py-3 shadow-3 ring-1 ring-border/60`}>
-              <p className="mono text-[10px] tracking-[0.14em] text-text-3 uppercase">{c.label} · {t('home.example')}</p>
-              <p className="tnum text-title-2 font-semibold">
+        <motion.div style={{ y: artY, scale: artScale }} className="relative mx-auto w-full max-w-[560px]">
+          <img src="/art/screening-fold.webp" width="1050" height="788" alt={t('design.screeningArt')} fetchPriority="high" className="block h-auto w-full" />
+          <div className="relative grid grid-cols-3 divide-x divide-border border-y border-border py-3">
+            {[
+              { label: t('card.hr'), value: '72', unit: 'bpm' },
+              { label: t('card.visionRow'), value: '6/9', unit: '' },
+              { label: t('card.title'), value: t('card.routine'), unit: '' },
+            ].map(c => <div key={c.label} className="min-w-0 px-2 sm:px-4">
+              <p className="text-caption font-medium text-text-3">{c.label} · {t('home.example')}</p>
+              <p className="tnum mt-1 text-body-lg font-semibold leading-tight sm:text-title-3">
                 {c.value} {c.unit && <span className="text-caption font-normal text-text-3">{c.unit}</span>}
               </p>
-            </motion.div>
-          ))}
+            </div>)}
+          </div>
         </motion.div>
       </section>
 
@@ -403,8 +395,8 @@ export function Landing() {
 
       {/* Mobile sticky CTA */}
       <div className="glass fixed inset-x-0 bottom-0 z-30 border-t border-border/70 px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
-        <button onClick={start} className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-accent text-body-lg font-semibold text-on-accent">
-          {t('landing.cta')} <ArrowRight size={18} aria-hidden />
+        <button onClick={profile ? () => navigate('/card') : start} className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-accent text-body-lg font-semibold text-on-accent">
+          {t(profile ? 'landing.resume' : 'landing.cta')} <ArrowRight size={18} aria-hidden />
         </button>
       </div>
     </div>

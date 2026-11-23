@@ -59,9 +59,13 @@ export default function Admin() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
 
+  const [stale, setStale] = useState(false);
+  const [statusFailed, setStatusFailed] = useState(false);
   const load = useCallback(async () => {
     if (!staff) return;
     const [s, st] = await Promise.all([api.get<Stats>(`/api/hospital/${staff.hid}/stats`).catch(() => null), api.get<Status>('/api/status').catch(() => null)]);
+    setStale(!s);
+    setStatusFailed(!st);
     if (s) setStats(s);
     if (st) setStatus(st);
   }, [staff]);
@@ -117,7 +121,9 @@ export default function Admin() {
         </div>
       </header>
 
-      <motion.main variants={staggerParent} initial="hidden" animate="show" className="mx-auto grid max-w-6xl gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
+      {stale && <button onClick={() => void load()} className="mx-auto block rounded-md bg-seetoday-tint p-3">{t(stats ? 'design.stale' : 'common.error')} · {t('common.retry')}</button>}
+      {!stats && !stale && <p className="p-6 text-center" role="status">{t('common.loading')}</p>}
+      {stats && <motion.main variants={staggerParent} initial="hidden" animate="show" className="mx-auto grid max-w-6xl gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
         <Panel title={lang === 'en' ? "Today's patients" : 'आज के मरीज़'} icon={Users}>
           <p className="text-hero-num font-semibold tracking-tight">
             <CountUp value={totalPatients} />
@@ -202,7 +208,8 @@ export default function Admin() {
         </Panel>
 
         <Panel title={lang === 'en' ? 'System status' : 'सिस्टम स्थिति'} icon={Server} className="md:col-span-2 xl:col-span-3">
-          <div className="flex flex-wrap gap-2">
+          {statusFailed && <button onClick={() => void load()} className="mb-3 min-h-11 text-label">{t(status ? 'design.stale' : 'common.error')} · {t('common.retry')}</button>}
+          {status && <div className="flex flex-wrap gap-2">
             <span className={`rounded-full px-3 py-1 text-caption font-medium ${status?.db ? 'bg-routine-tint text-routine-ink' : 'bg-emergency-tint text-emergency-ink'}`}>DB {status?.db ? 'OK' : '—'}</span>
             {Object.entries(status?.providers ?? {}).map(([k, v]) => (
               <span key={k} className={`rounded-full px-3 py-1 text-caption font-medium ${v ? 'bg-routine-tint text-routine-ink' : 'bg-sunken text-text-3'}`}>
@@ -210,7 +217,7 @@ export default function Admin() {
               </span>
             ))}
             <span className="rounded-full bg-sunken px-3 py-1 text-caption text-text-3">v{status?.version}</span>
-          </div>
+          </div>}
           {!!status?.last24h.length && (
             <table className="mt-4 w-full text-left text-body">
               <thead className="text-caption text-text-3">
@@ -236,7 +243,7 @@ export default function Admin() {
             </table>
           )}
         </Panel>
-      </motion.main>
+      </motion.main>}
     </div>
   );
 }

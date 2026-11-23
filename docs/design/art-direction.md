@@ -1,0 +1,17 @@
+# NikTan visual assets
+
+The landing page and meal introduction use transparent cut-paper illustrations generated with the built-in ImageGen tool. The phone illustration shows the capture posture. The meal illustration shows the type of plate a user can photograph. Both are exported as WebP with alpha. The approved logo is a single teal silhouette, with an SVG for small navigation marks and PNG versions for installed apps.
+
+## Generation prompts
+
+### logo
+
+logo-brand. An original single-element mark for NikTan, a mobile health screening SaaS. One solid midnight teal glyph on a fully transparent background, a single connected folded strip entering as a short vertical stem and turning through a distinctive soft arch with a sharp diagonal cut suggesting a lowercase n and an intake gate. Bold memorable asymmetric silhouette, optically balanced, clear at 16px. Flat vector-like fill, no gradients, outlines, text, crosses, hearts, ECG strokes, borders, drop shadows or extraneous elements. Square canvas, mark fills central 80%.
+
+### screening
+
+Original premium Indian editorial CUT-PAPER illustration for NikTan's phone health screening landing page. Show the actual woman holding the phone and scanning her own face. One tightly composed isolated group, half-length middle-aged Indian woman on left, facing right in three-quarter profile. Dark hair in bun, tiny bindi, kurta with a folded saffron dupatta over shoulder. Her clearly visible right arm extends to the right; her single natural-looking hand grips the lower half of a slim upright petrol-teal smartphone at eye level, FRONT SCREEN FACING HER FACE. She looks directly at the phone, calm with eyes open. Phone is clearly separate from her face across a generous gap, connected by her bent arm. A pair of tiny seafoam scan corner marks framing her cheek suggests active scanning. No second portrait inside the phone. Medium view keeps head, elbow, hand, phone and torso silhouette complete; strong asymmetrical composition in a landscape 4:3 frame with generous transparent margins. Style: deeply dimensional layered die-cut colored paper, sharp origami folds in shoulder, hair assembled in broad sculpted curved paper pieces, restrained tactile fibre texture and thin shadows strictly within overlaps. Expressive stylised human proportions, clearly illustrated. Unified ink palette petrol teal, seafoam, saffron, warm copper skin and ivory highlights. Entire background MUST be genuinely transparent alpha, no scenery or background panel, no gradients or ground shadow, no decorative frame, typography, text or digits. Refined bespoke editorial art readable at 280px.
+
+### thali
+
+stylized-concept. A transparent-background isolated cut-paper thali, in the exact art direction of an Indian editorial paper-sculpture series: angular folds, thick layered die-cut shapes, strong midnight-petrol-teal edges, ivory highlights, saffron and pale seafoam. One cohesive graphic asset: an elliptical teal-rimmed thali tilted toward the viewer, two folded angular saffron rotis, a tiny katori of golden dal, an ivory mound of rice and stylized leafy greens. Make obvious paper creases and geometric silhouettes, bold limited inks, tactile matte paper fibres with shadows only between layers. Balanced silhouette, elevated 3/4 perspective, fill 83% of canvas with whole object and generous margin. No realistic food, no camera or photography, no table, no floor, no cast ground shadow, no background or atmospheric field, no typography. True transparent cutout, visually striking even at 160 pixels.

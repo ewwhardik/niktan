@@ -64,11 +64,12 @@ function VerdictBand({ priority, title, action }: { priority: Priority; title: s
     const id = setTimeout(() => haptic(HAPTIC[priority]), 700);
     return () => clearTimeout(id);
   }, [priority]);
+  if (priority === 'emergency') return <div role="alert" className={`rounded-xl p-5 ${solid}`}><Icon size={34} aria-hidden /><h1 className="my-2 text-display font-semibold">{title}</h1><p className="text-body-lg">{action}</p></div>;
   return (
     <motion.div
       ref={ref}
       role="status"
-      aria-live={priority === 'emergency' ? 'assertive' : 'polite'}
+      aria-live="polite"
       className={`verdict-glow rounded-xl p-5 ${solid}`}
       style={{ ['--verdict' as string]: PRIORITY_META[priority].cssVar }}
       initial={simple ? { opacity: 0 } : { clipPath: 'circle(0% at 44px 44px)' }}
@@ -76,7 +77,7 @@ function VerdictBand({ priority, title, action }: { priority: Priority; title: s
       transition={simple ? { duration: 0.2, delay: 0.25 } : { duration: 0.5, ease, delay: 0.25 }}
       onAnimationComplete={() => ref.current?.style.setProperty('--glow', '1')}
     >
-      <motion.span className="inline-flex" initial={{ scale: reduce ? 1 : 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...(priority === 'emergency' ? springs.verdictUrgent : springs.verdict), delay: 0.4 }}>
+      <motion.span className="inline-flex" initial={{ scale: reduce ? 1 : 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...springs.verdict, delay: 0.4 }}>
         <Icon size={44} strokeWidth={1.5} aria-hidden />
       </motion.span>
       <motion.h1 className="mt-3 text-display font-semibold" initial={{ opacity: 0, y: reduce ? 0 : 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springs.stagger, delay: 0.5 }}>
@@ -117,6 +118,7 @@ export default function HealthCard() {
   const isOwn = sharedId === null && !params.has('s');
   const [remote, setRemote] = useState<{ key: string; view: CardView | null } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [selectedObservation, selectObservation] = useState('heart');
   const [shareUrl, setShareUrl] = useState('');
   const [speechFailed, setSpeechFailed] = useState(false);
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
@@ -211,7 +213,7 @@ export default function HealthCard() {
   const v = view;
   const pallorTone: CalloutTone = v.eye?.pallor == null ? 'none' : v.eye.pallor ? 'check' : 'normal';
   const eyeFlagged = !!(v.eye?.pallor || v.eye?.jaundice || v.eye?.cataract);
-  const eyeTone: CalloutTone = v.eye == null ? 'none' : eyeFlagged ? 'check' : 'normal';
+  const eyeTone: CalloutTone = [v.eye?.pallor, v.eye?.jaundice, v.eye?.cataract].every(flag => flag == null) ? 'none' : eyeFlagged ? 'check' : 'normal';
   const hrTone: CalloutTone = !hr ? 'none' : tr.priority === 'emergency' && tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'alert' : tr.reasons.some((r) => r.code.startsWith('hr_')) ? 'check' : 'normal';
   const visionTone: CalloutTone = visionRefer === null ? 'none' : visionRefer ? 'check' : 'normal';
   const hearingTone: CalloutTone = !v.hearing ? 'none' : v.hearing.result === 'refer' ? 'check' : 'normal';
@@ -222,6 +224,13 @@ export default function HealthCard() {
     { id: 'ear', label: t('card.hearingRow'), tone: hearingTone, at: anchors.body.ear, side: 'left', dy: 26 },
     { id: 'heart', label: t('card.hr'), value: hr ? `${Math.round(hr)} bpm` : undefined, tone: hrTone, at: anchors.body.heart, side: 'right' },
   ];
+  const observation = bodyCallouts.find(item => item.id === selectedObservation)!;
+  const observationDetails: Record<string, string> = {
+    heart: hr ? `${Math.round(hr)} bpm · ${t('face.quality')} ${Math.round(100 * (v.vitals?.quality ?? 0))}%` : t('common.notChecked'),
+    ear: v.hearing ? `${v.hearing.srtDb} dB SNR · ${t('hearing.' + v.hearing.result)} · ${t('hearing.experimental')}` : t('common.notChecked'),
+    vision: v.vision ? `${t(v.vision.distanceMm === 2000 ? 'vision.far' : 'vision.near')} · ${t('vision.right')} ${v.vision.rightLogMar == null ? '—' : snellen6(v.vision.rightLogMar)} · ${t('vision.left')} ${v.vision.leftLogMar == null ? '—' : snellen6(v.vision.leftLogMar)}` : t('common.notChecked'),
+    eye: [ ['card.pallor', v.eye?.pallor], ['card.jaundice', v.eye?.jaundice], ['card.cataract', v.eye?.cataract] ].map(([label, flag]) => `${t(String(label))} · ${flagRow(flag as boolean | null | undefined).label}`).join(' / '),
+  };
   const heartCallouts: Callout[] = [
     { id: 'aorta', label: t('card.aorta'), tone: 'none', at: anchors.heart.aorta, side: 'left', dy: -18 },
     { id: 'pa', label: t('card.pulmonary'), tone: 'none', at: anchors.heart.pulmonary, side: 'right' },
@@ -259,7 +268,7 @@ export default function HealthCard() {
             <span className="text-title-2 font-semibold">NikTan</span>
           </button>
           <nav className="order-3 -mx-1 flex w-full gap-1.5 overflow-x-auto rounded-full bg-white/70 p-1 no-scrollbar ring-1 ring-black/[0.04] lg:order-none lg:mx-auto lg:w-auto">
-            {nav.map((n) => (
+            {nav.filter(n => n.active || (isOwn && (n.to !== '/queue' || tr.priority !== 'emergency'))).map((n) => (
               <button key={n.to} onClick={() => !n.active && navigate(n.to)} className={`h-11 shrink-0 rounded-full px-5 text-body font-medium transition-colors ${n.active ? 'bg-[#1d1d1f] text-white' : 'text-[#3a3a3c] hover:bg-black/5'}`}>
                 {n.label}
               </button>
@@ -284,7 +293,17 @@ export default function HealthCard() {
           </div>
         </header>
 
-        <motion.main variants={staggerParent} initial="hidden" animate="show" className="mt-5 grid gap-4 lg:mt-7 lg:grid-cols-12 lg:gap-5">
+        <motion.main variants={staggerParent} initial={tr.priority === 'emergency' ? false : "hidden"} animate="show" className="mt-5 grid gap-4 lg:mt-7 lg:grid-cols-12 lg:gap-5">
+          {/* Verdict */}
+          <section className="lg:col-span-7">
+            {hasResults ? <VerdictBand priority={tr.priority} title={verdictTitle} action={verdictAction} /> : <h1 className={`${card} p-6 text-title-2`}>{verdictTitle}</h1>}
+            {tr.priority === 'emergency' && (
+              <a href="tel:108" onClick={() => haptic(30)} className="mt-3 flex h-16 items-center justify-center gap-3 rounded-full bg-emergency text-title-3 font-semibold text-emergency-on shadow-3">
+                <PhoneCall size={22} aria-hidden /> {t('card.call108')}
+              </a>
+            )}
+          </section>
+
           {/* Vital tiles */}
           <motion.section variants={riseChild} className="grid grid-cols-3 gap-2.5 sm:gap-4 lg:col-span-5">
             {tiles.map((tile) => (
@@ -300,20 +319,10 @@ export default function HealthCard() {
                     <span className="tnum truncate text-[clamp(1.15rem,6vw,1.6rem)] leading-none font-semibold sm:text-[2rem]">{tile.value}</span>
                     {tile.unit && <span className="text-[11px] font-semibold">{tile.unit}</span>}
                   </p>
-                  <span className="tnum hidden text-caption font-medium xl:block">{scanTime}</span>
+                  <span className="tnum hidden text-caption font-medium xl:block">{isOwn ? scanTime : ''}</span>
                 </div>
               </div>
             ))}
-          </motion.section>
-
-          {/* Verdict */}
-          <motion.section variants={riseChild} className="lg:col-span-7">
-            {hasResults ? <VerdictBand priority={tr.priority} title={verdictTitle} action={verdictAction} /> : <h1 className={`${card} p-6 text-title-2`}>{verdictTitle}</h1>}
-            {tr.priority === 'emergency' && (
-              <motion.a href="tel:108" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...springs.verdictUrgent, delay: 0.7 }} onClick={() => haptic(30)} className="cta-emergency mt-3 flex h-16 items-center justify-center gap-3 rounded-full bg-emergency text-title-3 font-semibold text-emergency-on shadow-3">
-                <PhoneCall size={22} aria-hidden /> {t('card.call108')}
-              </motion.a>
-            )}
           </motion.section>
 
           {/* Overall screening: anatomical heart */}
@@ -346,8 +355,15 @@ export default function HealthCard() {
               <span className="hidden text-caption text-[#6e6e73] [@media(pointer:fine)]:inline">{t('card.dragToRotate')}</span>
             </div>
             <Suspense fallback={<div className="h-[460px]" />}>
-              <AnatomyViewer model="body" callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
+              <AnatomyViewer model="body" selectedId={selectedObservation} onSelect={selectObservation} callouts={bodyCallouts} bpm={hr} className="h-[460px] w-full" fallback={modelFallback(Stethoscope)} />
             </Suspense>
+            <div className="px-5 pb-5">
+              <div className="flex flex-wrap gap-2">{bodyCallouts.map(item =>
+                <button type="button" aria-pressed={item.id === observation.id} key={item.id} onClick={() => selectObservation(item.id)}
+                  className={`min-h-11 rounded-full border px-4 text-label ${item.id === observation.id ? 'border-transparent bg-[#1d1d1f] text-white' : 'border-black/10 bg-white text-[#1d1d1f]'}`}>{item.label}</button>
+              )}</div>
+              <p aria-live="polite" className="mt-3 rounded-md bg-white/80 p-4 text-body"><strong>{observation.label}</strong><br />{observationDetails[observation.id]}</p>
+            </div>
           </motion.section>
 
           {/* Small cards */}

@@ -26,9 +26,10 @@ export function BasicInfo() {
   const navigate = useNavigate();
   const { begin, profile } = useScan();
   const location = useLocation();
-  const [age, setAge] = useState<string>('');
-  const [sex, setSex] = useState<Profile['sex'] | null>(null);
-  const [pregnant, setPregnant] = useState<'yes' | 'no' | null>(null);
+  const prior = location.state?.consented ? null : profile;
+  const [age, setAge] = useState(prior ? String(prior.age) : '');
+  const [sex, setSex] = useState<Profile['sex'] | null>(prior?.sex ?? null);
+  const [pregnant, setPregnant] = useState<'yes' | 'no' | null>(prior?.sex === 'female' && prior.age >= 12 && prior.age <= 55 ? (prior.pregnant ? 'yes' : 'no') : null);
   const [busy, setBusy] = useState(false);
 
   if (!location.state?.consented && !profile) return <Navigate to="/start" replace />;
@@ -46,13 +47,14 @@ export function BasicInfo() {
       <h1 className="mt-4 text-title-1 font-semibold">{t('info.title')}</h1>
 
       <div className="mt-8 flex flex-col gap-7">
-        <label className="flex flex-col gap-2">
-          <span className="text-label font-medium text-text-2">{t('info.age')}</span>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="profile-age" className="text-label font-medium text-text-2">{t('info.age')}</label>
           <div className="flex items-center gap-3">
             <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => bump(-1)} aria-label="-1" className="flex size-14 items-center justify-center rounded-md border border-border bg-surface">
               <Minus size={22} />
             </motion.button>
             <input
+              id="profile-age"
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={3}
@@ -67,7 +69,7 @@ export function BasicInfo() {
             </motion.button>
           </div>
           {age !== '' && !ageValid && <span className="text-caption text-emergency-text">{t('info.ageInvalid')}</span>}
-        </label>
+        </div>
 
         <div className="flex flex-col gap-2">
           <span className="text-label font-medium text-text-2">{t('info.sex')}</span>
@@ -99,7 +101,10 @@ export function BasicInfo() {
           loading={busy}
           onClick={async () => {
             setBusy(true);
-            await begin({ age: ageNum, sex: sex!, pregnant: askPregnant && pregnant === 'yes' }, i18n.language);
+            const next = { age: ageNum, sex: sex!, pregnant: askPregnant && pregnant === 'yes' };
+            if (!prior || prior.age !== next.age || prior.sex !== next.sex || prior.pregnant !== next.pregnant) {
+              await begin(next, i18n.language);
+            }
             setBusy(false);
             navigate('/scan/face');
           }}

@@ -42,3 +42,18 @@ Capture baseline and revised builds at 360, 390, 768 and 1280 CSS pixels, in Eng
 **Hospital system reuse.** OpenMRS patient-management modules provide a reference for service queues, patient lists and scheduling. Map their workflow states against NikTan’s token transitions and prototype an adapter using synthetic visits if a hospital uses OpenMRS. Keep the Cloudflare API as the working demo path. [OpenMRS patient management](https://github.com/openmrs/openmrs-esm-patient-management)
 
 Ship each numbered group as an independently reviewable change with before-and-after captures and the corresponding acceptance evidence. Start the next group after the preceding flow works at phone width with motion disabled.
+
+## Implemented and checked
+
+The landing page pairs a cut-paper screening illustration with example results. Patient actions are available as soon as the page renders. The revised health card puts the care recommendation first and links body-map controls to a text observation. Emergency calling is immediate. The vision test accepts direction keys, the meal editor recalculates portion weights and nutrient totals, and the staff board groups visits by consultation state. Poll failures preserve the last successful board. The service and administrative screens expose missing or stale data. [Visual assets and prompts](design/art-direction.md)
+
+Browser checks covered landing, consent, profile, card, meal, staff login and service status at 360, 390, 768 and 1280 CSS pixels, with English and Hindi, reduced motion and both colour preferences represented. At phone width, scripted interactions exercised camera denial, retry and skip, keyboard completion of both distance-vision trials, manual symptom input, adding and removing meal portions, and recovery of the board after a failed request. Staff visits and network failures were simulated. The comparison shows the same three synthetic visits before and after the change, at 390 CSS pixels. [Staff board comparison](design/board-comparison.webp)
+
+The offline pulse evaluator now reports median and 95th-percentile absolute error, accepted-window coverage, and runtime by recording, lighting and method. Optional recording metadata includes a lighting label and a boolean motion flag. Motion false acceptance counts accepted estimates exceeding five beats per minute of absolute error, divided by all annotated motion windows with reference data. Missing faces remain in the coverage denominator. Run the following from the repository root with the report path outside the input directory.
+
+```sh
+RPPG_TRACES=/path/to/traces RPPG_REPORT=/path/to/report.json \
+  pnpm --filter @niktan/web exec vitest run test/rppg.benchmark.test.ts
+```
+
+The evaluator was exercised with two synthetic recordings, one with a periodic signal and one with face tracking absent. Clinical accuracy, Hindi hearing calibration, measured staff task time and hardware sensor performance remain unverified.

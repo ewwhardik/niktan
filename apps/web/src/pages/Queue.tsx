@@ -49,14 +49,16 @@ export default function Queue() {
   const [info, setInfo] = useState<TokenInfo | null>(null);
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [leaving, setLeaving] = useState(false);
   const joinRequest = useRef<string | null>(null);
   const lastAhead = useRef<number | null>(null);
 
   const poll = useCallback(async (id: string) => {
     try {
-      const r = await api.get<TokenInfo>(`/api/queue/${id}`);
+      const r = await api.getFresh<TokenInfo>(`/api/queue/${id}`);
       setInfo(r);
+      setLastUpdate(Date.now());
       setError(null);
       const near = r.token.status === 'called' || (r.token.status === 'waiting' && r.ahead <= 2);
       if (near && lastAhead.current !== r.ahead) haptic([60, 80, 60]);
@@ -90,6 +92,7 @@ export default function Queue() {
       const r = await api.post<TokenInfo>('/api/queue/join', { sessionId, hospitalId, idempotencyKey: joinRequest.current ??= crypto.randomUUID() });
       scan.setToken(r.token.id);
       setInfo(r);
+      setLastUpdate(Date.now());
       haptic([30, 50, 30]);
     } catch (e) {
       setError(e instanceof ApiError && e.status ? e.message : t('common.offline'));
@@ -149,18 +152,18 @@ export default function Queue() {
       </motion.div>
 
       {token.priority === 'emergency' && !done && (
-        <motion.a href="tel:108" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} role="alert" className="cta-emergency mt-5 flex flex-col items-center gap-1 rounded-xl bg-emergency p-5 text-center text-emergency-on shadow-3">
+        <a href="tel:108" className="mt-5 flex flex-col items-center gap-1 rounded-xl bg-emergency p-5 text-center text-emergency-on shadow-3">
           <span className="inline-flex items-center gap-2 text-title-3 font-semibold">
             <PhoneCall size={22} aria-hidden /> {t('card.call108')}
           </span>
           <span className="text-body opacity-90">{t('card.emergencySub')}</span>
-        </motion.a>
+        </a>
       )}
 
       <AnimatePresence mode="wait">
         {called ? (
           <motion.div key="called" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-5 flex items-center gap-3 rounded-lg bg-accent p-5 text-on-accent shadow-3">
-            <motion.span animate={{ rotate: [0, -12, 12, -8, 8, 0] }} transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 1.2 }}>
+            <motion.span animate={{ rotate: [0, -12, 12, -8, 8, 0] }} transition={{ duration: 0.8 }}>
               <BellRing size={28} aria-hidden />
             </motion.span>
             <span className="text-title-3 font-semibold">{t('queue.called')}</span>
@@ -193,6 +196,7 @@ export default function Queue() {
 
       <p className="mt-5 text-center text-caption text-text-3">{t('queue.priorityNote')}</p>
 
+      {lastUpdate && <p className="text-center text-caption text-text-3">{t('design.updated')} · <time>{new Date(lastUpdate).toLocaleTimeString(i18n.language === 'en' ? 'en-IN' : 'hi-IN')}</time></p>}
       {error && <p className="mt-3 text-emergency-text" role="alert">{error}</p>}
       {(token.status === 'waiting' || token.status === 'called') && (
         <div className="mt-auto pb-[max(16px,env(safe-area-inset-bottom))] pt-6">

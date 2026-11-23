@@ -15,6 +15,8 @@ const DIR = process.env.RPPG_TRACES;
 
 interface Trace {
   subject: string;
+  lighting?: string;
+  motion?: boolean;
   frames: { t: number; face: boolean; roi: Record<string, { r: number; g: number; b: number; n: number }>; roiSkin: Record<string, { r: number; g: number; b: number; n: number }> }[];
   gt: { t: number[]; hr: number[] };
 }
@@ -22,25 +24,53 @@ interface Trace {
 const SEGMENT = 30;
 const STRIDE = 15;
 
-function stats(errors: (number | null)[]) {
-  const ok = errors.filter((e): e is number => e !== null);
-  const mae = ok.reduce((a, e) => a + Math.abs(e), 0) / Math.max(1, ok.length);
-  const rmse = Math.sqrt(ok.reduce((a, e) => a + e * e, 0) / Math.max(1, ok.length));
-  const within5 = ok.filter((e) => Math.abs(e) <= 5).length / Math.max(1, errors.length);
-  return { n: errors.length, coverage: ok.length / Math.max(1, errors.length), mae, rmse, within5 };
+interface WindowResult {
+  recording: string;
+  subject: string;
+  lighting: string;
+  motion: boolean;
+  method: string;
+  startSeconds: number;
+  error: number | null;
+  runtimeMs: number;
 }
 
-describe.skipIf(!DIR)('rPPG benchmark on real video traces', () => {
+// Nearest-rank quantiles. An empty group has no measured error or runtime.
+function percentile(values: number[], fraction: number) {
+  return values.sort((a, b) => a - b)[Math.ceil(values.length * fraction) - 1] ?? null;
+}
+
+function stats(rows: WindowResult[]) {
+  const errors = rows.flatMap(row => row.error === null ? [] : [Math.abs(row.error)]);
+  const motion = rows.filter(row => row.motion);
+  return {
+    windows: rows.length, accepted: errors.length, coverage: errors.length / rows.length,
+    mae: errors.length ? errors.reduce((sum, x) => sum + x, 0) / errors.length : null,
+    rmse: errors.length ? Math.sqrt(errors.reduce((sum, x) => sum + x * x, 0) / errors.length) : null,
+    within5: errors.filter(x => x <= 5).length / rows.length,
+    medianAbsoluteError: percentile(errors, 0.5), p95AbsoluteError: percentile(errors, 0.95),
+    motionWindows: motion.length,
+    motionFalseAcceptance: motion.length ? motion.filter(row => row.error !== null && Math.abs(row.error) > 5).length / motion.length : null,
+    medianRuntimeMs: percentile(rows.map(row => row.runtimeMs), 0.5),
+    p95RuntimeMs: percentile(rows.map(row => row.runtimeMs), 0.95),
+  };
+}
+
+function summarize(rows: WindowResult[]) {
+  return Object.fromEntries([...new Set(rows.map(row => row.method))].map(method =>
+    [method, stats(rows.filter(row => row.method === method))]));
+}
+
+describe.skipIf(!DIR)('rPPG benchmark on region traces', () => {
   it('compares v1 and v2', () => {
-    const files = readdirSync(DIR!).filter((f) => f.endsWith('.json'));
-    const errs: Record<string, (number | null)[]> = { v1: [], v2: [], v2skin: [] };
-    const perSubject: Record<string, Record<string, number | null>[]> = {};
+    const files = readdirSync(DIR!).filter(f => f.endsWith('.json')).sort();
+    const rows: WindowResult[] = [];
     for (const f of files) {
       const tr = JSON.parse(readFileSync(join(DIR!, f), 'utf8')) as Trace;
       const frames = tr.frames.filter((fr) => fr.face && ROI_NAMES.every((k) => (fr.roi[k]?.n ?? 0) > 0));
-      if (!frames.length) continue;
-      const tEnd = frames.at(-1)!.t;
-      for (let s = frames[0]!.t + 2; s + SEGMENT <= tEnd; s += STRIDE) {
+      if (!tr.frames.length) continue;
+      const tEnd = tr.frames.at(-1)!.t;
+      for (let s = tr.frames[0]!.t + 2; s + SEGMENT <= tEnd; s += STRIDE) {
         const seg = frames.filter((fr) => fr.t >= s && fr.t < s + SEGMENT);
         const gtHr = tr.gt.t.map((t, i) => ({ t, hr: tr.gt.hr[i]! })).filter((x) => x.t >= s && x.t < s + SEGMENT && Number.isFinite(x.hr)).map((x) => x.hr).sort((a, b) => a - b);
         if (gtHr.length < 5) continue;
@@ -52,18 +82,24 @@ describe.skipIf(!DIR)('rPPG benchmark on real video traces', () => {
         });
         const multi: MultiSample[] = seg.map((fr) => ({ t: fr.t, rois: fr.roi }));
         const multiSkin: MultiSample[] = seg.map((fr) => ({ t: fr.t, rois: fr.roiSkin ?? fr.roi }));
-        const v1 = estimate(combined).heartRate;
-        const v2 = estimateMulti(multi).heartRate;
-        const v2s = estimateMulti(multiSkin).heartRate;
-        const row = { v1: v1 === null ? null : v1 - gt, v2: v2 === null ? null : v2 - gt, v2skin: v2s === null ? null : v2s - gt };
-        errs.v1!.push(row.v1);
-        errs.v2!.push(row.v2);
-        errs.v2skin!.push(row.v2skin);
-        (perSubject[tr.subject] ??= []).push(row);
+        const methods = {
+          v1: () => estimate(combined), v2: () => estimateMulti(multi), v2skin: () => estimateMulti(multiSkin),
+        };
+        for (const [method, run] of Object.entries(methods)) {
+          const start = performance.now();
+          const { heartRate } = run();
+          rows.push({ recording: f, subject: tr.subject, lighting: tr.lighting ?? 'unspecified', motion: tr.motion === true,
+            method, startSeconds: s, error: heartRate === null ? null : heartRate - gt, runtimeMs: performance.now() - start });
+        }
       }
     }
-    const report = Object.fromEntries(Object.entries(errs).map(([k, v]) => [k, stats(v)]));
-    console.table(Object.fromEntries(Object.entries(report).map(([k, r]) => [k, { segments: r.n, coverage: r.coverage.toFixed(2), MAE: r.mae.toFixed(2), RMSE: r.rmse.toFixed(2), 'within ±5': r.within5.toFixed(2) }])));
-    if (process.env.RPPG_REPORT) writeFileSync(process.env.RPPG_REPORT, JSON.stringify({ report, perSubject }, null, 2));
+    if (!rows.length) throw new Error('No 30-second windows with paired reference measurements.');
+    const by = (field: 'recording' | 'lighting') => Object.fromEntries(
+      [...new Set(rows.map(row => row[field]))].map(value => [value, summarize(rows.filter(row => row[field] === value))]));
+    const report = summarize(rows);
+    console.table(report);
+    if (process.env.RPPG_REPORT) writeFileSync(process.env.RPPG_REPORT, JSON.stringify({
+      version: 2, report, byRecording: by('recording'), byLighting: by('lighting'), windows: rows,
+    }, null, 2));
   });
 });

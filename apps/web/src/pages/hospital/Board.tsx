@@ -1,5 +1,5 @@
-import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
-import { Activity, ChartColumn, HeartPulse, LogOut, Megaphone, Play, Radio, UserPlus } from 'lucide-react';
+import { LayoutGroup, motion } from 'motion/react';
+import { Activity, ChartColumn, Clock3, HeartPulse, LogOut, Megaphone, Play, Radio, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -94,13 +94,15 @@ export default function Board() {
   const [updated, setUpdated] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [actionFailed, setActionFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!staff) return;
     try {
       const r = await api.getFresh<{ columns: Record<string, Tile[]>; updatedAt: number }>(`/api/hospital/${staff.hid}/board`);
       setColumns(r.columns);
-      setUpdated(r.updatedAt);
+      setUpdated(Date.now());
+      setFailed(false);
     } catch {
       setFailed(true);
     }
@@ -118,7 +120,8 @@ export default function Board() {
   }, [load]);
 
   const act = async (id: string, a: 'call' | 'start') => {
-    try { await api.post(`/api/hospital/tokens/${id}/${a}`); } catch { setFailed(true); return; }
+    setActionFailed(false);
+    try { await api.post(`/api/hospital/tokens/${id}/${a}`); } catch { setActionFailed(true); return; }
     if (a === 'start') navigate(`/hospital/token/${id}`);
     else void load();
   };
@@ -126,7 +129,8 @@ export default function Board() {
   const simulate = async (scenario: 'random' | 'hidden_emergency') => {
     if (!staff) return;
     setBusy(true);
-    await api.post(`/api/hospital/${staff.hid}/simulate`, { count: scenario === 'hidden_emergency' ? 20 : 6, scenario }).catch(() => setFailed(true));
+    setActionFailed(false);
+    await api.post(`/api/hospital/${staff.hid}/simulate`, { count: scenario === 'hidden_emergency' ? 20 : 6, scenario }).catch(() => setActionFailed(true));
     setBusy(false);
     void load();
   };
@@ -140,11 +144,12 @@ export default function Board() {
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-5 py-3">
           <h1 className="text-title-2 font-semibold">{t('hospital.board')}</h1>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-routine-tint px-2.5 py-1 text-caption font-medium text-routine-ink">
-            <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity }}>
+            <span>
               <Radio size={13} aria-hidden />
-            </motion.span>
-            {t('hospital.live')} · <span className="tnum">{total}</span>
+            </span>
+            {t(failed ? (updated ? 'design.staleShort' : 'common.error') : updated ? 'hospital.live' : 'common.loading')} · <span className="tnum">{total}</span>
           </span>
+          {updated && <time className="tnum text-caption text-text-3" dateTime={new Date(updated).toISOString()}>{new Date(updated).toLocaleTimeString(i18n.language === 'en' ? 'en-IN' : 'hi-IN')}</time>}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {staff?.role === 'admin' && staff.demoMode && (
               <>
@@ -177,28 +182,36 @@ export default function Board() {
       </header>
 
       <main className="mx-auto max-w-[1600px] px-5 py-5">
+        {actionFailed && <p role="alert" className="mb-3 text-emergency-text">{t('common.error')}</p>}
         {failed && <button className="min-h-11 text-emergency-text" onClick={() => { setFailed(false); void load(); }}>{t('common.error')} · {t('common.retry')}</button>}
         {codes.length === 0 ? (
           <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-3 text-text-3">
             <HeartPulse size={40} strokeWidth={1.25} aria-hidden />
-            <p className="text-body-lg">{updated ? t('hospital.empty') : t('common.loading')}</p>
+            <p className="text-body-lg">{updated ? t('hospital.empty') : failed ? t('common.error') : t('common.loading')}</p>
           </div>
         ) : (
           <LayoutGroup>
             <div className="flex snap-x gap-4 overflow-x-auto pb-4 no-scrollbar lg:grid lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] lg:overflow-visible">
               {codes.map((code) => (
                 <motion.section layout key={code} className="w-[85vw] max-w-[340px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-                  <h2 className="mb-2 flex items-center justify-between px-1 text-label font-semibold text-text-2">
+                  <h2 className="mb-4 flex items-center justify-between border-b border-border px-1 pb-3 text-title-3 font-semibold tracking-tight">
                     <span>{departments[code] ? pickLang(departments[code], i18n.language) : code}</span>
                     <span className="tnum rounded-full bg-sunken px-2 py-0.5 text-caption">{columns[code]!.length}</span>
                   </h2>
-                  <ul className="flex flex-col gap-2">
-                    <AnimatePresence initial={false}>
-                      {columns[code]!.map((tile) => (
-                        <TileCard key={tile.id} tile={tile} onAction={(a) => void act(tile.id, a)} onOpen={() => navigate(`/hospital/token/${tile.id}`)} />
-                      ))}
-                    </AnimatePresence>
-                  </ul>
+                  {(['in_consult', 'called', 'waiting'] as const).map(status => {
+                    const visits = columns[code]!.filter(tile => tile.status === status);
+                    if (!visits.length) return null;
+                    const Icon = status === 'in_consult' ? Activity : status === 'called' ? Megaphone : Clock3;
+                    return <section key={status} className="mb-4">
+                      <h3 className="mb-2 flex items-center gap-2 px-1 text-label font-semibold text-text-2">
+                        <span className="grid size-7 place-items-center rounded-full bg-sunken"><Icon size={15} aria-hidden /></span>
+                        {t(status === 'in_consult' ? 'hospital.inConsult' : status === 'called' ? 'hospital.called' : 'hospital.waiting')} · {visits.length}
+                      </h3>
+                      <ul className="flex flex-col gap-2">{visits.map(tile => (
+                        <TileCard key={tile.id} tile={tile} onAction={a => void act(tile.id, a)} onOpen={() => navigate(`/hospital/token/${tile.id}`)} />
+                      ))}</ul>
+                    </section>;
+                  })}
                 </motion.section>
               ))}
             </div>

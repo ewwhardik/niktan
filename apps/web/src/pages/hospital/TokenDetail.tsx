@@ -46,6 +46,8 @@ export default function TokenDetail() {
   const [note, setNote] = useState('');
   const [useful, setUseful] = useState<boolean | null>(null);
   const [failed, setFailed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -68,14 +70,18 @@ export default function TokenDetail() {
   const canNote = staff?.role === 'doctor' || staff?.role === 'admin';
 
   const transition = async (a: 'start' | 'end') => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       if (a === 'end' && canNote) await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful });
       await api.post(`/api/hospital/tokens/${token.id}/${a}`);
       setFailed(false);
       if (a === 'end') navigate('/hospital/board');
-      else void load();
+      else await load();
     } catch {
       setFailed(true);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -165,22 +171,25 @@ export default function TokenDetail() {
             <label className="text-label font-semibold text-text-2" htmlFor="note">
               {t('hospital.notes')}
             </label>
-            <textarea id="note" value={note} onChange={(e) => { setNote(e.target.value); setSaved(false); }} rows={4} className="mt-2 w-full rounded-sm border border-border-strong bg-sunken p-3 outline-none focus:border-accent" />
+            <textarea disabled={submitting || savingNote} id="note" value={note} onChange={(e) => { setNote(e.target.value); setSaved(false); }} rows={4} className="mt-2 w-full rounded-sm border border-border-strong bg-sunken p-3 outline-none focus:border-accent" />
             <p className="mt-4 text-body">{t('hospital.useful')}</p>
             <div className="mt-2 flex gap-2">
               {[true, false].map((v) => (
-                <button key={String(v)} onClick={() => setUseful(v)} className={`min-h-11 flex-1 rounded-md border text-label ${useful === v ? 'border-transparent bg-accent-soft text-accent-soft-ink' : 'border-border'}`}>
+                <button key={String(v)} disabled={submitting || savingNote} aria-pressed={useful === v} onClick={() => { setUseful(v); setSaved(false); }} className={`min-h-11 flex-1 rounded-md border text-label ${useful === v ? 'border-transparent bg-accent-soft text-accent-soft-ink' : 'border-border'}`}>
                   {v ? t('info.yes') : t('info.no')}
                 </button>
               ))}
             </div>
             <button
+              disabled={submitting || savingNote}
+              aria-busy={savingNote}
               onClick={async () => {
+                setSavingNote(true);
                 try {
                   await api.put(`/api/hospital/tokens/${token.id}/note`, { note, historyPrefilledUseful: useful });
                   setSaved(true);
                   setFailed(false);
-                } catch { setFailed(true); }
+                } catch { setFailed(true); } finally { setSavingNote(false); }
               }}
               className="mt-3 inline-flex min-h-11 items-center gap-2 text-label text-accent-text"
             >
@@ -192,11 +201,11 @@ export default function TokenDetail() {
         {(
           <motion.div variants={riseChild} className="md:col-span-2">
             {token.status === 'in_consult' ? (
-              <Button icon={Square} onClick={() => transition('end')}>
+              <Button disabled={savingNote} loading={submitting} icon={Square} onClick={() => transition('end')}>
                 {t('hospital.end')}
               </Button>
             ) : token.status === 'waiting' || token.status === 'called' ? (
-              <Button icon={Play} onClick={() => transition('start')}>
+              <Button disabled={savingNote} loading={submitting} icon={Play} onClick={() => transition('start')}>
                 {t('hospital.start')}
               </Button>
             ) : null}

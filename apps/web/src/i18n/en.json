@@ -438,5 +438,13 @@
       ]
     },
     "problemVisual": "Where the time goes"
+  },
+  "design": {
+    "screeningArt": "A woman holds her phone at eye level for a face scan.",
+    "less": "Reduce portion of {{dish}}",
+    "more": "Increase portion of {{dish}}",
+    "stale": "Showing the last successful update. Refresh to try again.",
+    "staleShort": "Last known",
+    "updated": "Last updated"
   }
 }

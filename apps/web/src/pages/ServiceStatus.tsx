@@ -16,13 +16,15 @@ export default function ServiceStatus() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status | null>(null);
+  const [fetching, setFetching] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     api.get<Status>('/api/status')
       .then((s) => { if (active) setStatus(s); })
-      .catch(() => { if (active) setFailed(true); });
+      .catch(() => { if (active) setFailed(true); })
+      .finally(() => { if (active) setFetching(false); });
     return () => { active = false; };
   }, [attempt]);
   return (
@@ -30,6 +32,7 @@ export default function ServiceStatus() {
       <TopBar onBack={() => navigate('/')} />
       <h1 className="mt-5 text-title-1 font-semibold">{t('service.title')}</h1>
       <div aria-live="polite" className="my-5">
+        {failed && status && <p role="status" className="mb-3 rounded-md bg-seetoday-tint p-3">{t('design.stale')}</p>}
         {status ? <>
           <p className="mb-4 text-body-lg">{t(status.db ? 'service.ready' : 'service.dbDown')}</p>
           <dl className="divide-y divide-border rounded-lg bg-surface px-4 shadow-1">
@@ -47,7 +50,7 @@ export default function ServiceStatus() {
           })} · v{status.version}</p>
         </> : <p>{t(failed ? 'service.down' : 'common.loading')}</p>}
       </div>
-      <Button variant="secondary" onClick={() => { setStatus(null); setFailed(false); setAttempt((n) => n + 1); }}>
+      <Button variant="secondary" loading={fetching} onClick={() => { setFetching(true); setFailed(false); setAttempt((n) => n + 1); }}>
         {t('service.refresh')}
       </Button>
     </Screen>
